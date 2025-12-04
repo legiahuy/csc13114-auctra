@@ -1,0 +1,484 @@
+import { Request, Response, NextFunction } from "express";
+import { Product, Category, User, Bid, Question, Order } from "../models";
+import { AppError } from "../middleware/errorHandler";
+import { AuthRequest } from "../middleware/auth.middleware";
+import {
+  removeVietnameseDiacritics,
+  createSlug,
+} from "../utils/vietnamese.util";
+import { Op } from "sequelize";
+import { sequelize } from "../config/database";
+
+const NEW_PRODUCT_MINUTES = parseInt(process.env.NEW_PRODUCT_MINUTES || "60");
+
+export const getHomepageProducts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const now = new Date();
+
+    // Top 5 products ending soon
+    const endingSoon = await Product.findAll({
+      where: {
+        status: "active",
+        endDate: { [Op.gt]: now },
+      },
+      include: [
+        { model: Category, as: "category" },
+        {
+          model: User,
+          as: "seller",
+          attributes: ["id", "fullName", "rating", "totalRatings"],
+        },
+      ],
+      order: [["endDate", "ASC"]],
+      limit: 5,
+    });
+
+    // Top 5 products with most bids
+    const mostBids = await Product.findAll({
+      where: {
+        status: "active",
+        endDate: { [Op.gt]: now },
+      },
+      include: [
+        { model: Category, as: "category" },
+        {
+          model: User,
+          as: "seller",
+          attributes: ["id", "fullName", "rating", "totalRatings"],
+        },
+      ],
+      order: [["bidCount", "DESC"]],
+      limit: 5,
+    });
+
+    // Top 5 products with highest price
+    const highestPrice = await Product.findAll({
+      where: {
+        status: "active",
+        endDate: { [Op.gt]: now },
+      },
+      include: [
+        { model: Category, as: "category" },
+        {
+          model: User,
+          as: "seller",
+          attributes: ["id", "fullName", "rating", "totalRatings"],
+        },
+      ],
+      order: [["currentPrice", "DESC"]],
+      limit: 5,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        endingSoon,
+        mostBids,
+        highestPrice,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getProducts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const {
+      categoryId,
+      page = "1",
+      limit = "12",
+      sortBy = "endDate",
+      sortOrder = "ASC",
+      search,
+    } = req.query;
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const offset = (pageNum - 1) * limitNum;
+
+    const where: any = {
+      status: "active",
+      endDate: { [Op.gt]: new Date() },
+    };
+
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
+
+    if (search) {
+      const searchTerm = removeVietnameseDiacritics(search as string);
+      where[Op.or] = [
+        sequelize.where(
+          sequelize.fn("LOWER", sequelize.col("name")),
+          "LIKE",
+          `%${searchTerm}%`
+        ),
+      ];
+    }
+
+    const order: any[] = [];
+    if (sortBy === "endDate") {
+      order.push(["endDate", sortOrder === "DESC" ? "DESC" : "ASC"]);
+    } else if (sortBy === "price") {
+      order.push(["currentPrice", sortOrder === "DESC" ? "DESC" : "ASC"]);
+    } else {
+      order.push(["createdAt", "DESC"]);
+    }
+
+    const { count, rows } = await Product.findAndCountAll({
+      where,
+      include: [
+        { model: Category, as: "category" },
+        {
+          model: User,
+          as: "seller",
+          attributes: ["id", "fullName", "rating", "totalRatings"],
+        },
+        {
+          model: Bid,
+          as: "bids",
+          where: { isRejected: false },
+          required: false,
+          include: [
+            {
+              model: User,
+              as: "bidder",
+              attributes: ["id", "fullName"],
+            },
+          ],
+          order: [["amount", "DESC"]],
+          limit: 1,
+        },
+      ],
+      order,
+      limit: limitNum,
+      offset,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        products: rows,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: count,
+          totalPages: Math.ceil(count / limitNum),
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getProductById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findByPk(id, {
+      include: [
+        { model: Category, as: "category" },
+        {
+          model: User,
+          as: "seller",
+          attributes: ["id", "fullName", "email", "rating", "totalRatings"],
+        },
+        {
+          model: Bid,
+          as: "bids",
+          where: { isRejected: false },
+          required: false,
+          include: [
+            {
+              model: User,
+              as: "bidder",
+              attributes: ["id", "fullName"],
+            },
+          ],
+          order: [["amount", "DESC"]],
+          limit: 1,
+        },
+        {
+          model: Question,
+          as: "questions",
+          include: [
+            {
+              model: User,
+              as: "user",
+              attributes: ["id", "fullName"],
+            },
+          ],
+          order: [["createdAt", "DESC"]],
+        },
+      ],
+    });
+
+    if (!product) {
+      return next(new AppError("Product not found", 404));
+    }
+
+    // Increment view count
+    product.viewCount += 1;
+    await product.save();
+
+    // Get 5 related products
+    const relatedProducts = await Product.findAll({
+      where: {
+        categoryId: product.categoryId,
+        id: { [Op.ne]: product.id },
+        status: "active",
+        endDate: { [Op.gt]: new Date() },
+      },
+      include: [
+        { model: Category, as: "category" },
+        {
+          model: User,
+          as: "seller",
+          attributes: ["id", "fullName", "rating", "totalRatings"],
+        },
+      ],
+      limit: 5,
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.json({
+      success: true,
+      data: {
+        product,
+        relatedProducts,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createProduct = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user || req.user.role !== "seller") {
+      return next(new AppError("Only sellers can create products", 403));
+    }
+
+    const {
+      name,
+      description,
+      startingPrice,
+      bidStep,
+      buyNowPrice,
+      categoryId,
+      mainImage,
+      images,
+      endDate,
+      autoExtend,
+    } = req.body;
+
+    // Validate images
+    const imageArray = images || [];
+    if (imageArray.length < 3) {
+      return next(new AppError("At least 3 images are required", 400));
+    }
+
+    // Validate category
+    const category = await Category.findByPk(categoryId);
+    if (!category) {
+      return next(new AppError("Category not found", 404));
+    }
+
+    const slug = createSlug(name);
+    const existingProduct = await Product.findOne({ where: { slug } });
+    if (existingProduct) {
+      return next(new AppError("Product with this name already exists", 400));
+    }
+
+    const product = await Product.create({
+      name,
+      slug,
+      description,
+      startingPrice,
+      currentPrice: startingPrice,
+      bidStep,
+      buyNowPrice,
+      categoryId,
+      sellerId: req.user.id,
+      mainImage,
+      images: imageArray,
+      endDate: new Date(endDate),
+      autoExtend: autoExtend || false,
+      isNew: true,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: product,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMyProducts = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return next(new AppError("Authentication required", 401));
+    }
+
+    const { status } = req.query;
+    const where: any = {
+      sellerId: req.user.id,
+    };
+
+    if (status) {
+      where.status = status;
+    }
+
+    const products = await Product.findAll({
+      where,
+      include: [
+        { model: Category, as: "category" },
+        {
+          model: Bid,
+          as: "bids",
+          where: { isRejected: false },
+          required: false,
+          include: [
+            {
+              model: User,
+              as: "bidder",
+              attributes: ["id", "fullName"],
+            },
+          ],
+          order: [["amount", "DESC"]],
+          limit: 1,
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.json({
+      success: true,
+      data: products,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getSellerOrders = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return next(new AppError("Authentication required", 401));
+    }
+
+    const orders = await Order.findAll({
+      where: { sellerId: req.user.id },
+      include: [
+        {
+          model: Product,
+          as: "product",
+          include: [{ model: Category, as: "category" }],
+        },
+        { model: User, as: "buyer", attributes: ["id", "fullName", "email"] },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    res.json({
+      success: true,
+      data: orders,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProductDescription = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return next(new AppError("Authentication required", 401));
+    }
+
+    const { id } = req.params;
+    const { additionalDescription, timestamp } = req.body;
+
+    const product = await Product.findByPk(id);
+    if (!product) {
+      return next(new AppError("Product not found", 404));
+    }
+
+    if (product.sellerId !== req.user.id && req.user.role !== "admin") {
+      return next(new AppError("Not authorized", 403));
+    }
+
+    // Append new description with timestamp
+    const timestampStr = timestamp || new Date().toLocaleDateString("vi-VN");
+    const newDescription = `\n\n✏️ ${timestampStr}\n\n${additionalDescription}`;
+    product.description = product.description + newDescription;
+    await product.save();
+
+    res.json({
+      success: true,
+      data: product,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteProduct = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user || req.user.role !== "admin") {
+      return next(new AppError("Only admins can delete products", 403));
+    }
+
+    const { id } = req.params;
+
+    const product = await Product.findByPk(id);
+    if (!product) {
+      return next(new AppError("Product not found", 404));
+    }
+
+    product.status = "cancelled";
+    await product.save();
+
+    res.json({
+      success: true,
+      message: "Product removed successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
