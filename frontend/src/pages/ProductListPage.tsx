@@ -1,5 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Grid, Card, CardMedia, CardContent, Typography, Box, TextField, Select, MenuItem, FormControl, InputLabel, Pagination } from '@mui/material';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Link, useSearchParams } from 'react-router-dom';
 import apiClient from '../api/client';
 import { formatDistanceToNow } from 'date-fns';
@@ -56,82 +66,119 @@ export default function ProductListPage() {
     fetchProducts();
   }, [searchParams, sortBy, sortOrder, search, categoryId]);
 
-  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
-    setSearchParams({ ...Object.fromEntries(searchParams), page: value.toString() });
+  const handlePageChange = (page: number) => {
+    setSearchParams({ ...Object.fromEntries(searchParams), page: page.toString() });
+  };
+
+  const handleSearch = () => {
+    setSearchParams({ ...Object.fromEntries(searchParams), search, page: '1' });
   };
 
   if (loading) {
-    return <Typography>Đang tải...</Typography>;
+    return <div className="text-center py-8">Đang tải...</div>;
   }
 
   return (
-    <Box>
-      <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-        <TextField
-          label="Tìm kiếm"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ flex: 1, minWidth: 200 }}
-        />
-        <FormControl sx={{ minWidth: 150 }}>
-          <InputLabel>Sắp xếp</InputLabel>
-          <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-            <MenuItem value="endDate">Thời gian kết thúc</MenuItem>
-            <MenuItem value="price">Giá</MenuItem>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+        <div className="flex-1 space-y-2">
+          <Label htmlFor="search">Tìm kiếm</Label>
+          <div className="flex gap-2">
+            <Input
+              id="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="Tìm kiếm sản phẩm..."
+            />
+            <Button onClick={handleSearch}>Tìm</Button>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>Sắp xếp</Label>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="endDate">Thời gian kết thúc</SelectItem>
+              <SelectItem value="price">Giá</SelectItem>
+            </SelectContent>
           </Select>
-        </FormControl>
-        <FormControl sx={{ minWidth: 120 }}>
-          <InputLabel>Thứ tự</InputLabel>
-          <Select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
-            <MenuItem value="ASC">Tăng dần</MenuItem>
-            <MenuItem value="DESC">Giảm dần</MenuItem>
+        </div>
+        <div className="space-y-2">
+          <Label>Thứ tự</Label>
+          <Select value={sortOrder} onValueChange={setSortOrder}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ASC">Tăng dần</SelectItem>
+              <SelectItem value="DESC">Giảm dần</SelectItem>
+            </SelectContent>
           </Select>
-        </FormControl>
-      </Box>
+        </div>
+      </div>
 
-      <Grid container spacing={3}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {products.map((product) => (
-          <Grid item xs={12} sm={6} md={4} key={product.id}>
-            <Card sx={{ height: '100%' }}>
-              <CardMedia
-                component="img"
-                height="200"
-                image={product.mainImage}
+          <Card key={product.id} className="h-full hover:shadow-lg transition-shadow">
+            <div className="aspect-video overflow-hidden rounded-t-xl">
+              <img
+                src={product.mainImage}
                 alt={product.name}
+                className="w-full h-full object-cover"
               />
-              <CardContent>
-                <Typography variant="h6" component={Link} to={`/products/${product.id}`} sx={{ textDecoration: 'none', color: 'inherit' }}>
-                  {product.name}
-                </Typography>
-                <Typography variant="h5" color="primary" sx={{ mt: 1 }}>
-                  {product.currentPrice.toLocaleString('vi-VN')} VNĐ
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            </div>
+            <CardContent className="p-6 space-y-3">
+              <Link
+                to={`/products/${product.id}`}
+                className="text-lg font-semibold hover:text-primary transition-colors block leading-tight"
+              >
+                {product.name}
+              </Link>
+              <p className="text-2xl font-bold text-primary leading-tight">
+                {product.currentPrice.toLocaleString('vi-VN')} VNĐ
+              </p>
+              <div className="space-y-1.5 text-sm text-muted-foreground">
+                <p className="leading-relaxed">
                   Còn lại: {formatDistanceToNow(new Date(product.endDate), { addSuffix: true })}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
+                </p>
+                <p className="leading-relaxed">
                   {product.bidCount} lượt đấu giá
-                </Typography>
+                </p>
                 {product.bids && product.bids[0] && (
-                  <Typography variant="body2" color="text.secondary">
+                  <p className="leading-relaxed">
                     Người đặt giá cao nhất: {product.bids[0].bidder.fullName}
-                  </Typography>
+                  </p>
                 )}
-              </CardContent>
-            </Card>
-          </Grid>
+              </div>
+            </CardContent>
+          </Card>
         ))}
-      </Grid>
+      </div>
 
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <Pagination
-          count={pagination.totalPages}
-          page={pagination.page}
-          onChange={handlePageChange}
-          color="primary"
-        />
-      </Box>
-    </Box>
+      {pagination.totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => handlePageChange(pagination.page - 1)}
+            disabled={pagination.page === 1}
+          >
+            Trước
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Trang {pagination.page} / {pagination.totalPages}
+          </span>
+          <Button
+            variant="outline"
+            onClick={() => handlePageChange(pagination.page + 1)}
+            disabled={pagination.page === pagination.totalPages}
+          >
+            Sau
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
-
