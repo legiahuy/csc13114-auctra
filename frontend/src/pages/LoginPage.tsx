@@ -1,5 +1,8 @@
 import { Formik, Form, Field } from 'formik';
-import { TextField, Button, Box, Typography, Paper } from '@mui/material';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import apiClient from '../api/client';
@@ -16,63 +19,70 @@ export default function LoginPage() {
   const { setAuth } = useAuthStore();
 
   return (
-    <Box sx={{ maxWidth: 400, mx: 'auto', mt: 8 }}>
-      <Paper sx={{ p: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          Đăng nhập
-        </Typography>
-        <Formik
-          initialValues={{ email: '', password: '' }}
-          validationSchema={validationSchema}
-          onSubmit={async (values, { setSubmitting }) => {
-            try {
-              const response = await apiClient.post('/auth/login', values);
-              const { data } = response.data;
-              setAuth(data.user, data.accessToken, data.refreshToken);
-              toast.success('Đăng nhập thành công');
-              navigate('/');
-            } catch (error: any) {
-              toast.error(error.response?.data?.error?.message || 'Đăng nhập thất bại');
-            } finally {
-              setSubmitting(false);
-            }
-          }}
-        >
-          {({ isSubmitting, errors, touched }) => (
-            <Form>
-              <Field
-                as={TextField}
-                name="email"
-                label="Email"
-                fullWidth
-                margin="normal"
-                error={touched.email && !!errors.email}
-                helperText={touched.email && errors.email}
-              />
-              <Field
-                as={TextField}
-                name="password"
-                label="Mật khẩu"
-                type="password"
-                fullWidth
-                margin="normal"
-                error={touched.password && !!errors.password}
-                helperText={touched.password && errors.password}
-              />
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                sx={{ mt: 3 }}
-                disabled={isSubmitting}
-              >
-                Đăng nhập
-              </Button>
-            </Form>
-          )}
-        </Formik>
-      </Paper>
-    </Box>
+    <div className="max-w-md mx-auto mt-16">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">Đăng nhập</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Formik
+            initialValues={{ email: '', password: '' }}
+            validationSchema={validationSchema}
+            onSubmit={async (values, { setSubmitting }) => {
+              try {
+                const response = await apiClient.post('/auth/login', values);
+                const { data } = response.data;
+                setAuth(data.user, data.accessToken, data.refreshToken);
+                toast.success('Đăng nhập thành công');
+                navigate('/');
+              } catch (error: any) {
+                toast.error(error.response?.data?.error?.message || 'Đăng nhập thất bại');
+              } finally {
+                setSubmitting(false);
+              }
+            }}
+          >
+            {({ isSubmitting, errors, touched }) => (
+              <Form className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Field
+                    as={Input}
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="email@example.com"
+                    className={touched.email && errors.email ? 'border-destructive' : ''}
+                  />
+                  {touched.email && errors.email && (
+                    <p className="text-sm text-destructive">{errors.email}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Mật khẩu</Label>
+                  <Field
+                    as={Input}
+                    id="password"
+                    name="password"
+                    type="password"
+                    className={touched.password && errors.password ? 'border-destructive' : ''}
+                  />
+                  {touched.password && errors.password && (
+                    <p className="text-sm text-destructive">{errors.password}</p>
+                  )}
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isSubmitting}
+                >
+                  Đăng nhập
+                </Button>
+              </Form>
+            )}
+          </Formik>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
-

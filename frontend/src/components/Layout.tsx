@@ -1,17 +1,19 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuthStore } from "../store/authStore";
+import apiClient from "../api/client";
+import { Button } from "@/components/ui/button";
 import {
-  AppBar,
-  Toolbar,
-  Typography,
-  Button,
-  Box,
-  Container,
-  Menu,
-  MenuItem,
-} from '@mui/material';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore';
-import apiClient from '../api/client';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
 
 interface LayoutProps {
   children: ReactNode;
@@ -27,7 +29,6 @@ export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);
-  const [categoryMenuAnchor, setCategoryMenuAnchor] = useState<null | HTMLElement>(null);
 
   useEffect(() => {
     fetchCategories();
@@ -35,126 +36,149 @@ export default function Layout({ children }: LayoutProps) {
 
   const fetchCategories = async () => {
     try {
-      const response = await apiClient.get('/categories');
+      const response = await apiClient.get("/categories");
       setCategories(response.data.data || []);
     } catch (error) {
-      console.error('Error fetching categories:', error);
+      console.error("Error fetching categories:", error);
     }
   };
 
   const handleLogout = () => {
     logout();
-    navigate('/');
-  };
-
-  const handleCategoryMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setCategoryMenuAnchor(event.currentTarget);
-  };
-
-  const handleCategoryMenuClose = () => {
-    setCategoryMenuAnchor(null);
+    navigate("/");
   };
 
   const handleCategoryClick = (categoryId: number) => {
     navigate(`/products?categoryId=${categoryId}`);
-    handleCategoryMenuClose();
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" component={Link} to="/" sx={{ flexGrow: 1, textDecoration: 'none', color: 'inherit' }}>
-            Online Auction
-          </Typography>
-          <Button color="inherit" component={Link} to="/products">
-            Sản phẩm
-          </Button>
-          <Button color="inherit" onClick={handleCategoryMenuOpen}>
-            Danh mục
-          </Button>
-          {user && (
-            <>
-              <Button color="inherit" component={Link} to="/watchlist">
-                Yêu thích
+    <div className="flex flex-col min-h-screen">
+      <header className="border-b bg-background sticky top-0 z-50">
+        <div className="container mx-auto px-4">
+          <div className="flex h-16 items-center justify-between">
+            <Link
+              to="/"
+              className="text-xl font-bold text-foreground hover:text-primary transition-colors"
+            >
+              Online Auction
+            </Link>
+            <nav className="flex items-center gap-4">
+              <Button variant="ghost" asChild>
+                <Link to="/products">Sản phẩm</Link>
               </Button>
-              <Button color="inherit" component={Link} to="/my-bids">
-                Lịch sử đấu giá
-              </Button>
-            </>
-          )}
-          <Menu
-            anchorEl={categoryMenuAnchor}
-            open={Boolean(categoryMenuAnchor)}
-            onClose={handleCategoryMenuClose}
-            MenuListProps={{ onMouseLeave: handleCategoryMenuClose }}
-          >
-            {categories.map((category) => (
-              <MenuItem
-                key={category.id}
-                onClick={() => handleCategoryClick(category.id)}
-                onMouseEnter={(e) => {
-                  if (category.children && category.children.length > 0) {
-                    // Show submenu logic can be added here if needed
-                  }
-                }}
-              >
-                {category.name}
-                {category.children && category.children.length > 0 && ' ▸'}
-              </MenuItem>
-            ))}
-            {categories.map((category) =>
-              category.children && category.children.length > 0
-                ? category.children.map((child) => (
-                    <MenuItem
-                      key={child.id}
-                      onClick={() => handleCategoryClick(child.id)}
-                      sx={{ pl: 4 }}
-                    >
-                      {child.name}
-                    </MenuItem>
-                  ))
-                : null
-            )}
-          </Menu>
-          {user ? (
-            <>
-              <Button color="inherit" component={Link} to="/profile">
-                {user.fullName}
-              </Button>
-              {user.role === 'seller' && (
-                <Button color="inherit" component={Link} to="/seller/dashboard">
-                  Dashboard
-                </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost">Danh mục</Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {categories.length === 0 ? (
+                    <DropdownMenuItem disabled>Đang tải...</DropdownMenuItem>
+                  ) : (
+                    categories.map((category) =>
+                      category.children && category.children.length > 0 ? (
+                        <DropdownMenuSub key={category.id}>
+                          <DropdownMenuSubTrigger>
+                            {category.name}
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent>
+                            <DropdownMenuItem
+                              onSelect={() => handleCategoryClick(category.id)}
+                            >
+                              Tất cả {category.name}
+                            </DropdownMenuItem>
+                            {category.children.map((child) => (
+                              <DropdownMenuItem
+                                key={child.id}
+                                onSelect={() => handleCategoryClick(child.id)}
+                              >
+                                {child.name}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      ) : (
+                        <DropdownMenuItem
+                          key={category.id}
+                          onSelect={() => handleCategoryClick(category.id)}
+                        >
+                          {category.name}
+                        </DropdownMenuItem>
+                      )
+                    )
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {user && (
+                <>
+                  <Button variant="ghost" asChild>
+                    <Link to="/watchlist">Yêu thích</Link>
+                  </Button>
+                  <Button variant="ghost" asChild>
+                    <Link to="/my-bids">Lịch sử đấu giá</Link>
+                  </Button>
+                </>
               )}
-              {user.role === 'admin' && (
-                <Button color="inherit" component={Link} to="/admin/dashboard">
-                  Admin
-                </Button>
+              <Separator orientation="vertical" className="h-6" />
+              {user ? (
+                <>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="flex items-center gap-2"
+                      >
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback>
+                            {user.fullName.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{user.fullName}</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={() => navigate("/profile")}>
+                        Hồ sơ
+                      </DropdownMenuItem>
+                      {user.role === "seller" && (
+                        <DropdownMenuItem
+                          onSelect={() => navigate("/seller/dashboard")}
+                        >
+                          Dashboard
+                        </DropdownMenuItem>
+                      )}
+                      {user.role === "admin" && (
+                        <DropdownMenuItem
+                          onSelect={() => navigate("/admin/dashboard")}
+                        >
+                          Admin
+                        </DropdownMenuItem>
+                      )}
+                      <Separator />
+                      <DropdownMenuItem onSelect={handleLogout}>
+                        Đăng xuất
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              ) : (
+                <>
+                  <Button variant="ghost" asChild>
+                    <Link to="/login">Đăng nhập</Link>
+                  </Button>
+                  <Button asChild>
+                    <Link to="/register">Đăng ký</Link>
+                  </Button>
+                </>
               )}
-              <Button color="inherit" onClick={handleLogout}>
-                Đăng xuất
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button color="inherit" component={Link} to="/login">
-                Đăng nhập
-              </Button>
-              <Button color="inherit" component={Link} to="/register">
-                Đăng ký
-              </Button>
-            </>
-          )}
-        </Toolbar>
-      </AppBar>
-      <Container maxWidth="lg" sx={{ flex: 1, py: 4 }}>
-        {children}
-      </Container>
-      <Box component="footer" sx={{ py: 2, textAlign: 'center', bgcolor: 'grey.200' }}>
-        <Typography variant="body2">© 2025 Online Auction Platform</Typography>
-      </Box>
-    </Box>
+            </nav>
+          </div>
+        </div>
+      </header>
+      <main className="container mx-auto px-4 py-8 flex-1">{children}</main>
+      <footer className="border-t py-8 text-center text-muted-foreground">
+        <p>© 2025 Online Auction Platform</p>
+      </footer>
+    </div>
   );
 }
-
