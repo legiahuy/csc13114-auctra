@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Carousel } from "@/components/ui/carousel";
 import apiClient from "../api/client";
 import { formatDistanceToNow } from "date-fns";
 import { Gavel, TrendingUp, Clock, Users, Sparkles } from "lucide-react";
@@ -100,7 +101,7 @@ export default function HomePage() {
     index?: number;
   }) => (
     <Card
-      className="h-full hover:shadow-xl transition-all duration-300 group overflow-hidden border-border/50"
+      className="w-[320px] flex-shrink-0 hover:shadow-xl transition-all duration-300 group overflow-hidden border-border/50"
       style={{
         animationDelay: `${index * 100}ms`,
       }}
@@ -113,7 +114,7 @@ export default function HomePage() {
         />
         {product.isNew && (
           <Badge className="absolute top-2 right-2 bg-primary text-primary-foreground">
-            Mới
+            New
           </Badge>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -127,7 +128,7 @@ export default function HomePage() {
         </Link>
         <div className="flex items-baseline gap-2">
           <p className="text-2xl font-bold text-primary">
-            {product.currentPrice.toLocaleString("vi-VN")} VNĐ
+            ${product.currentPrice.toLocaleString("en-US")}
           </p>
         </div>
         <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t">
@@ -141,7 +142,7 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-1">
             <Users className="h-4 w-4" />
-            <span>{product.bidCount} lượt</span>
+            <span>{product.bidCount} bids</span>
           </div>
         </div>
       </CardContent>
@@ -196,7 +197,7 @@ export default function HomePage() {
           </div>
         </div>
         <div className="text-3xl font-bold text-foreground mb-1">
-          {count.toLocaleString("vi-VN")}
+          {count.toLocaleString("en-US")}
         </div>
         <div className="text-sm text-muted-foreground">{label}</div>
       </div>
@@ -208,7 +209,7 @@ export default function HomePage() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">Đang tải...</p>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -223,21 +224,20 @@ export default function HomePage() {
           <div className="max-w-4xl mx-auto text-center space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-1000">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
               <Sparkles className="h-4 w-4" />
-              <span>Nền tảng đấu giá trực tuyến hàng đầu</span>
+              <span>Leading Online Auction Platform</span>
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
-              Khám phá những{" "}
-              <span className="text-primary">sản phẩm độc đáo</span>
+              Discover Unique <span className="text-primary">Products</span>
               <br />
-              qua đấu giá trực tuyến
+              Through Online Auctions
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Tham gia đấu giá trên hàng nghìn sản phẩm chất lượng cao. Tìm kiếm
-              những món đồ độc đáo với mức giá tốt nhất.
+              Join thousands of bidders on high-quality products. Find unique
+              items at the best prices.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
               <Button size="lg" asChild className="text-lg px-8 py-6">
-                <Link to="/products">Khám phá sản phẩm</Link>
+                <Link to="/products">Explore Products</Link>
               </Button>
               <Button
                 size="lg"
@@ -245,7 +245,7 @@ export default function HomePage() {
                 asChild
                 className="text-lg px-8 py-6"
               >
-                <Link to="/register">Bắt đầu đấu giá</Link>
+                <Link to="/register">Start Bidding</Link>
               </Button>
             </div>
           </div>
@@ -258,19 +258,19 @@ export default function HomePage() {
           <StatCard
             icon={Gavel}
             value={stats.totalProducts}
-            label="Sản phẩm đang đấu giá"
+            label="Active Auctions"
             delay={0}
           />
           <StatCard
             icon={Users}
             value={stats.activeBidders}
-            label="Người đấu giá tích cực"
+            label="Active Bidders"
             delay={200}
           />
           <StatCard
             icon={TrendingUp}
             value={stats.totalBids}
-            label="Lượt đấu giá tổng cộng"
+            label="Total Bids"
             delay={400}
           />
         </div>
@@ -286,24 +286,24 @@ export default function HomePage() {
               </div>
               <div>
                 <h2 className="text-3xl font-bold text-foreground">
-                  Sắp kết thúc
+                  Ending Soon
                 </h2>
                 <p className="text-muted-foreground">
-                  Đừng bỏ lỡ cơ hội cuối cùng
+                  Don't miss your last chance
                 </p>
               </div>
             </div>
             <Button variant="ghost" asChild>
               <Link to="/products?sortBy=endDate&sortOrder=ASC">
-                Xem tất cả →
+                View All →
               </Link>
             </Button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {endingSoon.slice(0, 4).map((product, index) => (
+          <Carousel autoScroll={true} autoScrollInterval={4000}>
+            {endingSoon.map((product, index) => (
               <ProductCard key={product.id} product={product} index={index} />
             ))}
-          </div>
+          </Carousel>
         </section>
       )}
 
@@ -316,23 +316,21 @@ export default function HomePage() {
                 <TrendingUp className="h-6 w-6" />
               </div>
               <div>
-                <h2 className="text-3xl font-bold text-foreground">Đang hot</h2>
-                <p className="text-muted-foreground">
-                  Sản phẩm được đấu giá nhiều nhất
-                </p>
+                <h2 className="text-3xl font-bold text-foreground">Trending</h2>
+                <p className="text-muted-foreground">Most bid products</p>
               </div>
             </div>
             <Button variant="ghost" asChild>
               <Link to="/products?sortBy=bidCount&sortOrder=DESC">
-                Xem tất cả →
+                View All →
               </Link>
             </Button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {mostBids.slice(0, 4).map((product, index) => (
+          <Carousel autoScroll={true} autoScrollInterval={4000}>
+            {mostBids.map((product, index) => (
               <ProductCard key={product.id} product={product} index={index} />
             ))}
-          </div>
+          </Carousel>
         </section>
       )}
 
@@ -345,21 +343,19 @@ export default function HomePage() {
                 <Sparkles className="h-6 w-6" />
               </div>
               <div>
-                <h2 className="text-3xl font-bold text-foreground">Cao cấp</h2>
-                <p className="text-muted-foreground">Sản phẩm giá trị cao</p>
+                <h2 className="text-3xl font-bold text-foreground">Premium</h2>
+                <p className="text-muted-foreground">High-value products</p>
               </div>
             </div>
             <Button variant="ghost" asChild>
-              <Link to="/products?sortBy=price&sortOrder=DESC">
-                Xem tất cả →
-              </Link>
+              <Link to="/products?sortBy=price&sortOrder=DESC">View All →</Link>
             </Button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {highestPrice.slice(0, 4).map((product, index) => (
+          <Carousel autoScroll={true} autoScrollInterval={4000}>
+            {highestPrice.map((product, index) => (
               <ProductCard key={product.id} product={product} index={index} />
             ))}
-          </div>
+          </Carousel>
         </section>
       )}
 
@@ -374,15 +370,15 @@ export default function HomePage() {
           />
           <div className="relative space-y-6">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-              Sẵn sàng bắt đầu đấu giá?
+              Ready to Start Bidding?
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Tham gia ngay để khám phá hàng nghìn sản phẩm độc đáo và nhận được
-              những món đồ yêu thích với mức giá tốt nhất.
+              Join now to discover thousands of unique products and get your
+              favorite items at the best prices.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" asChild className="text-lg px-8">
-                <Link to="/register">Đăng ký ngay</Link>
+                <Link to="/register">Sign Up Now</Link>
               </Button>
               <Button
                 size="lg"
@@ -390,7 +386,7 @@ export default function HomePage() {
                 asChild
                 className="text-lg px-8"
               >
-                <Link to="/products">Xem sản phẩm</Link>
+                <Link to="/products">View Products</Link>
               </Button>
             </div>
           </div>
