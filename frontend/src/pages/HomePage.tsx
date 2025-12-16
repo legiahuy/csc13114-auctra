@@ -206,7 +206,7 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex items-center justify-center min-h-[60vh] bg-background">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="text-muted-foreground">Loading...</p>
@@ -217,33 +217,39 @@ export default function HomePage() {
 
   return (
     <div className="space-y-16 pb-16">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+      {/* Hero Section - clearer, more colorful using theme tokens */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-accent/20 via-background to-background text-foreground border-b border-border">
         <div className="container mx-auto px-4 py-20 md:py-28 relative">
           <div className="max-w-4xl mx-auto text-center space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary text-secondary-foreground text-sm font-medium mb-4 border border-border">
               <Sparkles className="h-4 w-4" />
               <span>Leading Online Auction Platform</span>
             </div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight">
-              Discover Unique <span className="text-primary">Products</span>
-              <br />
-              Through Online Auctions
+            <h1 className="relative z-10 inline-block max-w-[920px] text-3xl font-semibold text-balance text-foreground drop-shadow-2xl sm:text-5xl sm:leading-tight md:text-7xl md:leading-tight">
+              <span className="block text-primary-foreground">
+                Discover Unique
+              </span>
+              <span className="block text-muted-foreground">
+                Products Through Online Auctions
+              </span>
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
               Join thousands of bidders on high-quality products. Find unique
               items at the best prices.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
-              <Button size="lg" asChild className="text-lg px-8 py-6">
+              <Button
+                size="lg"
+                asChild
+                className="text-lg px-8 py-6 shadow-lg shadow"
+              >
                 <Link to="/products">Explore Products</Link>
               </Button>
               <Button
                 size="lg"
                 variant="outline"
                 asChild
-                className="text-lg px-8 py-6"
+                className="text-lg px-8 py-6 bg-background/60 hover:bg-muted/80"
               >
                 <Link to="/register">Start Bidding</Link>
               </Button>
@@ -254,7 +260,7 @@ export default function HomePage() {
 
       {/* Stats Section */}
       <section ref={statsRef} className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
           <StatCard
             icon={Gavel}
             value={stats.totalProducts}
