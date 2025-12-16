@@ -54,14 +54,14 @@ export default function MyBidsPage() {
       setBids(response.data.data || []);
     } catch (error) {
       console.error("Error fetching bids:", error);
-      toast.error("Không thể tải lịch sử đấu giá");
+      toast.error("Unable to load bid history");
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) {
-    return <Typography>Đang tải...</Typography>;
+    return <Typography>Loading...</Typography>;
   }
 
   const activeBids = bids.filter((bid) => bid.product.status === "active");
@@ -70,17 +70,17 @@ export default function MyBidsPage() {
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
-        Lịch sử đấu giá
+        Bid History
       </Typography>
 
       {bids.length === 0 ? (
-        <Alert severity="info">Chưa có lượt đấu giá nào</Alert>
+        <Alert severity="info">You have not placed any bids yet</Alert>
       ) : (
         <>
           {activeBids.length > 0 && (
             <Box sx={{ mb: 4 }}>
               <Typography variant="h6" gutterBottom>
-                Đang đấu giá ({activeBids.length})
+                Active bids ({activeBids.length})
               </Typography>
               <Grid container spacing={3}>
                 {activeBids.map((bid) => (
@@ -100,14 +100,14 @@ export default function MyBidsPage() {
                           {bid.product.category.name}
                         </Typography>
                         <Typography variant="h6" color="primary" sx={{ mt: 1 }}>
-                          Giá của bạn:{" "}
+                          Your bid:{" "}
                           {parseFloat(bid.amount.toString()).toLocaleString(
                             "vi-VN"
                           )}{" "}
                           VNĐ
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          Giá hiện tại:{" "}
+                          Current price:{" "}
                           {parseFloat(
                             bid.product.currentPrice.toString()
                           ).toLocaleString("vi-VN")}{" "}
@@ -117,7 +117,7 @@ export default function MyBidsPage() {
                           {format(new Date(bid.createdAt), "dd/MM/yyyy HH:mm")}
                         </Typography>
                         <Chip
-                          label="Đang đấu giá"
+                          label="Active"
                           color="success"
                           size="small"
                           sx={{ mt: 1 }}
@@ -130,7 +130,7 @@ export default function MyBidsPage() {
                             navigate(`/products/${bid.product.id}`)
                           }
                         >
-                          Xem chi tiết
+                          View details
                         </Button>
                       </CardActions>
                     </Card>
@@ -143,7 +143,7 @@ export default function MyBidsPage() {
           {endedBids.length > 0 && (
             <Box>
               <Typography variant="h6" gutterBottom>
-                Đã kết thúc ({endedBids.length})
+                Ended ({endedBids.length})
               </Typography>
               <Grid container spacing={3}>
                 {endedBids.map((bid) => (
@@ -163,7 +163,7 @@ export default function MyBidsPage() {
                           {bid.product.category.name}
                         </Typography>
                         <Typography variant="h6" color="primary" sx={{ mt: 1 }}>
-                          Giá của bạn:{" "}
+                          Your bid:{" "}
                           {parseFloat(bid.amount.toString()).toLocaleString(
                             "vi-VN"
                           )}{" "}
@@ -173,7 +173,7 @@ export default function MyBidsPage() {
                           {format(new Date(bid.createdAt), "dd/MM/yyyy HH:mm")}
                         </Typography>
                         <Chip
-                          label="Đã kết thúc"
+                          label="Ended"
                           color="default"
                           size="small"
                           sx={{ mt: 1 }}
