@@ -36,6 +36,11 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
       return next(new AppError('User not found', 404));
     }
 
+    // Seller can block bidders without any rating history
+    if (!product.allowUnratedBidders && bidder.totalRatings === 0) {
+      return next(new AppError('Seller does not allow unrated bidders for this product', 403));
+    }
+
     const ratingPercentage = bidder.getRatingPercentage();
     if (bidder.totalRatings > 0 && ratingPercentage < 80) {
       return next(new AppError('Your rating is below 80%. You cannot place bids.', 403));

@@ -288,6 +288,7 @@ export const createProduct = async (
       images,
       endDate,
       autoExtend,
+      allowUnratedBidders,
     } = req.body;
 
     // Validate images
@@ -322,6 +323,7 @@ export const createProduct = async (
       images: imageArray,
       endDate: new Date(endDate),
       autoExtend: autoExtend || false,
+      allowUnratedBidders: allowUnratedBidders !== undefined ? allowUnratedBidders : true,
       isNew: true,
     });
 

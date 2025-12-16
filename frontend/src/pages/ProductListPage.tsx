@@ -10,9 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import apiClient from '../api/client';
 import { formatDistanceToNow } from 'date-fns';
+import { useAuthStore } from '../store/authStore';
+import toast from 'react-hot-toast';
+import { Heart, HeartOff } from 'lucide-react';
 
 interface Product {
   id: number;
@@ -32,6 +35,8 @@ interface Product {
 }
 
 export default function ProductListPage() {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +45,8 @@ export default function ProductListPage() {
   const [categoryId, setCategoryId] = useState(searchParams.get('categoryId') || '');
   const [sortBy, setSortBy] = useState(searchParams.get('sortBy') || 'endDate');
   const [sortOrder, setSortOrder] = useState(searchParams.get('sortOrder') || 'ASC');
+  const [watchlistIds, setWatchlistIds] = useState<Set<number>>(new Set());
+  const [watchlistLoading, setWatchlistLoading] = useState(false);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -66,12 +73,65 @@ export default function ProductListPage() {
     fetchProducts();
   }, [searchParams, sortBy, sortOrder, search, categoryId]);
 
+  useEffect(() => {
+    const fetchWatchlist = async () => {
+      if (!user) {
+        setWatchlistIds(new Set());
+        return;
+      }
+      setWatchlistLoading(true);
+      try {
+        const res = await apiClient.get('/users/watchlist');
+        const ids = new Set<number>();
+        res.data.data.forEach((item: any) => {
+          if (item.product?.id) {
+            ids.add(item.product.id);
+          }
+        });
+        setWatchlistIds(ids);
+      } catch (error) {
+        console.error('Error fetching watchlist:', error);
+      } finally {
+        setWatchlistLoading(false);
+      }
+    };
+
+    fetchWatchlist();
+  }, [user]);
+
   const handlePageChange = (page: number) => {
     setSearchParams({ ...Object.fromEntries(searchParams), page: page.toString() });
   };
 
   const handleSearch = () => {
     setSearchParams({ ...Object.fromEntries(searchParams), search, page: '1' });
+  };
+
+  const handleToggleWatchlist = async (productId: number) => {
+    if (!user) {
+      toast.error('Vui lòng đăng nhập để thêm yêu thích');
+      navigate('/login');
+      return;
+    }
+
+    const isFavorite = watchlistIds.has(productId);
+    try {
+      if (isFavorite) {
+        await apiClient.delete(`/users/watchlist/${productId}`);
+        toast.success('Đã xóa khỏi danh sách yêu thích');
+        setWatchlistIds((prev) => {
+          const next = new Set(prev);
+          next.delete(productId);
+          return next;
+        });
+      } else {
+        await apiClient.post('/users/watchlist', { productId });
+        toast.success('Đã thêm vào danh sách yêu thích');
+        setWatchlistIds((prev) => new Set(prev).add(productId));
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Thao tác thất bại');
+    }
   };
 
   if (loading) {
@@ -123,12 +183,20 @@ export default function ProductListPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {products.map((product) => (
           <Card key={product.id} className="h-full hover:shadow-lg transition-shadow">
-            <div className="aspect-video overflow-hidden rounded-t-xl">
-              <img
-                src={product.mainImage}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
+            <div className="relative aspect-video overflow-hidden rounded-t-xl">
+              <button
+                className="absolute right-3 top-3 z-10 rounded-full bg-white/85 p-2 shadow-sm transition hover:shadow-md"
+                onClick={() => handleToggleWatchlist(product.id)}
+                aria-label={watchlistIds.has(product.id) ? 'Xóa khỏi yêu thích' : 'Thêm vào yêu thích'}
+                disabled={watchlistLoading}
+              >
+                {watchlistIds.has(product.id) ? (
+                  <Heart className="h-5 w-5 text-red-500 fill-red-500" />
+                ) : (
+                  <HeartOff className="h-5 w-5 text-gray-600" />
+                )}
+              </button>
+              <img src={product.mainImage} alt={product.name} className="w-full h-full object-cover" />
             </div>
             <CardContent className="p-6 space-y-3">
               <Link
