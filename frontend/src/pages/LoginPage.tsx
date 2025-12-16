@@ -10,8 +10,8 @@ import toast from 'react-hot-toast';
 import * as Yup from 'yup';
 
 const validationSchema = Yup.object({
-  email: Yup.string().email('Email không hợp lệ').required('Bắt buộc'),
-  password: Yup.string().required('Bắt buộc'),
+  email: Yup.string().email('Invalid email').required('Required'),
+  password: Yup.string().required('Required'),
 });
 
 export default function LoginPage() {
@@ -22,7 +22,7 @@ export default function LoginPage() {
     <div className="max-w-md mx-auto mt-16">
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Đăng nhập</CardTitle>
+          <CardTitle className="text-2xl">Login</CardTitle>
         </CardHeader>
         <CardContent>
           <Formik
@@ -33,10 +33,10 @@ export default function LoginPage() {
                 const response = await apiClient.post('/auth/login', values);
                 const { data } = response.data;
                 setAuth(data.user, data.accessToken, data.refreshToken);
-                toast.success('Đăng nhập thành công');
+                toast.success('Login successful');
                 navigate('/');
               } catch (error: any) {
-                toast.error(error.response?.data?.error?.message || 'Đăng nhập thất bại');
+                toast.error(error.response?.data?.error?.message || 'Login failed');
               } finally {
                 setSubmitting(false);
               }
@@ -59,7 +59,7 @@ export default function LoginPage() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Mật khẩu</Label>
+                  <Label htmlFor="password">Password</Label>
                   <Field
                     as={Input}
                     id="password"
@@ -76,7 +76,7 @@ export default function LoginPage() {
                   className="w-full"
                   disabled={isSubmitting}
                 >
-                  Đăng nhập
+                  Login
                 </Button>
               </Form>
             )}

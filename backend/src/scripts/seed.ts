@@ -27,7 +27,7 @@ const seed = async () => {
     const seller1 = await User.create({
       email: "seller1@auction.com",
       password: "seller123",
-      fullName: "Nguyễn Văn A",
+      fullName: "Alex Nguyen",
       address: "123 Seller Street",
       role: "seller",
       isEmailVerified: true,
@@ -38,7 +38,7 @@ const seed = async () => {
     const seller2 = await User.create({
       email: "seller2@auction.com",
       password: "seller123",
-      fullName: "Trần Thị B",
+      fullName: "Bella Tran",
       address: "456 Seller Avenue",
       role: "seller",
       isEmailVerified: true,
@@ -50,7 +50,7 @@ const seed = async () => {
     const bidder1 = await User.create({
       email: "bidder1@auction.com",
       password: "bidder123",
-      fullName: "Lê Văn C",
+      fullName: "Chris Le",
       address: "789 Bidder Road",
       role: "bidder",
       isEmailVerified: true,
@@ -61,7 +61,7 @@ const seed = async () => {
     const bidder2 = await User.create({
       email: "bidder2@auction.com",
       password: "bidder123",
-      fullName: "Phạm Thị D",
+      fullName: "Diana Pham",
       address: "321 Bidder Lane",
       role: "bidder",
       isEmailVerified: true,
@@ -72,7 +72,7 @@ const seed = async () => {
     const bidder3 = await User.create({
       email: "bidder3@auction.com",
       password: "bidder123",
-      fullName: "Hoàng Văn E",
+      fullName: "Ethan Hoang",
       address: "654 Bidder Street",
       role: "bidder",
       isEmailVerified: true,
@@ -82,36 +82,36 @@ const seed = async () => {
 
     // Create categories
     const electronics = await Category.create({
-      name: "Điện tử",
-      slug: "dien-tu",
+      name: "Electronics",
+      slug: "electronics",
     });
 
     const phones = await Category.create({
-      name: "Điện thoại di động",
-      slug: "dien-thoai-di-dong",
+      name: "Mobile Phones",
+      slug: "mobile-phones",
       parentId: electronics.id,
     });
 
     const laptops = await Category.create({
-      name: "Máy tính xách tay",
-      slug: "may-tinh-xach-tay",
+      name: "Laptops",
+      slug: "laptops",
       parentId: electronics.id,
     });
 
     const fashion = await Category.create({
-      name: "Thời trang",
-      slug: "thoi-trang",
+      name: "Fashion",
+      slug: "fashion",
     });
 
     const shoes = await Category.create({
-      name: "Giày",
-      slug: "giay",
+      name: "Shoes",
+      slug: "shoes",
       parentId: fashion.id,
     });
 
     const watches = await Category.create({
-      name: "Đồng hồ",
-      slug: "dong-ho",
+      name: "Watches",
+      slug: "watches",
       parentId: fashion.id,
     });
 
@@ -120,7 +120,7 @@ const seed = async () => {
       {
         name: "iPhone 15 Pro Max 256GB",
         description:
-          "iPhone 15 Pro Max mới, chưa sử dụng, còn bảo hành Apple. Máy đẹp như mới, fullbox đầy đủ phụ kiện.",
+          "Brand new iPhone 15 Pro Max, unused with active Apple warranty. Pristine condition, full box with all accessories.",
         startingPrice: 25000000,
         bidStep: 500000,
         buyNowPrice: 30000000,
@@ -138,7 +138,7 @@ const seed = async () => {
       {
         name: "Samsung Galaxy S24 Ultra 512GB",
         description:
-          "Samsung Galaxy S24 Ultra màu đen, máy mới 99%, còn bảo hành chính hãng. Fullbox đầy đủ.",
+          "Samsung Galaxy S24 Ultra in black, 99% new with official warranty. Full box with all accessories.",
         startingPrice: 22000000,
         bidStep: 500000,
         buyNowPrice: 28000000,
@@ -156,7 +156,7 @@ const seed = async () => {
       {
         name: "MacBook Pro 14 inch M3 Pro",
         description:
-          "MacBook Pro 14 inch chip M3 Pro, RAM 18GB, SSD 512GB. Máy mới, chưa sử dụng, còn bảo hành Apple.",
+          "MacBook Pro 14-inch with M3 Pro, 18GB RAM, 512GB SSD. Brand new, unused, with active Apple warranty.",
         startingPrice: 45000000,
         bidStep: 1000000,
         buyNowPrice: 55000000,
@@ -174,7 +174,7 @@ const seed = async () => {
       {
         name: "Nike Air Jordan 1 Retro High OG",
         description:
-          "Giày Nike Air Jordan 1 size 42, màu đỏ đen trắng. Giày chính hãng, mới 100%, còn hộp.",
+          "Nike Air Jordan 1 shoes size 42 in red/black/white. Authentic, 100% new with box.",
         startingPrice: 5000000,
         bidStep: 200000,
         buyNowPrice: 7000000,
@@ -192,7 +192,7 @@ const seed = async () => {
       {
         name: "Rolex Submariner Date 126610LN",
         description:
-          "Đồng hồ Rolex Submariner Date, máy tự động, dây đeo thép không gỉ. Đồng hồ chính hãng, còn bảo hành.",
+          "Rolex Submariner Date automatic watch with stainless steel bracelet. Authentic with remaining warranty.",
         startingPrice: 800000000,
         bidStep: 10000000,
         buyNowPrice: 950000000,
