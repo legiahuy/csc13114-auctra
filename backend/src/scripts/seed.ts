@@ -220,6 +220,7 @@ const seed = async () => {
         bidCount: 0,
         viewCount: 0,
         isNew: true,
+        allowUnratedBidders: true,
       });
       createdProducts.push(product);
     }

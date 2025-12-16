@@ -9,6 +9,7 @@ import {
   Card,
   CardMedia,
   CardContent,
+  IconButton,
   Chip,
   Dialog,
   DialogTitle,
@@ -20,7 +21,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  IconButton,
   Checkbox,
   FormControlLabel,
   Alert,
@@ -32,6 +32,8 @@ import {
   Person,
   AccessTime,
   Gavel,
+  Visibility,
+  Shield,
 } from '@mui/icons-material';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import apiClient from '../api/client';
@@ -56,6 +58,7 @@ interface Product {
   endDate: string;
   status: string;
   autoExtend: boolean;
+  allowUnratedBidders: boolean;
   bidCount: number;
   viewCount: number;
   isNew: boolean;
@@ -194,6 +197,13 @@ export default function ProductDetailPage() {
       return;
     }
 
+    const confirmed = window.confirm(
+      isAutoBid
+        ? `Xác nhận đặt đấu giá tự động tối đa ${parseFloat(maxAmount || '0').toLocaleString('vi-VN')} VNĐ?`
+        : `Xác nhận ra giá ${parseFloat(bidAmount || '0').toLocaleString('vi-VN')} VNĐ?`
+    );
+    if (!confirmed) return;
+
     try {
       await apiClient.post('/bids', {
         productId: id,
@@ -329,6 +339,7 @@ export default function ProductDetailPage() {
   const sellerRating = getRatingPercentage(product.seller.rating, product.seller.totalRatings);
   const highestBidder = product.bids && product.bids[0];
   const allImages = [product.mainImage, ...(product.images || [])];
+  const timeLabel = formatRelativeTime(product.endDate);
 
   return (
     <Box>
@@ -383,57 +394,171 @@ export default function ProductDetailPage() {
           </Paper>
 
           {/* Product Info */}
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
-              <Typography variant="h4">{product.name}</Typography>
-              {product.isNew && (
-                <Chip label="Mới" color="success" size="small" />
-              )}
+          <Paper sx={{ p: { xs: 2, md: 3 }, mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 2, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                <Typography variant="h4" sx={{ lineHeight: 1.2 }}>{product.name}</Typography>
+                {product.isNew && (
+                  <Chip label="Mới" color="success" size="small" />
+                )}
+                {product.autoExtend && (
+                  <Chip label="Tự động gia hạn" color="info" size="small" variant="outlined" />
+                )}
+              </Box>
+              <IconButton
+                onClick={handleToggleWatchlist}
+                color={isInWatchlist ? 'error' : 'default'}
+                aria-label={isInWatchlist ? 'Xóa khỏi yêu thích' : 'Thêm vào yêu thích'}
+                disabled={loading}
+                sx={{ bgcolor: isInWatchlist ? 'error.lighter' : 'transparent', '&:hover': { bgcolor: isInWatchlist ? 'error.light' : 'action.hover' } }}
+              >
+                {isInWatchlist ? <Favorite /> : <FavoriteBorder />}
+              </IconButton>
             </Box>
 
-            <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-              <Chip
-                icon={<AccessTime />}
-                label={`Kết thúc: ${formatRelativeTime(product.endDate)}`}
-                color={isEnded ? 'error' : 'primary'}
-              />
-              <Chip icon={<Gavel />} label={`${product.bidCount} lượt đấu giá`} />
-              <Chip label={`${product.viewCount} lượt xem`} />
-            </Box>
-
-            <Typography variant="h4" color="primary" gutterBottom>
-              {parseFloat(product.currentPrice.toString()).toLocaleString('vi-VN')} VNĐ
-            </Typography>
-
-            {product.buyNowPrice && (
-              <Typography variant="h6" color="secondary" gutterBottom>
-                Giá mua ngay: {parseFloat(product.buyNowPrice.toString()).toLocaleString('vi-VN')} VNĐ
-              </Typography>
-            )}
-
-            <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                Thông tin đấu giá
-              </Typography>
-              <Typography variant="body2">Giá khởi điểm: {parseFloat(product.startingPrice.toString()).toLocaleString('vi-VN')} VNĐ</Typography>
-              <Typography variant="body2">Bước giá: {parseFloat(product.bidStep.toString()).toLocaleString('vi-VN')} VNĐ</Typography>
-              <Typography variant="body2">Ngày đăng: {format(new Date(product.startDate), 'dd/MM/yyyy HH:mm')}</Typography>
-              {highestBidder && (
-                <Typography variant="body2">
-                  Người đặt giá cao nhất: {highestBidder.bidder.fullName}
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '2fr 1fr' },
+                gap: 2,
+                mb: 3,
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2.5,
+                  borderRadius: 2,
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  boxShadow: 2,
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ opacity: 0.9 }}>
+                  Giá hiện tại
                 </Typography>
-              )}
+                <Typography variant="h3" sx={{ fontWeight: 700, mt: 0.5 }}>
+                  {parseFloat(product.currentPrice.toString()).toLocaleString('vi-VN')} VNĐ
+                </Typography>
+                {product.buyNowPrice && (
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    Giá mua ngay: {parseFloat(product.buyNowPrice.toString()).toLocaleString('vi-VN')} VNĐ
+                  </Typography>
+                )}
+              </Box>
+
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1,
+                  bgcolor: 'grey.50',
+                }}
+              >
+                <Typography variant="subtitle2" color="text.secondary">
+                  Trạng thái & thời gian
+                </Typography>
+                <Chip
+                  icon={<AccessTime />}
+                  label={`Kết thúc: ${timeLabel}`}
+                  color={isEnded ? 'error' : 'primary'}
+                  sx={{ width: 'fit-content' }}
+                />
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Chip icon={<Gavel />} label={`${product.bidCount} lượt đấu giá`} variant="outlined" />
+                  <Chip icon={<Visibility />} label={`${product.viewCount} lượt xem`} variant="outlined" />
+                </Box>
+              </Paper>
             </Box>
+
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
+                gap: 1.5,
+                mb: 3,
+              }}
+            >
+              <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2, display: 'flex', gap: 1.25, alignItems: 'center' }}>
+                <AccessTime color="primary" />
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Thời gian còn</Typography>
+                  <Typography variant="body2" fontWeight={600}>{timeLabel}</Typography>
+                </Box>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2, display: 'flex', gap: 1.25, alignItems: 'center' }}>
+                <Gavel color="primary" />
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Lượt đấu giá</Typography>
+                  <Typography variant="body2" fontWeight={600}>{product.bidCount}</Typography>
+                </Box>
+              </Paper>
+              <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2, display: 'flex', gap: 1.25, alignItems: 'center' }}>
+                <Visibility color="primary" />
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Lượt xem</Typography>
+                  <Typography variant="body2" fontWeight={600}>{product.viewCount}</Typography>
+                </Box>
+              </Paper>
+            </Box>
+
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 2.5,
+                borderRadius: 2,
+                bgcolor: 'grey.50',
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: 2,
+              }}
+            >
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Thông tin đấu giá
+                </Typography>
+                <Typography variant="body2">Giá khởi điểm: {parseFloat(product.startingPrice.toString()).toLocaleString('vi-VN')} VNĐ</Typography>
+                <Typography variant="body2">Bước giá: {parseFloat(product.bidStep.toString()).toLocaleString('vi-VN')} VNĐ</Typography>
+                <Typography variant="body2">Ngày đăng: {format(new Date(product.startDate), 'dd/MM/yyyy HH:mm')}</Typography>
+                {highestBidder && (
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    Người đặt giá cao nhất: {highestBidder.bidder.fullName}
+                  </Typography>
+                )}
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Chính sách tham gia
+                </Typography>
+                <Chip
+                  icon={<Shield />}
+                  label={
+                    product.allowUnratedBidders
+                      ? 'Cho phép người chưa được đánh giá tham gia'
+                      : 'Chặn người chưa từng được đánh giá'
+                  }
+                  color={product.allowUnratedBidders ? 'success' : 'warning'}
+                  variant={product.allowUnratedBidders ? 'outlined' : 'filled'}
+                />
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Quy định này do người bán cấu hình cho sản phẩm.
+                </Typography>
+              </Box>
+            </Paper>
 
             {/* Seller Info */}
-            <Box sx={{ mt: 3, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                <Person sx={{ mr: 1, verticalAlign: 'middle' }} />
-                Người bán: {product.seller.fullName}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Điểm đánh giá: {sellerRating.toFixed(1)}% ({product.seller.rating}/{product.seller.totalRatings})
-              </Typography>
+            <Box sx={{ mt: 3, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Person sx={{ mr: 0.5, color: 'text.secondary' }} />
+              <Box>
+                <Typography variant="subtitle2">
+                  Người bán: {product.seller.fullName}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Điểm đánh giá: {sellerRating.toFixed(1)}% ({product.seller.rating}/{product.seller.totalRatings})
+                </Typography>
+              </Box>
             </Box>
 
             {/* Description */}
@@ -441,7 +566,7 @@ export default function ProductDetailPage() {
               <Typography variant="h6" gutterBottom>
                 Mô tả sản phẩm
               </Typography>
-              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
                 {product.description}
               </Typography>
             </Box>
@@ -543,12 +668,7 @@ export default function ProductDetailPage() {
               <>
                 {user ? (
                   <>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                      <Typography variant="h6">Đấu giá</Typography>
-                      <IconButton onClick={handleToggleWatchlist} color={isInWatchlist ? 'error' : 'default'}>
-                        {isInWatchlist ? <Favorite /> : <FavoriteBorder />}
-                      </IconButton>
-                    </Box>
+                    <Typography variant="h6" sx={{ mb: 2 }}>Đấu giá</Typography>
 
                     {!isSeller && (
                       <>

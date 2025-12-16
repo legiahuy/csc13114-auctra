@@ -95,6 +95,7 @@ const validationSchema = yup.object({
   categoryId: yup.number().required("Danh mục là bắt buộc"),
   endDate: yup.string().required("Ngày kết thúc là bắt buộc"),
   autoExtend: yup.boolean(),
+  allowUnratedBidders: yup.boolean(),
 });
 
 export default function SellerDashboardPage() {
@@ -146,6 +147,7 @@ export default function SellerDashboardPage() {
       categoryId: "",
       endDate: "",
       autoExtend: false,
+      allowUnratedBidders: true,
     },
     validationSchema,
     onSubmit: async (values) => {
@@ -182,6 +184,7 @@ export default function SellerDashboardPage() {
           images: imageUrls.slice(1),
           endDate: values.endDate,
           autoExtend: values.autoExtend,
+          allowUnratedBidders: values.allowUnratedBidders,
         });
 
         toast.success("Đăng sản phẩm thành công");
@@ -655,11 +658,24 @@ export default function SellerDashboardPage() {
                 type="checkbox"
                 id="autoExtend"
                 checked={formik.values.autoExtend}
-                onChange={formik.handleChange}
+                onChange={(e) => formik.setFieldValue("autoExtend", e.target.checked)}
                 name="autoExtend"
               />
               <label htmlFor="autoExtend" style={{ marginLeft: 8 }}>
                 Tự động gia hạn nếu có đấu giá trong 3 phút cuối
+              </label>
+            </Box>
+
+            <Box sx={{ mt: 1 }}>
+              <input
+                type="checkbox"
+                id="allowUnratedBidders"
+                checked={formik.values.allowUnratedBidders}
+                onChange={(e) => formik.setFieldValue("allowUnratedBidders", e.target.checked)}
+                name="allowUnratedBidders"
+              />
+              <label htmlFor="allowUnratedBidders" style={{ marginLeft: 8 }}>
+                Cho phép người chưa từng được đánh giá tham gia đấu giá
               </label>
             </Box>
           </DialogContent>

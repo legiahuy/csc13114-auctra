@@ -18,6 +18,7 @@ export interface ProductAttributes {
   endDate: Date;
   status: 'active' | 'ended' | 'cancelled';
   autoExtend: boolean;
+  allowUnratedBidders: boolean;
   bidCount: number;
   viewCount: number;
   isNew: boolean; // true if posted within N minutes
@@ -44,6 +45,7 @@ export class Product extends Model<ProductAttributes, ProductCreationAttributes>
   public endDate!: Date;
   public status!: 'active' | 'ended' | 'cancelled';
   public autoExtend!: boolean;
+  public allowUnratedBidders!: boolean;
   public bidCount!: number;
   public viewCount!: number;
   public isNew!: boolean;
@@ -129,6 +131,11 @@ Product.init(
     autoExtend: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
+      allowNull: false,
+    },
+    allowUnratedBidders: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
       allowNull: false,
     },
     bidCount: {
