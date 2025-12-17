@@ -135,10 +135,14 @@ const startServer = async () => {
     await sequelize.authenticate();
     logger.info('Database connection established successfully.');
 
-    // Sync database (use { alter: true } in development, remove in production)
-    if (process.env.NODE_ENV === 'development') {
+    // Database schema is managed via seed script (npm run seed)
+    // Only sync if explicitly enabled via environment variable
+    if (process.env.SYNC_DB === 'true') {
+      logger.info('Syncing database schema...');
       await sequelize.sync({ alter: true });
       logger.info('Database synced.');
+    } else {
+      logger.info('Database sync skipped. Use SYNC_DB=true to enable, or run "npm run seed" for migrations.');
     }
 
     httpServer.listen(PORT, () => {

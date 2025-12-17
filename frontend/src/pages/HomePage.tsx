@@ -6,7 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Carousel } from "@/components/ui/carousel";
 import apiClient from "../api/client";
 import { formatDistanceToNow } from "date-fns";
-import { Gavel, TrendingUp, Clock, Users, Sparkles } from "lucide-react";
+import {
+  Gavel,
+  TrendingUp,
+  Clock,
+  Users,
+  Sparkles,
+  LoaderIcon,
+} from "lucide-react";
 
 interface Product {
   id: number;
@@ -208,8 +215,11 @@ export default function HomePage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh] bg-background">
         <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">Loading...</p>
+          <LoaderIcon
+            className="animate-spin size-5 mx-auto"
+            role="status"
+            aria-label="Loading"
+          />
         </div>
       </div>
     );
