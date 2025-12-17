@@ -7,7 +7,7 @@
 @layer base {
   :root {
     /* Nextwaves-inspired LIGHT palette using LAB/OKLAB */
-    --radius: 0.75rem; /* 12px, between 10–14px cards/buttons */
+    --radius: 1.5rem; /* 24px - matches Nextwaves button/card radius */
     --background: lab(94.2 0 0); /* primary light background */
     --foreground: lab(7.0001 -1.35344 -16.7248); /* rich dark text */
     --card: lab(96.1596 -0.0823438 -1.13575);
@@ -27,6 +27,9 @@
     --border: lab(90.6853 0.399232 -1.45452);
     --input: lab(90.6853 0.399232 -1.45452);
     --ring: oklab(0.704998 0.00414386 -0.0143967 / 0.5);
+    /* Brand color for gradients - extracted from Nextwaves */
+    --brand: lab(49.303 9.20001 -66.8696); /* Blue tone from Nextwaves shadows */
+    --brand-foreground: lab(94.2 0 0);
     --chart-1: oklch(0.7357 0.1641 34.7091);
     --chart-2: oklch(0.8278 0.1131 57.9984);
     --chart-3: oklch(0.8773 0.0763 54.9314);
@@ -53,19 +56,15 @@
     --shadow-offset-y: 6px;
     --letter-spacing: 0em;
     --spacing: 0.25rem;
-    --shadow-2xs: 0px 6px 12px -3px hsl(0 0% 0% / 0.04);
-    --shadow-xs: 0px 6px 12px -3px hsl(0 0% 0% / 0.04);
-    --shadow-sm: 0px 6px 12px -3px hsl(0 0% 0% / 0.09),
-      0px 1px 2px -4px hsl(0 0% 0% / 0.09);
-    --shadow: 0px 6px 12px -3px hsl(0 0% 0% / 0.09),
-      0px 1px 2px -4px hsl(0 0% 0% / 0.09);
-    --shadow-md: 0px 6px 12px -3px hsl(0 0% 0% / 0.09),
-      0px 2px 4px -4px hsl(0 0% 0% / 0.09);
-    --shadow-lg: 0px 6px 12px -3px hsl(0 0% 0% / 0.09),
-      0px 4px 6px -4px hsl(0 0% 0% / 0.09);
-    --shadow-xl: 0px 6px 12px -3px hsl(0 0% 0% / 0.09),
-      0px 8px 10px -4px hsl(0 0% 0% / 0.09);
-    --shadow-2xl: 0px 6px 12px -3px hsl(0 0% 0% / 0.22);
+    /* Nextwaves shadow system - exact matches from styles.json */
+    --shadow-2xs: rgba(0, 0, 0, 0.05) 0px 1px 2px 0px;
+    --shadow-xs: rgba(0, 0, 0, 0.1) 0px 1px 3px 0px, rgba(0, 0, 0, 0.1) 0px 1px 2px -1px;
+    --shadow-sm: rgba(0, 0, 0, 0.1) 0px 1px 3px 0px, rgba(0, 0, 0, 0.1) 0px 1px 2px -1px;
+    --shadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.1) 0px 4px 6px -4px;
+    --shadow-md: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.1) 0px 4px 6px -4px;
+    --shadow-lg: rgba(0, 0, 0, 0.03) 0px 25px 50px -12px;
+    --shadow-xl: rgba(0, 0, 0, 0.03) 0px 20px 25px -5px, rgba(0, 0, 0, 0.03) 0px 8px 10px -6px;
+    --shadow-2xl: rgba(0, 0, 0, 0.03) 0px 25px 50px -12px;
     --tracking-normal: 0em;
   }
 
@@ -126,6 +125,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -142,10 +143,12 @@
   --font-family-sans: var(--font-sans);
   --font-family-mono: var(--font-mono);
   --font-family-serif: var(--font-serif);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* Nextwaves border radius system - matches styles.json */
+  --radius-sm: 0.5rem; /* 8px - for inputs */
+  --radius-md: 0.625rem; /* 10px */
+  --radius-lg: 0.875rem; /* 14px */
+  --radius-xl: 1.125rem; /* 18px */
+  --radius-2xl: var(--radius); /* 24px - for buttons/cards */
   --shadow-2xs: var(--shadow-2xs);
   --shadow-xs: var(--shadow-xs);
   --shadow-sm: var(--shadow-sm);
@@ -185,9 +188,22 @@
   h6 {
     font-family: var(--font-sans) !important;
     font-weight: 600;
-    line-height: 1.3;
-    letter-spacing: -0.01em;
+    line-height: 1.25; /* Nextwaves heading line-height */
+    letter-spacing: -0.015em; /* Slightly tighter for Nextwaves feel */
     margin: 0;
+  }
+  
+  h1 {
+    font-size: 3.75rem; /* 60px - matches Nextwaves h1 */
+    font-weight: 700;
+    line-height: 1.0;
+    letter-spacing: -0.015em;
+  }
+  
+  h2 {
+    font-size: 3rem; /* 48px */
+    font-weight: 600;
+    line-height: 1.25;
   }
 
   p {
@@ -253,4 +269,9 @@
 
 .slide-in-from-top {
   animation: slide-in-from-top 0.6s ease-out forwards;
+}
+
+.fade-bottom {
+  -webkit-mask-image: linear-gradient(#000 75%, #0000 100%);
+  mask-image: linear-gradient(#000 75%, #0000 100%);
 }

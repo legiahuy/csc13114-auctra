@@ -1,0 +1,983 @@
+{
+  "url": "https://nextwaves.com/",
+  "extractedAt": "2025-12-17T13:13:42.022Z",
+  "logo": {
+    "source": "img",
+    "url": "https://nextwaves.com/_next/image?url=%2Fimages%2Flogo%2Flogo.png&w=64&q=75",
+    "width": 32,
+    "height": 20,
+    "alt": "Nextwaves Logo",
+    "safeZone": {
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "left": 0
+    }
+  },
+  "favicons": [
+    {
+      "type": "icon",
+      "url": "https://nextwaves.com/icon0.svg?icon0.e98693de.svg",
+      "sizes": "any"
+    },
+    {
+      "type": "icon",
+      "url": "https://nextwaves.com/icon1.png?icon1.4f6eb95b.png",
+      "sizes": "96x96"
+    },
+    {
+      "type": "apple-touch-icon",
+      "url": "https://nextwaves.com/apple-icon.png?apple-icon.0040f47b.png",
+      "sizes": "180x180"
+    },
+    {
+      "type": "apple-touch-icon",
+      "url": "https://nextwaves.com/apple-icon.png?apple-icon.0040f47b.png",
+      "sizes": "180x180"
+    },
+    {
+      "type": "og:image",
+      "url": "https://nextwaves.com/images/hero-social.webp",
+      "sizes": null
+    },
+    {
+      "type": "twitter:image",
+      "url": "https://nextwaves.com/images/hero-social.webp",
+      "sizes": null
+    },
+    {
+      "type": "favicon.ico",
+      "url": "https://nextwaves.com/favicon.ico",
+      "sizes": null
+    }
+  ],
+  "colors": {
+    "semantic": {
+      "primary": "lab(94.2 0 0)"
+    },
+    "palette": [
+      {
+        "color": "lab",
+        "normalized": "lab",
+        "count": 1654,
+        "confidence": "high",
+        "sources": ["absolute", "sticky", "group"]
+      },
+      {
+        "color": "oklab",
+        "normalized": "oklab",
+        "count": 72,
+        "confidence": "high",
+        "sources": ["absolute", "border-brand", "bg-brand-foreground/40"]
+      },
+      {
+        "color": "rgb(255, 255, 255)",
+        "normalized": "#ffffff",
+        "count": 10,
+        "confidence": "high",
+        "sources": ["relative"]
+      },
+      {
+        "color": "oklab(0.209209 0.000159655 -0.00902033)",
+        "normalized": "oklab(0.209209 0.000159655 -0.00902033)",
+        "count": 1,
+        "confidence": "medium",
+        "sources": ["hover/focus"]
+      },
+      {
+        "color": "oklab(0.199997 -0.0171033 -0.0469782 / 0.1)",
+        "normalized": "oklab(0.199997 -0.0171033 -0.0469782 / 0.1)",
+        "count": 1,
+        "confidence": "medium",
+        "sources": ["hover/focus"]
+      },
+      {
+        "color": "oklab(0.704998 0.00414386 -0.0143967 / 0.5)",
+        "normalized": "oklab(0.704998 0.00414386 -0.0143967 / 0.5)",
+        "count": 1,
+        "confidence": "medium",
+        "sources": ["hover/focus"]
+      },
+      {
+        "color": "oklab(0.209207 0.000154825 -0.00903095)",
+        "normalized": "oklab(0.209207 0.000154825 -0.00903095)",
+        "count": 1,
+        "confidence": "medium",
+        "sources": ["hover/focus"]
+      },
+      {
+        "color": "oklab(0.209687 0.00105366 -0.0070546)",
+        "normalized": "oklab(0.209687 0.00105366 -0.0070546)",
+        "count": 1,
+        "confidence": "medium",
+        "sources": ["hover/focus"]
+      },
+      {
+        "color": "oklab(0.199997 -0.0171033 -0.0469782 / 0.05)",
+        "normalized": "oklab(0.199997 -0.0171033 -0.0469782 / 0.05)",
+        "count": 1,
+        "confidence": "medium",
+        "sources": ["hover/focus"]
+      },
+      {
+        "color": "oklab(0.209686 0.00105248 -0.00705717)",
+        "normalized": "oklab(0.209686 0.00105248 -0.00705717)",
+        "count": 1,
+        "confidence": "medium",
+        "sources": ["hover/focus"]
+      },
+      {
+        "color": "oklab(0.208388 -0.00138064 -0.0124072)",
+        "normalized": "oklab(0.208388 -0.00138064 -0.0124072)",
+        "count": 1,
+        "confidence": "medium",
+        "sources": ["hover/focus"]
+      },
+      {
+        "color": "oklab(0.926998 0.000272542 -0.00093776 / 0.457777)",
+        "normalized": "oklab(0.926998 0.000272542 -0.00093776 / 0.457777)",
+        "count": 1,
+        "confidence": "medium",
+        "sources": ["hover/focus"]
+      },
+      {
+        "color": "oklab(0.204585 -0.00850542 -0.0280732)",
+        "normalized": "oklab(0.204585 -0.00850542 -0.0280732)",
+        "count": 1,
+        "confidence": "medium",
+        "sources": ["hover/focus"]
+      },
+      {
+        "color": "oklab(0.939448 0.000119923 -0.000418168)",
+        "normalized": "oklab(0.939448 0.000119923 -0.000418168)",
+        "count": 1,
+        "confidence": "medium",
+        "sources": ["hover/focus"]
+      }
+    ],
+    "cssVariables": {
+      "--color-white": "#fff",
+      "--color-black": "#000"
+    }
+  },
+  "typography": {
+    "styles": [
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "72px (4.50rem)",
+        "weight": 600,
+        "lineHeight": "1.25",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "60px (3.75rem)",
+        "weight": 700,
+        "lineHeight": "1.00",
+        "spacing": "-1.5px",
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "60px (3.75rem)",
+        "weight": 500,
+        "lineHeight": "1.00",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "48px (3.00rem)",
+        "weight": 600,
+        "lineHeight": "1.25",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "48px (3.00rem)",
+        "weight": 700,
+        "lineHeight": "1.00",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "24px (1.50rem)",
+        "weight": 600,
+        "lineHeight": "1.33",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "24px (1.50rem)",
+        "weight": 700,
+        "lineHeight": "1.33",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "20px (1.25rem)",
+        "weight": 500,
+        "lineHeight": "1.40",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "20px (1.25rem)",
+        "weight": 700,
+        "lineHeight": "1.40",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "18px (1.13rem)",
+        "weight": 400,
+        "lineHeight": "1.63",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "18px (1.13rem)",
+        "weight": 600,
+        "lineHeight": "1.63",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "18px (1.13rem)",
+        "weight": 700,
+        "lineHeight": "1.56",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "16px (1.00rem)",
+        "weight": 400,
+        "lineHeight": "1.50",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "link",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "16px (1.00rem)",
+        "weight": 400,
+        "lineHeight": "1.50",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "16px (1.00rem)",
+        "weight": 600,
+        "lineHeight": "1.00",
+        "spacing": "-0.4px",
+        "transform": null
+      },
+      {
+        "context": "button",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "16px (1.00rem)",
+        "weight": 400,
+        "lineHeight": "1.50",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "16px (1.00rem)",
+        "weight": 600,
+        "lineHeight": "1.50",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "16px (1.00rem)",
+        "weight": 700,
+        "lineHeight": "1.50",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "heading-1",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "16px (1.00rem)",
+        "weight": 500,
+        "lineHeight": "1.50",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "button",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "16px (1.00rem)",
+        "weight": 500,
+        "lineHeight": "1.50",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "button",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "14px (0.88rem)",
+        "weight": 500,
+        "lineHeight": "1.43",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "link",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "14px (0.88rem)",
+        "weight": 500,
+        "lineHeight": "1.43",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "14px (0.88rem)",
+        "weight": 500,
+        "lineHeight": "1.43",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "14px (0.88rem)",
+        "weight": 400,
+        "lineHeight": "1.43",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "14px (0.88rem)",
+        "weight": 600,
+        "lineHeight": "1.43",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "link",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "14px (0.88rem)",
+        "weight": 400,
+        "lineHeight": "1.43",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "12px (0.75rem)",
+        "weight": 600,
+        "lineHeight": "1.33",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "12px (0.75rem)",
+        "weight": 500,
+        "lineHeight": "1.33",
+        "spacing": "0.6px",
+        "transform": "uppercase"
+      },
+      {
+        "context": "caption",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "12px (0.75rem)",
+        "weight": 400,
+        "lineHeight": "1.33",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "12px (0.75rem)",
+        "weight": 500,
+        "lineHeight": "1.33",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "link",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "12px (0.75rem)",
+        "weight": 400,
+        "lineHeight": "1.33",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "button",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "12px (0.75rem)",
+        "weight": 500,
+        "lineHeight": "1.33",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "12px (0.75rem)",
+        "weight": 500,
+        "lineHeight": "1.33",
+        "spacing": null,
+        "transform": "capitalize"
+      },
+      {
+        "context": "caption",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "10px (0.63rem)",
+        "weight": 400,
+        "lineHeight": "1.50",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "10px (0.63rem)",
+        "weight": 400,
+        "lineHeight": "1.50",
+        "spacing": "0.5px",
+        "transform": "uppercase"
+      },
+      {
+        "context": "caption",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "10px (0.63rem)",
+        "weight": 700,
+        "lineHeight": "1.50",
+        "spacing": null,
+        "transform": null
+      },
+      {
+        "context": "caption",
+        "family": "Inter",
+        "fallbacks": "Inter Fallback",
+        "size": "9px (0.56rem)",
+        "weight": 400,
+        "lineHeight": "1.50",
+        "spacing": "0.45px",
+        "transform": "uppercase"
+      }
+    ],
+    "sources": {
+      "googleFonts": [],
+      "adobeFonts": false,
+      "variableFonts": false
+    }
+  },
+  "spacing": {
+    "scaleType": "8px",
+    "commonValues": [
+      {
+        "px": "4px",
+        "rem": "0.25rem",
+        "count": 22,
+        "numericValue": 4
+      },
+      {
+        "px": "6px",
+        "rem": "0.38rem",
+        "count": 8,
+        "numericValue": 6
+      },
+      {
+        "px": "8px",
+        "rem": "0.50rem",
+        "count": 19,
+        "numericValue": 8
+      },
+      {
+        "px": "12px",
+        "rem": "0.75rem",
+        "count": 24,
+        "numericValue": 12
+      },
+      {
+        "px": "16px",
+        "rem": "1.00rem",
+        "count": 60,
+        "numericValue": 16
+      },
+      {
+        "px": "20px",
+        "rem": "1.25rem",
+        "count": 2,
+        "numericValue": 20
+      },
+      {
+        "px": "24px",
+        "rem": "1.50rem",
+        "count": 53,
+        "numericValue": 24
+      },
+      {
+        "px": "32px",
+        "rem": "2.00rem",
+        "count": 24,
+        "numericValue": 32
+      },
+      {
+        "px": "40px",
+        "rem": "2.50rem",
+        "count": 1,
+        "numericValue": 40
+      },
+      {
+        "px": "48px",
+        "rem": "3.00rem",
+        "count": 2,
+        "numericValue": 48
+      },
+      {
+        "px": "64px",
+        "rem": "4.00rem",
+        "count": 1,
+        "numericValue": 64
+      },
+      {
+        "px": "80px",
+        "rem": "5.00rem",
+        "count": 4,
+        "numericValue": 80
+      },
+      {
+        "px": "96px",
+        "rem": "6.00rem",
+        "count": 2,
+        "numericValue": 96
+      },
+      {
+        "px": "128px",
+        "rem": "8.00rem",
+        "count": 16,
+        "numericValue": 128
+      },
+      {
+        "px": "640px",
+        "rem": "40.00rem",
+        "count": 1,
+        "numericValue": 640
+      }
+    ]
+  },
+  "borderRadius": {
+    "values": [
+      {
+        "value": "8px",
+        "count": 14,
+        "elements": ["button", "a", "input"],
+        "confidence": "high",
+        "numericValue": 8
+      },
+      {
+        "value": "10px",
+        "count": 6,
+        "elements": ["card", "div"],
+        "confidence": "medium",
+        "numericValue": 10
+      },
+      {
+        "value": "14px",
+        "count": 8,
+        "elements": ["div", "card"],
+        "confidence": "medium",
+        "numericValue": 14
+      },
+      {
+        "value": "18px",
+        "count": 5,
+        "elements": ["div", "card"],
+        "confidence": "medium",
+        "numericValue": 18
+      },
+      {
+        "value": "24px",
+        "count": 24,
+        "elements": ["card", "div", "button"],
+        "confidence": "high",
+        "numericValue": 24
+      },
+      {
+        "value": "3.35544e+07px",
+        "count": 29,
+        "elements": ["div", "span", "card", "button"],
+        "confidence": "high",
+        "numericValue": 33554400
+      },
+      {
+        "value": "50%",
+        "count": 4,
+        "elements": ["div"],
+        "confidence": "medium",
+        "numericValue": 50
+      },
+      {
+        "value": "100%",
+        "count": 4,
+        "elements": ["div"],
+        "confidence": "medium",
+        "numericValue": 100
+      }
+    ]
+  },
+  "borders": {
+    "combinations": [
+      {
+        "width": "0px 0px 1px",
+        "style": "solid",
+        "color": "lab(90.6853 0.399232 -1.45452)",
+        "count": 28,
+        "elements": ["section", "div"],
+        "confidence": "high"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "lab(90.6853 0.399232 -1.45452)",
+        "count": 18,
+        "elements": ["input", "card", "div"],
+        "confidence": "high"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "oklab(0.577891 -0.0405239 -0.188476 / 0.3)",
+        "count": 7,
+        "elements": ["span", "div"],
+        "confidence": "medium"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "oklab(0.577891 -0.0405239 -0.188476 / 0.2)",
+        "count": 4,
+        "elements": ["div"],
+        "confidence": "medium"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "oklab(0.577891 -0.0405239 -0.188476 / 0.5)",
+        "count": 4,
+        "elements": ["card", "div"],
+        "confidence": "medium"
+      },
+      {
+        "width": "1px 0px 0px",
+        "style": "solid",
+        "color": "lab(90.6853 0.399232 -1.45452)",
+        "count": 2,
+        "elements": ["div"],
+        "confidence": "low"
+      },
+      {
+        "width": "0px 1px",
+        "style": "dashed",
+        "color": "lab(90.6853 0.399232 -1.45452)",
+        "count": 1,
+        "elements": ["div"],
+        "confidence": "low"
+      },
+      {
+        "width": "4px",
+        "style": "solid",
+        "color": "lab(49.303 9.20001 -66.8696)",
+        "count": 1,
+        "elements": ["div"],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "oklab(0.637009 0.214185 0.101411 / 0.5)",
+        "count": 1,
+        "elements": ["div"],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "oklab(0.795004 0.0126784 0.183566 / 0.5)",
+        "count": 1,
+        "elements": ["div"],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "oklab(0.722997 -0.18884 0.110898 / 0.5)",
+        "count": 1,
+        "elements": ["div"],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "dashed",
+        "color": "oklab(0.577891 -0.0405239 -0.188476 / 0.5)",
+        "count": 1,
+        "elements": ["div"],
+        "confidence": "low"
+      },
+      {
+        "width": "1px",
+        "style": "solid",
+        "color": "lab(90.6853 0.399232 -1.45452) lab(90.6853 0.399232 -1.45452) oklab(0.919998 0.00111461 -0.00381714 / 0.9)",
+        "count": 1,
+        "elements": ["a"],
+        "confidence": "low"
+      }
+    ]
+  },
+  "shadows": [
+    {
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.1) 0px 4px 6px -4px",
+      "count": 11,
+      "confidence": "high"
+    },
+    {
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.1) 0px 1px 3px 0px, rgba(0, 0, 0, 0.1) 0px 1px 2px -1px",
+      "count": 5,
+      "confidence": "medium"
+    },
+    {
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.03) 0px 25px 50px -12px",
+      "count": 3,
+      "confidence": "medium"
+    },
+    {
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.05) 0px 1px 2px 0px",
+      "count": 2,
+      "confidence": "low"
+    },
+    {
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.03) 0px 20px 25px -5px, rgba(0, 0, 0, 0.03) 0px 8px 10px -6px",
+      "count": 2,
+      "confidence": "low"
+    },
+    {
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, lab(49.303 9.20001 -66.8696) 0px 0px 12px 0px, lab(71.6145 -21.7658 -40.065) 0px 0px 64px 0px, lab(49.303 9.20001 -66.8696) 0px 0px 12px 0px inset",
+      "count": 1,
+      "confidence": "low"
+    },
+    {
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.03) 0px 4px 6px -1px, rgba(0, 0, 0, 0.03) 0px 2px 4px -2px",
+      "count": 1,
+      "confidence": "low"
+    }
+  ],
+  "components": {
+    "buttons": [
+      {
+        "states": {
+          "default": {
+            "backgroundColor": "rgb(255, 255, 255)",
+            "color": "lab(7.0001 -1.35344 -16.7248)",
+            "padding": "24px",
+            "borderRadius": "24px",
+            "border": "0px solid lab(90.6853 0.399232 -1.45452)",
+            "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.1) 0px 4px 6px -4px",
+            "outline": "oklab(0.704998 0.00414386 -0.0143967 / 0.5) none 0px",
+            "transform": "none",
+            "opacity": "1"
+          },
+          "hover": null,
+          "active": null,
+          "focus": null
+        },
+        "fontWeight": "400",
+        "fontSize": "16px",
+        "classes": "relative z-10 flex h-80 w-56 flex-col items-start ",
+        "confidence": "high"
+      },
+      {
+        "states": {
+          "default": {
+            "backgroundColor": "lab(96.1596 -0.0823438 -1.13575)",
+            "color": "lab(7.0001 -1.35344 -16.7248)",
+            "padding": "0px",
+            "borderRadius": "3.35544e+07px",
+            "border": "0px solid lab(90.6853 0.399232 -1.45452)",
+            "boxShadow": "none",
+            "outline": "oklab(0.704998 0.00414386 -0.0143967 / 0.5) none 0px",
+            "transform": "none",
+            "opacity": "0.5"
+          },
+          "hover": null,
+          "active": null,
+          "focus": null
+        },
+        "fontWeight": "400",
+        "fontSize": "16px",
+        "classes": "relative z-40 flex h-10 w-10 items-center justify-",
+        "confidence": "high"
+      }
+    ],
+    "inputs": {
+      "text": [],
+      "checkbox": [],
+      "radio": [],
+      "select": []
+    },
+    "links": [
+      {
+        "color": "lab(7.0001 -1.35344 -16.7248)",
+        "textDecoration": "none",
+        "fontWeight": "400",
+        "states": {
+          "default": {
+            "color": "lab(7.0001 -1.35344 -16.7248)",
+            "textDecoration": "none"
+          },
+          "hover": null
+        }
+      },
+      {
+        "color": "lab(94.2 0 0)",
+        "textDecoration": "none",
+        "fontWeight": "500",
+        "states": {
+          "default": {
+            "color": "lab(94.2 0 0)",
+            "textDecoration": "none"
+          },
+          "hover": null
+        }
+      },
+      {
+        "color": "lab(47.8878 1.65477 -5.77283)",
+        "textDecoration": "none",
+        "fontWeight": "400",
+        "states": {
+          "default": {
+            "color": "lab(47.8878 1.65477 -5.77283)",
+            "textDecoration": "none"
+          },
+          "hover": null
+        }
+      }
+    ],
+    "badges": {
+      "all": [],
+      "byVariant": {
+        "error": [],
+        "warning": [],
+        "success": [],
+        "info": [],
+        "neutral": []
+      }
+    }
+  },
+  "breakpoints": [],
+  "iconSystem": [
+    {
+      "name": "SVG Icons",
+      "type": "svg"
+    }
+  ],
+  "frameworks": [
+    {
+      "name": "Tailwind CSS",
+      "confidence": "high",
+      "evidence": "arbitrary values (e.g., top-[117px]), responsive/state modifiers"
+    },
+    {
+      "name": "Radix UI",
+      "confidence": "high",
+      "evidence": "26 Radix primitives"
+    },
+    {
+      "name": "shadcn/ui",
+      "confidence": "medium",
+      "evidence": "Tailwind + Radix + component patterns"
+    },
+    {
+      "name": "Headless UI",
+      "confidence": "high",
+      "evidence": "9 headless components with Tailwind"
+    },
+    {
+      "name": "PrimeReact/Vue/NG",
+      "confidence": "high",
+      "evidence": "183 Prime components"
+    },
+    {
+      "name": "Fluent UI",
+      "confidence": "high",
+      "evidence": "191 Fluent components"
+    }
+  ]
+}

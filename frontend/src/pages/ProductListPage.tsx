@@ -3,6 +3,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+
 import {
   Select,
   SelectContent,
@@ -12,16 +14,19 @@ import {
 } from "@/components/ui/select";
 import { Link, useSearchParams } from "react-router-dom";
 import apiClient from "../api/client";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { LoaderIcon } from "lucide-react";
 
 interface Product {
   id: number;
   name: string;
   currentPrice: number;
+  buyNowPrice?: number;
   mainImage: string;
+  startDate: string;
   endDate: string;
   bidCount: number;
+  isNew?: boolean;
   seller: {
     fullName: string;
   };
@@ -51,9 +56,6 @@ export default function ProductListPage() {
     searchParams.get("search") || ""
   );
 
-  const [categoryId, setCategoryId] = useState(
-    searchParams.get("categoryId") || ""
-  );
   const [sortBy, setSortBy] = useState(searchParams.get("sortBy") || "endDate");
   const [sortOrder, setSortOrder] = useState(
     searchParams.get("sortOrder") || "ASC"
@@ -106,7 +108,8 @@ export default function ProductListPage() {
         };
         const searchValue = searchParams.get("search");
         if (searchValue) params.search = searchValue;
-        if (categoryId) params.categoryId = categoryId;
+        const categoryIdParam = searchParams.get("categoryId");
+        if (categoryIdParam) params.categoryId = categoryIdParam;
 
         const response = await apiClient.get("/products", { params });
         setProducts(response.data.data.products);
@@ -119,7 +122,7 @@ export default function ProductListPage() {
     };
 
     fetchProducts();
-  }, [searchParams, sortBy, sortOrder, categoryId]);
+  }, [searchParams, sortBy, sortOrder]);
 
   const handlePageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
@@ -138,7 +141,7 @@ export default function ProductListPage() {
 
   if (loading && products.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh] bg-background">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <LoaderIcon
           className="animate-spin size-5 mx-auto"
           role="status"
@@ -233,12 +236,17 @@ export default function ProductListPage() {
               key={product.id}
               className="h-full hover:shadow-lg transition-shadow"
             >
-              <div className="aspect-video overflow-hidden rounded-t-xl">
+              <div className="aspect-video overflow-hidden rounded-t-xl relative">
                 <img
                   src={product.mainImage}
                   alt={product.name}
                   className="w-full h-full object-cover"
                 />
+                {product.isNew && (
+                  <Badge className="absolute border-brand/30 top-2 right-2 bg-primary text-brand font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                    New
+                  </Badge>
+                )}
               </div>
               <CardContent className="p-6 space-y-3">
                 <Link
@@ -247,20 +255,58 @@ export default function ProductListPage() {
                 >
                   {product.name}
                 </Link>
-                <p className="text-2xl font-bold text-primary leading-tight">
-                  {product.currentPrice.toLocaleString("vi-VN")} VNĐ
-                </p>
-                <div className="space-y-1.5 text-sm text-muted-foreground">
+
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      Current Price
+                    </p>
+                    <p className="text-2xl font-bold text-brand leading-tight">
+                      {product.currentPrice && product.currentPrice > 0
+                        ? new Intl.NumberFormat("vi-VN").format(
+                            product.currentPrice
+                          )
+                        : "-"}{" "}
+                      VNĐ
+                    </p>
+                  </div>
+
+                  {product.buyNowPrice && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Buy Now Price
+                      </p>
+                      <p className="text-lg font-semibold text-foreground leading-tight">
+                        {product.buyNowPrice && product.buyNowPrice > 0
+                          ? new Intl.NumberFormat("vi-VN").format(
+                              product.buyNowPrice
+                            )
+                          : "-"}{" "}
+                        VNĐ
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1.5 text-sm text-muted-foreground pt-2 border-t">
                   <p className="leading-relaxed">
-                    Time left:{" "}
+                    <span className="font-medium">Posted:</span>{" "}
+                    {format(new Date(product.startDate), "dd/MM/yyyy HH:mm")}
+                  </p>
+                  <p className="leading-relaxed">
+                    <span className="font-medium">Time left:</span>{" "}
                     {formatDistanceToNow(new Date(product.endDate), {
                       addSuffix: true,
                     })}
                   </p>
-                  <p className="leading-relaxed">{product.bidCount} bids</p>
+                  <p className="leading-relaxed">
+                    <span className="font-medium">Bids:</span>{" "}
+                    {product.bidCount}
+                  </p>
                   {product.bids && product.bids[0] && (
                     <p className="leading-relaxed">
-                      Highest bidder: {product.bids[0].bidder.fullName}
+                      <span className="font-medium">Highest bidder:</span>{" "}
+                      {product.bids[0].bidder.fullName}
                     </p>
                   )}
                 </div>

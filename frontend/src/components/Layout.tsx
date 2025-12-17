@@ -53,9 +53,13 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <header className="border-b bg-background sticky top-0 z-50">
-        <div className="container mx-auto px-4">
+    <div className="flex flex-col min-h-screen relative">
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-brand/20 blur-[120px] rounded-full pointer-events-none -z-10" />
+      <div className="fixed bottom-0 right-0 w-[800px] h-[600px] bg-brand/15 blur-[130px] rounded-full pointer-events-none -z-10" />
+      <div className="fixed top-1/2 left-0 -translate-y-1/2 w-[600px] h-[400px] bg-brand/10 blur-[100px] rounded-full pointer-events-none -z-10" />
+      <header className="sticky top-0 z-50 -mb-4 px-4 pb-4">
+        <div className="fade-bottom bg-background/15 absolute left-0 h-24 w-full backdrop-blur-lg" />
+        <div className="container mx-auto px-4 relative">
           <div className="flex h-16 items-center justify-between">
             <Link
               to="/"
@@ -78,19 +82,26 @@ export default function Layout({ children }: LayoutProps) {
                     categories.map((category) =>
                       category.children && category.children.length > 0 ? (
                         <DropdownMenuSub key={category.id}>
-                          <DropdownMenuSubTrigger>
+                          <DropdownMenuSubTrigger
+                            onSelect={(e) => {
+                              e.preventDefault();
+                            }}
+                          >
                             {category.name}
                           </DropdownMenuSubTrigger>
                           <DropdownMenuSubContent>
                             <DropdownMenuItem
                               onSelect={() => handleCategoryClick(category.id)}
+                              className="focus-visible:outline-none focus-visible:ring-0"
                             >
-                              All {category.name}
+                              {category.name}
                             </DropdownMenuItem>
+                            <Separator />
                             {category.children.map((child) => (
                               <DropdownMenuItem
                                 key={child.id}
                                 onSelect={() => handleCategoryClick(child.id)}
+                                className="focus-visible:outline-none focus-visible:ring-0"
                               >
                                 {child.name}
                               </DropdownMenuItem>
@@ -101,6 +112,7 @@ export default function Layout({ children }: LayoutProps) {
                         <DropdownMenuItem
                           key={category.id}
                           onSelect={() => handleCategoryClick(category.id)}
+                          className="focus-visible:outline-none focus-visible:ring-0"
                         >
                           {category.name}
                         </DropdownMenuItem>
