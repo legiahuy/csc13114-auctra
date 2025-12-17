@@ -1,6 +1,56 @@
-# Hướng dẫn Setup Database với Docker
+# Hướng dẫn Setup Database
 
-## Cách 1: Dùng Docker Compose (Khuyến nghị)
+## ⚡ Cách 1: Dùng Supabase (Cloud Database - Khuyến nghị)
+
+### Bước 1: Tạo Supabase Project
+
+1. Truy cập [Supabase](https://supabase.com) và đăng ký/đăng nhập
+2. Tạo một project mới
+3. Đợi project được khởi tạo (mất vài phút)
+
+### Bước 2: Lấy Connection String
+
+1. Vào **Project Settings** > **Database**
+2. Tìm phần **Connection string** > **URI**
+3. Copy connection string, có dạng:
+   ```
+   postgresql://postgres:[YOUR-PASSWORD]@[YOUR-PROJECT-REF].supabase.co:5432/postgres
+   ```
+
+### Bước 3: Cấu hình Backend
+
+1. Tạo file `.env` từ `.env.example`:
+   ```bash
+   cd backend
+   cp .env.example .env
+   ```
+
+2. Thêm connection string vào file `.env`:
+   ```env
+   DATABASE_URL=postgresql://postgres:your_password@your-project-ref.supabase.co:5432/postgres
+   DB_SSL=true
+   ```
+
+3. **Lưu ý**: Thay `[YOUR-PASSWORD]` bằng password bạn đã set khi tạo project
+
+### Bước 4: Chạy Backend
+
+```bash
+cd backend
+npm run dev
+```
+
+Backend sẽ tự động kết nối với Supabase và tạo các bảng khi chạy lần đầu.
+
+### Bước 5: Seed Data (Tùy chọn)
+
+```bash
+npm run seed
+```
+
+---
+
+## 🐳 Cách 2: Dùng Docker Compose (Local Database)
 
 ### Bước 1: Khởi động PostgreSQL container
 

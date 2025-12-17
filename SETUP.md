@@ -3,8 +3,8 @@
 ## Yêu cầu hệ thống
 
 - Node.js >= 18.x
-- PostgreSQL >= 12.x
 - npm hoặc yarn
+- Database: Supabase (khuyến nghị) hoặc PostgreSQL local
 
 ## Cài đặt Backend
 
@@ -26,29 +26,39 @@ npm install
 cp .env.example .env
 ```
 
-4. Cập nhật thông tin database trong file `.env`:
+4. Cấu hình database trong file `.env`:
 
+### Option A: Dùng Supabase (Khuyến nghị)
+
+1. Tạo project trên [Supabase](https://supabase.com)
+2. Lấy connection string từ Project Settings > Database > Connection string (URI)
+3. Thêm vào `.env`:
+
+```env
+DATABASE_URL=postgresql://postgres:your_password@your-project-ref.supabase.co:5432/postgres
+DB_SSL=true
 ```
+
+### Option B: Dùng PostgreSQL Local
+
+```env
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=online_auction
 DB_USER=postgres
 DB_PASSWORD=your_password
+DB_SSL=false
 ```
 
-5. Tạo database:
+Nếu dùng Docker, xem thêm [DOCKER_SETUP.md](./DOCKER_SETUP.md)
 
-```bash
-createdb online_auction
-```
-
-6. Chạy seed data (tùy chọn):
+5. Chạy seed data (tùy chọn):
 
 ```bash
 npm run seed
 ```
 
-7. Khởi động server:
+6. Khởi động server:
 
 ```bash
 npm run dev
