@@ -1,10 +1,7 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-
 import {
   Select,
   SelectContent,
@@ -12,30 +9,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import apiClient from "../api/client";
-import { formatDistanceToNow, format } from "date-fns";
 import { LoaderIcon } from "lucide-react";
+import { ProductCard, type ProductCardProduct } from "@/components/ProductCard";
 
-interface Product {
-  id: number;
-  name: string;
-  currentPrice: number;
-  buyNowPrice?: number;
-  mainImage: string;
-  startDate: string;
-  endDate: string;
-  bidCount: number;
-  isNew?: boolean;
-  seller: {
-    fullName: string;
-  };
-  bids: Array<{
-    bidder: {
-      fullName: string;
-    };
-  }>;
-}
+type Product = ProductCardProduct;
 
 export default function ProductListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -232,86 +211,7 @@ export default function ProductListPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {products.map((product) => (
-            <Card
-              key={product.id}
-              className="h-full hover:shadow-lg transition-shadow"
-            >
-              <div className="aspect-video overflow-hidden rounded-t-xl relative">
-                <img
-                  src={product.mainImage}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                />
-                {product.isNew && (
-                  <Badge className="absolute border-brand/30 top-2 right-2 bg-primary text-brand font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2">
-                    New
-                  </Badge>
-                )}
-              </div>
-              <CardContent className="p-6 space-y-3">
-                <Link
-                  to={`/products/${product.id}`}
-                  className="text-lg font-semibold hover:text-primary transition-colors block leading-tight"
-                >
-                  {product.name}
-                </Link>
-
-                <div className="space-y-2">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Current Price
-                    </p>
-                    <p className="text-2xl font-bold text-brand leading-tight">
-                      {product.currentPrice && product.currentPrice > 0
-                        ? new Intl.NumberFormat("vi-VN").format(
-                            product.currentPrice
-                          )
-                        : "-"}{" "}
-                      VNĐ
-                    </p>
-                  </div>
-
-                  {product.buyNowPrice && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">
-                        Buy Now Price
-                      </p>
-                      <p className="text-lg font-semibold text-foreground leading-tight">
-                        {product.buyNowPrice && product.buyNowPrice > 0
-                          ? new Intl.NumberFormat("vi-VN").format(
-                              product.buyNowPrice
-                            )
-                          : "-"}{" "}
-                        VNĐ
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-1.5 text-sm text-muted-foreground pt-2 border-t">
-                  <p className="leading-relaxed">
-                    <span className="font-medium">Posted:</span>{" "}
-                    {format(new Date(product.startDate), "dd/MM/yyyy HH:mm")}
-                  </p>
-                  <p className="leading-relaxed">
-                    <span className="font-medium">Time left:</span>{" "}
-                    {formatDistanceToNow(new Date(product.endDate), {
-                      addSuffix: true,
-                    })}
-                  </p>
-                  <p className="leading-relaxed">
-                    <span className="font-medium">Bids:</span>{" "}
-                    {product.bidCount}
-                  </p>
-                  {product.bids && product.bids[0] && (
-                    <p className="leading-relaxed">
-                      <span className="font-medium">Highest bidder:</span>{" "}
-                      {product.bids[0].bidder.fullName}
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
       )}
