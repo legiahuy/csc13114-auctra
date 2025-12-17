@@ -1,32 +1,12 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Carousel } from "@/components/ui/carousel";
 import apiClient from "../api/client";
-import { formatDistanceToNow } from "date-fns";
-import {
-  Gavel,
-  TrendingUp,
-  Clock,
-  Users,
-  Sparkles,
-  LoaderIcon,
-} from "lucide-react";
+import { Gavel, TrendingUp, Users, Sparkles, LoaderIcon } from "lucide-react";
+import { ProductCard, type ProductCardProduct } from "@/components/ProductCard";
 
-interface Product {
-  id: number;
-  name: string;
-  currentPrice: number;
-  mainImage: string;
-  endDate: string;
-  bidCount: number;
-  seller: {
-    fullName: string;
-  };
-  isNew?: boolean;
-}
+type Product = ProductCardProduct;
 
 export default function HomePage() {
   const [endingSoon, setEndingSoon] = useState<Product[]>([]);
@@ -99,62 +79,6 @@ export default function HomePage() {
       }
     };
   }, [hasAnimated]);
-
-  const ProductCard = ({
-    product,
-    index = 0,
-  }: {
-    product: Product;
-    index?: number;
-  }) => (
-    <Card
-      className="w-[320px] shrink-0 hover:shadow-xl transition-all duration-300 group overflow-hidden border-border/50"
-      style={{
-        animationDelay: `${index * 100}ms`,
-      }}
-    >
-      <div className="aspect-video overflow-hidden rounded-t-xl relative">
-        <img
-          src={product.mainImage}
-          alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-        />
-        {product.isNew && (
-          <Badge className="absolute border-brand/30 top-2 right-2 bg-primary text-brand font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2">
-            New
-          </Badge>
-        )}
-        <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      </div>
-      <CardContent className="p-5 space-y-3">
-        <Link
-          to={`/products/${product.id}`}
-          className="text-lg font-semibold transition-colors block line-clamp-2 min-h-14"
-        >
-          {product.name}
-        </Link>
-        <div className="flex items-baseline gap-2">
-          <p className="text-2xl font-bold text-primary">
-            ${product.currentPrice.toLocaleString("en-US")}
-          </p>
-        </div>
-        <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t">
-          <div className="flex items-center gap-1">
-            <Clock className="h-4 w-4" />
-            <span className="line-clamp-1">
-              {formatDistanceToNow(new Date(product.endDate), {
-                addSuffix: true,
-              })}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Users className="h-4 w-4" />
-            <span>{product.bidCount} bids</span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
 
   const StatCard = ({
     icon: Icon,
@@ -250,11 +174,7 @@ export default function HomePage() {
               items at the best prices.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
-              <Button
-                size="lg"
-                asChild
-                className="text-lg px-8 py-6 shadow-lg shadow"
-              >
+              <Button size="lg" asChild className="text-lg px-8 py-6 shadow">
                 <Link to="/products">Explore Products</Link>
               </Button>
               <Button
@@ -291,8 +211,12 @@ export default function HomePage() {
             </Button>
           </div>
           <Carousel autoScroll={true} autoScrollInterval={4000}>
-            {endingSoon.map((product, index) => (
-              <ProductCard key={product.id} product={product} index={index} />
+            {endingSoon.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                className="w-[320px] shrink-0"
+              />
             ))}
           </Carousel>
         </section>
@@ -315,8 +239,12 @@ export default function HomePage() {
             </Button>
           </div>
           <Carousel autoScroll={true} autoScrollInterval={4000}>
-            {mostBids.map((product, index) => (
-              <ProductCard key={product.id} product={product} index={index} />
+            {mostBids.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                className="w-[320px] shrink-0"
+              />
             ))}
           </Carousel>
         </section>
@@ -337,8 +265,12 @@ export default function HomePage() {
             </Button>
           </div>
           <Carousel autoScroll={true} autoScrollInterval={4000}>
-            {highestPrice.map((product, index) => (
-              <ProductCard key={product.id} product={product} index={index} />
+            {highestPrice.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                className="w-[320px] shrink-0"
+              />
             ))}
           </Carousel>
         </section>
@@ -370,7 +302,7 @@ export default function HomePage() {
 
       {/* CTA Section */}
       <section className="container mx-auto px-4">
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-accent/10 to-primary/5 border border-primary/20 p-12 text-center">
+        <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-primary/10 via-accent/10 to-primary/5 border border-primary/20 p-12 text-center">
           <div
             className="absolute inset-0 opacity-20"
             style={{
