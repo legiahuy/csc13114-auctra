@@ -1,43 +1,48 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { format, formatDistanceToNow } from "date-fns";
 import {
-  Typography,
-  Box,
-  Button,
-  Grid,
-  Paper,
-  TextField,
+  AlertCircle,
+  Clock,
+  Gavel,
+  Heart,
+  HeartOff,
+  Image as ImageIcon,
+  User,
+} from "lucide-react";
+
+import apiClient from "../api/client";
+import { useAuthStore } from "../store/authStore";
+import toast from "react-hot-toast";
+import Loading from "@/components/Loading";
+
+import { Button } from "@/components/ui/button";
+import {
   Card,
-  CardMedia,
   CardContent,
-  Chip,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
   Dialog,
-  DialogTitle,
   DialogContent,
-  DialogActions,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
+  TableHeader,
   TableRow,
-  IconButton,
-  Checkbox,
-  FormControlLabel,
-  Alert,
-} from '@mui/material';
-import {
-  Favorite,
-  FavoriteBorder,
-  Image as ImageIcon,
-  Person,
-  AccessTime,
-  Gavel,
-} from '@mui/icons-material';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import apiClient from '../api/client';
-import { useAuthStore } from '../store/authStore';
-import toast from 'react-hot-toast';
-import { formatDistanceToNow, format } from 'date-fns';
+} from "@/components/ui/table";
+import { Separator } from "@/components/ui/separator";
 
 interface Product {
   id: number;
@@ -74,8 +79,11 @@ interface Product {
     bidder: {
       id: number;
       fullName: string;
+      rating: number;
+      totalRatings: number;
     };
     amount: number;
+    createdAt: string;
   }>;
   questions: Array<{
     id: number;
@@ -103,20 +111,23 @@ export default function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
+
   const [product, setProduct] = useState<Product | null>(null);
-  const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [bidHistory, setBidHistory] = useState<BidHistory[]>([]);
-  const [bidAmount, setBidAmount] = useState('');
-  const [maxAmount, setMaxAmount] = useState('');
+  const [bidAmount, setBidAmount] = useState("");
+  const [maxAmount, setMaxAmount] = useState("");
   const [isAutoBid, setIsAutoBid] = useState(false);
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [loading, setLoading] = useState(true);
   const [bidHistoryOpen, setBidHistoryOpen] = useState(false);
   const [questionDialogOpen, setQuestionDialogOpen] = useState(false);
   const [answerDialogOpen, setAnswerDialogOpen] = useState(false);
-  const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
-  const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState('');
+  const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(
+    null
+  );
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
   const [selectedImage, setSelectedImage] = useState(0);
   const [order, setOrder] = useState<any>(null);
 
@@ -128,47 +139,50 @@ export default function ProductDetailPage() {
           apiClient.get(`/bids/history/${id}`),
         ]);
 
-        const productData = productRes.data.data.product;
+        const productData = productRes.data.data.product as Product;
         setProduct(productData);
         setRelatedProducts(productRes.data.data.relatedProducts || []);
         setBidHistory(bidHistoryRes.data.data || []);
 
-        // Calculate suggested bid
+        // Suggested bid
         if (productData.bids && productData.bids[0]) {
-          const suggestedBid = parseFloat(productData.currentPrice.toString()) + parseFloat(productData.bidStep.toString());
+          const suggestedBid =
+            parseFloat(productData.currentPrice.toString()) +
+            parseFloat(productData.bidStep.toString());
           setBidAmount(suggestedBid.toString());
         } else {
           setBidAmount(productData.startingPrice.toString());
         }
 
-        // Check if in watchlist
+        // Watchlist + order info (only if logged in)
         if (user) {
           try {
-            const watchlistRes = await apiClient.get('/users/watchlist');
+            const watchlistRes = await apiClient.get("/users/watchlist");
             const inWatchlist = watchlistRes.data.data.some(
               (item: any) => item.product?.id === parseInt(id!)
             );
             setIsInWatchlist(inWatchlist);
-          } catch (error) {
-            // Not in watchlist
+          } catch {
+            // ignore
           }
 
-          // Check if there's an order for this product
           try {
-            const ordersRes = await apiClient.get('/orders');
+            const ordersRes = await apiClient.get("/orders");
             const productOrder = ordersRes.data.data.find(
-              (o: any) => o.productId === parseInt(id!) && (o.sellerId === user.id || o.buyerId === user.id)
+              (o: any) =>
+                o.productId === parseInt(id!) &&
+                (o.sellerId === user.id || o.buyerId === user.id)
             );
             if (productOrder) {
               setOrder(productOrder);
             }
-          } catch (error) {
-            // No order
+          } catch {
+            // ignore
           }
         }
       } catch (error) {
-        console.error('Error fetching product:', error);
-        toast.error('Không thể tải thông tin sản phẩm');
+        console.error("Error fetching product:", error);
+        toast.error("Unable to load product information");
       } finally {
         setLoading(false);
       }
@@ -179,30 +193,30 @@ export default function ProductDetailPage() {
 
   const handlePlaceBid = async () => {
     if (!user) {
-      toast.error('Vui lòng đăng nhập để đấu giá');
-      navigate('/login');
+      toast.error("Please log in to place a bid");
+      navigate("/login");
       return;
     }
 
     if (!isAutoBid && !bidAmount) {
-      toast.error('Vui lòng nhập số tiền đấu giá');
+      toast.error("Please enter a bid amount");
       return;
     }
 
     if (isAutoBid && !maxAmount) {
-      toast.error('Vui lòng nhập giá tối đa');
+      toast.error("Please enter a maximum amount");
       return;
     }
 
     try {
-      await apiClient.post('/bids', {
+      await apiClient.post("/bids", {
         productId: id,
         amount: bidAmount,
         maxAmount: isAutoBid ? maxAmount : undefined,
         isAutoBid,
       });
-      toast.success('Ra giá thành công');
-      // Refresh data
+      toast.success("Bid placed successfully");
+
       const [productRes, bidHistoryRes] = await Promise.all([
         apiClient.get(`/products/${id}`),
         apiClient.get(`/bids/history/${id}`),
@@ -210,56 +224,59 @@ export default function ProductDetailPage() {
       setProduct(productRes.data.data.product);
       setBidHistory(bidHistoryRes.data.data);
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Ra giá thất bại');
+      toast.error(
+        error.response?.data?.error?.message || "Failed to place bid"
+      );
     }
   };
 
   const handleToggleWatchlist = async () => {
     if (!user) {
-      toast.error('Vui lòng đăng nhập');
-      navigate('/login');
+      toast.error("Please log in first");
+      navigate("/login");
       return;
     }
 
     try {
       if (isInWatchlist) {
         await apiClient.delete(`/users/watchlist/${id}`);
-        toast.success('Đã xóa khỏi danh sách yêu thích');
+        toast.success("Removed from watchlist");
       } else {
-        await apiClient.post('/users/watchlist', { productId: id });
-        toast.success('Đã thêm vào danh sách yêu thích');
+        await apiClient.post("/users/watchlist", { productId: id });
+        toast.success("Added to watchlist");
       }
       setIsInWatchlist(!isInWatchlist);
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Thao tác thất bại');
+      toast.error(error.response?.data?.error?.message || "Action failed");
     }
   };
 
   const handleAskQuestion = async () => {
     if (!question.trim()) {
-      toast.error('Vui lòng nhập câu hỏi');
+      toast.error("Please enter your question");
       return;
     }
 
     try {
-      await apiClient.post('/users/questions', {
+      await apiClient.post("/users/questions", {
         productId: id,
         question,
       });
-      toast.success('Đã gửi câu hỏi');
-      setQuestion('');
+      toast.success("Question submitted");
+      setQuestion("");
       setQuestionDialogOpen(false);
-      // Refresh product
       const response = await apiClient.get(`/products/${id}`);
       setProduct(response.data.data.product);
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Gửi câu hỏi thất bại');
+      toast.error(
+        error.response?.data?.error?.message || "Failed to submit question"
+      );
     }
   };
 
   const handleAnswerQuestion = async () => {
     if (!answer.trim()) {
-      toast.error('Vui lòng nhập câu trả lời');
+      toast.error("Please enter your answer");
       return;
     }
 
@@ -267,24 +284,24 @@ export default function ProductDetailPage() {
       await apiClient.put(`/users/questions/${selectedQuestionId}/answer`, {
         answer,
       });
-      toast.success('Đã trả lời câu hỏi');
-      setAnswer('');
+      toast.success("Answer submitted");
+      setAnswer("");
       setAnswerDialogOpen(false);
-      // Refresh product
       const response = await apiClient.get(`/products/${id}`);
       setProduct(response.data.data.product);
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Trả lời thất bại');
+      toast.error(
+        error.response?.data?.error?.message || "Failed to submit answer"
+      );
     }
   };
 
   const handleRejectBid = async (bidId: number) => {
-    if (!window.confirm('Bạn có chắc chắn muốn từ chối lượt ra giá này?')) return;
+    if (!window.confirm("Are you sure you want to reject this bid?")) return;
 
     try {
       await apiClient.put(`/bids/${bidId}/reject`);
-      toast.success('Đã từ chối lượt ra giá');
-      // Refresh data
+      toast.success("Bid rejected");
       const [productRes, bidHistoryRes] = await Promise.all([
         apiClient.get(`/products/${id}`),
         apiClient.get(`/bids/history/${id}`),
@@ -292,7 +309,9 @@ export default function ProductDetailPage() {
       setProduct(productRes.data.data.product);
       setBidHistory(bidHistoryRes.data.data);
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Từ chối thất bại');
+      toast.error(
+        error.response?.data?.error?.message || "Failed to reject bid"
+      );
     }
   };
 
@@ -310,368 +329,536 @@ export default function ProductDetailPage() {
     if (diffDays < 3) {
       return formatDistanceToNow(endDate, { addSuffix: true });
     }
-    return format(endDate, 'dd/MM/yyyy HH:mm');
+    return format(endDate, "dd/MM/yyyy HH:mm");
+  };
+
+  // Format number as Vietnamese currency for display
+  const formatCurrencyDisplay = (value: string): string => {
+    if (!value) return "";
+    // Remove all non-digit characters
+    const numericValue = value.replace(/\D/g, "");
+    if (!numericValue) return "";
+    // Format with Vietnamese locale
+    return parseInt(numericValue, 10).toLocaleString("vi-VN");
+  };
+
+  // Parse formatted currency string back to number
+  const parseCurrencyValue = (value: string): string => {
+    // Remove all non-digit characters
+    return value.replace(/\D/g, "");
+  };
+
+  const handleBidAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = parseCurrencyValue(e.target.value);
+    setBidAmount(rawValue);
+  };
+
+  const handleMaxAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = parseCurrencyValue(e.target.value);
+    setMaxAmount(rawValue);
   };
 
   if (loading) {
-    return <Typography>Đang tải...</Typography>;
+    return <Loading />;
   }
 
   if (!product) {
-    return <Typography>Sản phẩm không tồn tại</Typography>;
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <AlertCircle className="h-5 w-5" />
+          <span>Product not found</span>
+        </div>
+      </div>
+    );
   }
 
-  // If product ended and user is seller/buyer, show link to order page
-  const shouldShowOrderLink = product.status === 'ended' && order && user && (user.id === order.sellerId || user.id === order.buyerId);
+  const shouldShowOrderLink =
+    product.status === "ended" &&
+    order &&
+    user &&
+    (user.id === order.sellerId || user.id === order.buyerId);
 
   const isSeller = user?.id === product.sellerId;
-  const isEnded = product.status === 'ended' || new Date(product.endDate) <= new Date();
-  const sellerRating = getRatingPercentage(product.seller.rating, product.seller.totalRatings);
+  const isEnded =
+    product.status === "ended" || new Date(product.endDate) <= new Date();
+  const sellerRating = getRatingPercentage(
+    product.seller.rating,
+    product.seller.totalRatings
+  );
   const highestBidder = product.bids && product.bids[0];
   const allImages = [product.mainImage, ...(product.images || [])];
+  const highestBidderRating =
+    highestBidder && highestBidder.bidder.totalRatings > 0
+      ? getRatingPercentage(
+          highestBidder.bidder.rating,
+          highestBidder.bidder.totalRatings
+        )
+      : 0;
 
   return (
-    <Box>
-      {/* Redirect to order page if ended */}
+    <div className="space-y-6">
       {shouldShowOrderLink && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Đấu giá đã kết thúc. <Link to={`/orders/${order.id}`}>Hoàn tất đơn hàng</Link>
-        </Alert>
+        <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <AlertCircle className="h-4 w-4 mt-0.5" />
+          <div className="space-y-1">
+            <p>The auction for this product has ended.</p>
+            <Link
+              to={`/orders/${order.id}`}
+              className="font-medium text-blue-700 hover:underline"
+            >
+              View order details
+            </Link>
+          </div>
+        </div>
       )}
 
-      {product.status === 'ended' && !order && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Sản phẩm đã kết thúc đấu giá
-        </Alert>
+      {product.status === "ended" && !order && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <AlertCircle className="h-4 w-4 mt-0.5" />
+          <p>This auction has ended.</p>
+        </div>
       )}
 
-      <Grid container spacing={3}>
-        {/* Left Column - Images and Description */}
-        <Grid item xs={12} md={8}>
-          {/* Image Gallery */}
-          <Paper sx={{ p: 2, mb: 3 }}>
-            <Box sx={{ mb: 2 }}>
-              <img
-                src={allImages[selectedImage] || product.mainImage}
-                alt={product.name}
-                style={{ width: '100%', maxHeight: 500, objectFit: 'contain' }}
-              />
-            </Box>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              {allImages.map((img, idx) => (
-                <Box
-                  key={idx}
-                  onClick={() => setSelectedImage(idx)}
-                  sx={{
-                    width: 80,
-                    height: 80,
-                    border: selectedImage === idx ? 2 : 1,
-                    borderColor: selectedImage === idx ? 'primary.main' : 'grey.300',
-                    borderRadius: 1,
-                    overflow: 'hidden',
-                    cursor: 'pointer',
-                  }}
-                >
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        {/* Left column */}
+        <div className="space-y-6">
+          {/* Gallery */}
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <div className="relative rounded-xl bg-muted flex items-center justify-center overflow-hidden">
+                {allImages[selectedImage] ? (
                   <img
-                    src={img}
-                    alt={`${product.name} ${idx + 1}`}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    src={allImages[selectedImage]}
+                    alt={product.name}
+                    className="max-h-[420px] w-full object-contain bg-background"
                   />
-                </Box>
-              ))}
-            </Box>
-          </Paper>
-
-          {/* Product Info */}
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
-              <Typography variant="h4">{product.name}</Typography>
-              {product.isNew && (
-                <Chip label="Mới" color="success" size="small" />
-              )}
-            </Box>
-
-            <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-              <Chip
-                icon={<AccessTime />}
-                label={`Kết thúc: ${formatRelativeTime(product.endDate)}`}
-                color={isEnded ? 'error' : 'primary'}
-              />
-              <Chip icon={<Gavel />} label={`${product.bidCount} lượt đấu giá`} />
-              <Chip label={`${product.viewCount} lượt xem`} />
-            </Box>
-
-            <Typography variant="h4" color="primary" gutterBottom>
-              {parseFloat(product.currentPrice.toString()).toLocaleString('vi-VN')} VNĐ
-            </Typography>
-
-            {product.buyNowPrice && (
-              <Typography variant="h6" color="secondary" gutterBottom>
-                Giá mua ngay: {parseFloat(product.buyNowPrice.toString()).toLocaleString('vi-VN')} VNĐ
-              </Typography>
-            )}
-
-            <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                Thông tin đấu giá
-              </Typography>
-              <Typography variant="body2">Giá khởi điểm: {parseFloat(product.startingPrice.toString()).toLocaleString('vi-VN')} VNĐ</Typography>
-              <Typography variant="body2">Bước giá: {parseFloat(product.bidStep.toString()).toLocaleString('vi-VN')} VNĐ</Typography>
-              <Typography variant="body2">Ngày đăng: {format(new Date(product.startDate), 'dd/MM/yyyy HH:mm')}</Typography>
-              {highestBidder && (
-                <Typography variant="body2">
-                  Người đặt giá cao nhất: {highestBidder.bidder.fullName}
-                </Typography>
-              )}
-            </Box>
-
-            {/* Seller Info */}
-            <Box sx={{ mt: 3, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                <Person sx={{ mr: 1, verticalAlign: 'middle' }} />
-                Người bán: {product.seller.fullName}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Điểm đánh giá: {sellerRating.toFixed(1)}% ({product.seller.rating}/{product.seller.totalRatings})
-              </Typography>
-            </Box>
-
-            {/* Description */}
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Mô tả sản phẩm
-              </Typography>
-              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                {product.description}
-              </Typography>
-            </Box>
-
-            {/* Questions & Answers */}
-            <Box sx={{ mt: 4 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">Câu hỏi và trả lời</Typography>
-                {user && !isSeller && (
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => setQuestionDialogOpen(true)}
-                  >
-                    Đặt câu hỏi
-                  </Button>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                    <ImageIcon className="h-10 w-10 mb-2" />
+                    <p>No image</p>
+                  </div>
                 )}
-              </Box>
-              {product.questions && product.questions.length > 0 ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {product.questions.map((q) => (
-                    <Paper key={q.id} sx={{ p: 2 }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        {q.user.fullName} hỏi:
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 1 }}>
-                        {q.question}
-                      </Typography>
-                      {q.answer ? (
-                        <>
-                          <Typography variant="subtitle2" color="primary" gutterBottom>
-                            Người bán trả lời:
-                          </Typography>
-                          <Typography variant="body2">{q.answer}</Typography>
-                        </>
-                      ) : isSeller ? (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => {
-                            setSelectedQuestionId(q.id);
-                            setAnswerDialogOpen(true);
-                          }}
-                        >
-                          Trả lời
-                        </Button>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">
-                          Chưa có câu trả lời
-                        </Typography>
-                      )}
-                    </Paper>
-                  ))}
-                </Box>
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  Chưa có câu hỏi nào
-                </Typography>
-              )}
-            </Box>
-          </Paper>
-
-          {/* Related Products */}
-          {relatedProducts.length > 0 && (
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                5 sản phẩm khác cùng chuyên mục
-              </Typography>
-              <Grid container spacing={2}>
-                {relatedProducts.map((p) => (
-                  <Grid item xs={6} sm={4} md={3} key={p.id}>
-                    <Card component={Link} to={`/products/${p.id}`} sx={{ textDecoration: 'none' }}>
-                      <CardMedia
-                        component="img"
-                        height="140"
-                        image={p.mainImage}
-                        alt={p.name}
-                      />
-                      <CardContent>
-                        <Typography variant="body2" noWrap>
-                          {p.name}
-                        </Typography>
-                        <Typography variant="h6" color="primary">
-                          {parseFloat(p.currentPrice.toString()).toLocaleString('vi-VN')} VNĐ
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {allImages.map((img, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setSelectedImage(idx)}
+                    className={`h-16 w-16 rounded-md overflow-hidden border ${
+                      selectedImage === idx
+                        ? "border-primary ring-2 ring-primary/40"
+                        : "border-border"
+                    }`}
+                  >
+                    <img
+                      src={img}
+                      alt={`${product.name} ${idx + 1}`}
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
                 ))}
-              </Grid>
-            </Paper>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Product info */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-start justify-between gap-4">
+                <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white mb-4 leading-tight">
+                  {product.name}
+                </h1>
+                {product.isNew && (
+                  <Badge className="bg-emerald-500 text-white">New</Badge>
+                )}
+              </CardTitle>
+              <CardDescription className="flex flex-wrap gap-2">
+                <Badge className="flex items-center gap-1 border-brand/30 text-brand font-semibold transition-colors">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>Ends: {formatRelativeTime(product.endDate)}</span>
+                </Badge>
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Gavel className="h-3.5 w-3.5" />
+                  <span>{product.bidCount} bids</span>
+                </Badge>
+                <Badge variant="outline">{product.viewCount} views</Badge>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Current price
+                </p>
+                <p className="text-3xl font-bold text-brand">
+                  {parseFloat(product.currentPrice.toString()).toLocaleString(
+                    "vi-VN"
+                  )}{" "}
+                  VNĐ
+                </p>
+              </div>
+
+              {product.buyNowPrice && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Buy now price
+                  </p>
+                  <p className="text-xl font-semibold text-foreground">
+                    {parseFloat(product.buyNowPrice.toString()).toLocaleString(
+                      "vi-VN"
+                    )}{" "}
+                    VNĐ
+                  </p>
+                </div>
+              )}
+
+              <div className="grid gap-2 text-sm text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Starting price</span>
+                  <span className="font-medium text-foreground">
+                    {parseFloat(
+                      product.startingPrice.toString()
+                    ).toLocaleString("vi-VN")}{" "}
+                    VNĐ
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Bid step</span>
+                  <span className="font-medium text-foreground">
+                    {parseFloat(product.bidStep.toString()).toLocaleString(
+                      "vi-VN"
+                    )}{" "}
+                    VNĐ
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Posted at</span>
+                  <span className="font-medium text-foreground">
+                    {format(new Date(product.startDate), "dd/MM/yyyy HH:mm")}
+                  </span>
+                </div>
+                {highestBidder && (
+                  <div className="flex justify-between">
+                    <span>Highest bidder</span>
+                    <span className="font-medium text-foreground">
+                      {highestBidder.bidder.fullName}
+                      {highestBidderRating > 0 &&
+                        ` (${highestBidderRating.toFixed(1)}%)`}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Seller info */}
+              <div className="space-y-2">
+                <p className="text-sm font-semibold flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Seller: {product.seller.fullName}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Rating:{" "}
+                  <span className="font-medium">
+                    {sellerRating.toFixed(1)}%
+                  </span>{" "}
+                  ({product.seller.rating}/{product.seller.totalRatings})
+                </p>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <h2 className="text-base font-semibold">Product description</h2>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
+                  {product.description}
+                </p>
+              </div>
+
+              {/* Questions & answers */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold">
+                    Questions & answers
+                  </h2>
+                  {user && !isSeller && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setQuestionDialogOpen(true)}
+                    >
+                      Ask a question
+                    </Button>
+                  )}
+                </div>
+
+                {product.questions && product.questions.length > 0 ? (
+                  <div className="space-y-3">
+                    {product.questions.map((q) => (
+                      <div
+                        key={q.id}
+                        className="rounded-lg border bg-card p-3 space-y-2"
+                      >
+                        <p className="text-sm font-medium">
+                          {q.user.fullName} asked:
+                        </p>
+                        <p className="text-sm text-foreground">{q.question}</p>
+                        {q.answer ? (
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold text-primary">
+                              Seller answered:
+                            </p>
+                            <p className="text-sm text-foreground">
+                              {q.answer}
+                            </p>
+                          </div>
+                        ) : isSeller ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedQuestionId(q.id);
+                              setAnswerDialogOpen(true);
+                            }}
+                          >
+                            Answer
+                          </Button>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            No answer yet
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No questions yet
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Related products */}
+          {relatedProducts.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Related products</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {relatedProducts.map((p) => (
+                    <Link
+                      key={p.id}
+                      to={`/products/${p.id}`}
+                      className="group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow"
+                    >
+                      <div className="aspect-video overflow-hidden">
+                        <img
+                          src={p.mainImage}
+                          alt={p.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                      <div className="p-3 space-y-1">
+                        <p className="text-xs font-medium line-clamp-2">
+                          {p.name}
+                        </p>
+                        <p className="text-sm font-semibold text-brand">
+                          {parseFloat(p.currentPrice.toString()).toLocaleString(
+                            "vi-VN"
+                          )}{" "}
+                          VNĐ
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
-        </Grid>
+        </div>
 
-        {/* Right Column - Bidding */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, position: 'sticky', top: 20 }}>
-            {!isEnded ? (
-              <>
-                {user ? (
-                  <>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                      <Typography variant="h6">Đấu giá</Typography>
-                      <IconButton onClick={handleToggleWatchlist} color={isInWatchlist ? 'error' : 'default'}>
-                        {isInWatchlist ? <Favorite /> : <FavoriteBorder />}
-                      </IconButton>
-                    </Box>
-
-                    {!isSeller && (
-                      <>
-                        <FormControlLabel
-                          control={
-                            <Checkbox
+        {/* Right column – bidding panel */}
+        <div className="space-y-4 lg:sticky lg:top-20 lg:h-fit">
+          <Card className="bg-transparent border-none shadow-none">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-base font-semibold">
+                  Place a bid
+                </CardTitle>
+                <CardDescription className="text-sm text-muted-foreground">
+                  Submit a bid for this product
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleToggleWatchlist}
+                aria-label="Toggle watchlist"
+              >
+                {isInWatchlist ? (
+                  <HeartOff className="h-5 w-5 text-destructive" />
+                ) : (
+                  <Heart className="h-5 w-5" />
+                )}
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!isEnded ? (
+                <>
+                  {user ? (
+                    <>
+                      {!isSeller ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 text-sm">
+                            <input
+                              id="auto-bid"
+                              type="checkbox"
                               checked={isAutoBid}
                               onChange={(e) => setIsAutoBid(e.target.checked)}
+                              className="h-4 w-4 rounded border border-input text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                             />
-                          }
-                          label="Đấu giá tự động"
-                        />
+                            <label
+                              htmlFor="auto-bid"
+                              className="text-sm text-foreground"
+                            >
+                              Automatic bidding
+                            </label>
+                          </div>
 
-                        {!isAutoBid ? (
-                          <TextField
-                            label="Số tiền đấu giá"
-                            type="number"
-                            fullWidth
-                            value={bidAmount}
-                            onChange={(e) => setBidAmount(e.target.value)}
-                            margin="normal"
-                            helperText={`Giá đề nghị: ${(parseFloat(product.currentPrice.toString()) + parseFloat(product.bidStep.toString())).toLocaleString('vi-VN')} VNĐ`}
-                          />
-                        ) : (
-                          <>
-                            <TextField
-                              label="Giá tối đa"
-                              type="number"
-                              fullWidth
-                              value={maxAmount}
-                              onChange={(e) => setMaxAmount(e.target.value)}
-                              margin="normal"
-                            />
-                            <Typography variant="caption" color="text.secondary">
-                              Hệ thống sẽ tự động đấu giá cho bạn đến mức giá tối đa này
-                            </Typography>
-                          </>
-                        )}
+                          {!isAutoBid ? (
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">
+                                Bid amount
+                              </label>
+                              <div className="relative">
+                                <Input
+                                  className="bg-background pr-12"
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={formatCurrencyDisplay(bidAmount)}
+                                  onChange={handleBidAmountChange}
+                                  placeholder="0"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                                  VNĐ
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Suggested next bid:{" "}
+                                {(
+                                  parseFloat(product.currentPrice.toString()) +
+                                  parseFloat(product.bidStep.toString())
+                                ).toLocaleString("vi-VN")}{" "}
+                                VNĐ
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">
+                                Maximum amount
+                              </label>
+                              <div className="relative">
+                                <Input
+                                  className="bg-background pr-12"
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={formatCurrencyDisplay(maxAmount)}
+                                  onChange={handleMaxAmountChange}
+                                  placeholder="0"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                                  VNĐ
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                The system will automatically bid up to this
+                                maximum amount.
+                              </p>
+                            </div>
+                          )}
 
-                        <Button
-                          variant="contained"
-                          fullWidth
-                          onClick={handlePlaceBid}
-                          sx={{ mt: 2 }}
-                          disabled={!bidAmount && !isAutoBid}
-                        >
-                          {isAutoBid ? 'Đặt đấu giá tự động' : 'Ra giá'}
-                        </Button>
-                      </>
-                    )}
+                          <Button
+                            className="w-full"
+                            onClick={handlePlaceBid}
+                            disabled={!bidAmount && !isAutoBid}
+                          >
+                            {isAutoBid ? "Place automatic bid" : "Place bid"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                          This is your product; you cannot place a bid.
+                        </div>
+                      )}
 
-                    {isSeller && (
-                      <Alert severity="info">
-                        Đây là sản phẩm của bạn. Bạn không thể đấu giá.
-                      </Alert>
-                    )}
-
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setBidHistoryOpen(true)}
+                      >
+                        View bid history
+                      </Button>
+                    </>
+                  ) : (
                     <Button
-                      variant="outlined"
-                      fullWidth
-                      onClick={() => setBidHistoryOpen(true)}
-                      sx={{ mt: 2 }}
+                      className="w-full"
+                      onClick={() => navigate("/login")}
                     >
-                      Xem lịch sử đấu giá
+                      Log in to bid
                     </Button>
-                  </>
-                ) : (
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    onClick={() => navigate('/login')}
-                  >
-                    Đăng nhập để đấu giá
-                  </Button>
-                )}
-              </>
-            ) : (
-              <Alert severity="warning">
-                Đấu giá đã kết thúc
-              </Alert>
-            )}
-          </Paper>
-        </Grid>
-      </Grid>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-amber-900 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>The auction has ended</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
-      {/* Bid History Dialog */}
-      <Dialog open={bidHistoryOpen} onClose={() => setBidHistoryOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Lịch sử đấu giá</DialogTitle>
-        <DialogContent>
-          <TableContainer>
+      {/* Bid history dialog */}
+      <Dialog open={bidHistoryOpen} onOpenChange={setBidHistoryOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Bid history</DialogTitle>
+          </DialogHeader>
+          <div className="border rounded-md">
             <Table>
-              <TableHead>
+              <TableHeader>
                 <TableRow>
-                  <TableCell>Thời điểm</TableCell>
-                  <TableCell>Người mua</TableCell>
-                  <TableCell>Giá</TableCell>
-                  {isSeller && <TableCell>Thao tác</TableCell>}
+                  <TableHead>Time</TableHead>
+                  <TableHead>Bidder</TableHead>
+                  <TableHead>Amount</TableHead>
+                  {isSeller && <TableHead>Actions</TableHead>}
                 </TableRow>
-              </TableHead>
+              </TableHeader>
               <TableBody>
                 {bidHistory.map((bid) => (
                   <TableRow key={bid.id}>
                     <TableCell>
-                      {format(new Date(bid.createdAt), 'dd/MM/yyyy HH:mm')}
+                      {format(new Date(bid.createdAt), "dd/MM/yyyy HH:mm")}
                     </TableCell>
                     <TableCell>{bid.bidder.fullName}</TableCell>
                     <TableCell>
-                      {parseFloat(bid.amount.toString()).toLocaleString('vi-VN')} VNĐ
+                      {parseFloat(bid.amount.toString()).toLocaleString(
+                        "vi-VN"
+                      )}{" "}
+                      VNĐ
                     </TableCell>
                     {isSeller && (
                       <TableCell>
                         <Button
-                          size="small"
-                          color="error"
-                          onClick={() => {
-                            const bidToReject = bidHistory.find(b => b.id === bid.id);
-                            if (bidToReject) {
-                              // Need to get actual bid ID from backend
-                              handleRejectBid(bid.id);
-                            }
-                          }}
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleRejectBid(bid.id)}
                         >
-                          Từ chối
+                          Reject
                         </Button>
                       </TableCell>
                     )}
@@ -679,56 +866,66 @@ export default function ProductDetailPage() {
                 ))}
               </TableBody>
             </Table>
-          </TableContainer>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBidHistoryOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setBidHistoryOpen(false)}>Đóng</Button>
-        </DialogActions>
       </Dialog>
 
-      {/* Ask Question Dialog */}
-      <Dialog open={questionDialogOpen} onClose={() => setQuestionDialogOpen(false)}>
-        <DialogTitle>Đặt câu hỏi</DialogTitle>
+      {/* Ask question dialog */}
+      <Dialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen}>
         <DialogContent>
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            label="Câu hỏi"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            sx={{ mt: 2 }}
-          />
+          <DialogHeader>
+            <DialogTitle>Ask a question</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Textarea
+              rows={4}
+              placeholder="Type your question..."
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setQuestionDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleAskQuestion}>Submit</Button>
+          </DialogFooter>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setQuestionDialogOpen(false)}>Hủy</Button>
-          <Button onClick={handleAskQuestion} variant="contained">
-            Gửi
-          </Button>
-        </DialogActions>
       </Dialog>
 
-      {/* Answer Question Dialog */}
-      <Dialog open={answerDialogOpen} onClose={() => setAnswerDialogOpen(false)}>
-        <DialogTitle>Trả lời câu hỏi</DialogTitle>
+      {/* Answer question dialog */}
+      <Dialog open={answerDialogOpen} onOpenChange={setAnswerDialogOpen}>
         <DialogContent>
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            label="Câu trả lời"
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-            sx={{ mt: 2 }}
-          />
+          <DialogHeader>
+            <DialogTitle>Answer question</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Textarea
+              rows={4}
+              placeholder="Type your answer..."
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAnswerDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleAnswerQuestion}>Submit</Button>
+          </DialogFooter>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAnswerDialogOpen(false)}>Hủy</Button>
-          <Button onClick={handleAnswerQuestion} variant="contained">
-            Gửi
-          </Button>
-        </DialogActions>
       </Dialog>
-    </Box>
+    </div>
   );
 }

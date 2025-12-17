@@ -5,6 +5,7 @@ import { Carousel } from "@/components/ui/carousel";
 import apiClient from "../api/client";
 import { Gavel, TrendingUp, Users, Sparkles, LoaderIcon } from "lucide-react";
 import { ProductCard, type ProductCardProduct } from "@/components/ProductCard";
+import Loading from "@/components/Loading";
 
 type Product = ProductCardProduct;
 
@@ -138,17 +139,7 @@ export default function HomePage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center space-y-4">
-          <LoaderIcon
-            className="animate-spin size-5 mx-auto"
-            role="status"
-            aria-label="Loading"
-          />
-        </div>
-      </div>
-    );
+    return <Loading />;
   }
 
   return (

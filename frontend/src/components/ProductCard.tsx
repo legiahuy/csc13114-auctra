@@ -56,14 +56,16 @@ export function ProductCard({ product, className }: ProductCardProps) {
         <div className="space-y-3">
           <Link
             to={`/products/${product.id}`}
-            className="text-lg font-semibold hover:text-primary transition-colors block leading-tight min-h-[3.5rem]"
+            className="text-lg font-semibold transition-colors block leading-tight min-h-[3.5rem]"
           >
             {product.name}
           </Link>
 
           <div className="space-y-2 min-h-[4.5rem]">
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Current Price</p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Current Price
+              </p>
               <p className="text-2xl font-bold text-brand leading-tight">
                 {product.currentPrice && product.currentPrice > 0
                   ? new Intl.NumberFormat("vi-VN").format(product.currentPrice)
@@ -115,5 +117,3 @@ export function ProductCard({ product, className }: ProductCardProps) {
     </Card>
   );
 }
-
-
