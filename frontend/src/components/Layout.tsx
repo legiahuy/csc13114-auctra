@@ -175,9 +175,13 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </header>
-      <main className="px-0 py-8 flex-1">{children}</main>
-      <footer className="border-t py-8 text-center text-muted-foreground">
-        <p>© 2025 Online Auction Platform</p>
+      <main className="py-8 flex-1">
+        <div className="container mx-auto px-4">{children}</div>
+      </main>
+      <footer className="border-t py-4">
+        <div className="container mx-auto px-4 text-center text-muted-foreground">
+          <p>© 2025 Online Auction Platform</p>
+        </div>
       </footer>
     </div>
   );
