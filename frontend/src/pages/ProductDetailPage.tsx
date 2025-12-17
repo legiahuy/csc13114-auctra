@@ -131,6 +131,11 @@ export default function ProductDetailPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [order, setOrder] = useState<any>(null);
 
+  // Scroll to top when component mounts or product ID changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [id]);
+
   useEffect(() => {
     const fetchData = async () => {
       try {

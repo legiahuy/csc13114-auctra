@@ -13,6 +13,7 @@ import { useSearchParams } from "react-router-dom";
 import apiClient from "../api/client";
 import { LoaderIcon } from "lucide-react";
 import { ProductCard, type ProductCardProduct } from "@/components/ProductCard";
+import Loading from "@/components/Loading";
 
 type Product = ProductCardProduct;
 
@@ -119,15 +120,7 @@ export default function ProductListPage() {
   };
 
   if (loading && products.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <LoaderIcon
-          className="animate-spin size-5 mx-auto"
-          role="status"
-          aria-label="Loading"
-        />
-      </div>
-    );
+    return <Loading />;
   }
 
   return (
