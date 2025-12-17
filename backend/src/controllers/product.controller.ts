@@ -175,7 +175,7 @@ export const getProducts = async (
             {
               model: User,
               as: "bidder",
-              attributes: ["id", "fullName"],
+              attributes: ["id", "fullName", "rating", "totalRatings"],
             },
           ],
           order: [["amount", "DESC"]],
@@ -229,7 +229,7 @@ export const getProductById = async (
             {
               model: User,
               as: "bidder",
-              attributes: ["id", "fullName"],
+              attributes: ["id", "fullName", "rating", "totalRatings"],
             },
           ],
           order: [["amount", "DESC"]],

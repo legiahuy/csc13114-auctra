@@ -141,7 +141,7 @@ export default function ProductListPage() {
               value={searchInput}
               onChange={(e) => handleSearchInputChange(e.target.value)}
               placeholder="Search products..."
-              className="pr-10"
+              className="pr-10 bg-background"
             />
             {searchInput !== debouncedSearch && (
               <LoaderIcon
@@ -173,10 +173,10 @@ export default function ProductListPage() {
             )}
           </div>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-2 ">
           <Label>Sort by</Label>
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[180px] bg-background">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -188,7 +188,7 @@ export default function ProductListPage() {
         <div className="space-y-2">
           <Label>Order</Label>
           <Select value={sortOrder} onValueChange={setSortOrder}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[140px] bg-background">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
