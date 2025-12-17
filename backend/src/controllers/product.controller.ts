@@ -111,7 +111,25 @@ export const getProducts = async (
     };
 
     if (categoryId) {
-      where.categoryId = categoryId;
+      // Check if category has children - if so, include products from all child categories
+      const category = await Category.findByPk(categoryId as string, {
+        include: [
+          {
+            model: Category,
+            as: 'children',
+          },
+        ],
+      });
+
+      if (category && category.children && category.children.length > 0) {
+        // Parent category: include products from all child categories
+        // (Products are typically assigned to leaf categories, not parent categories)
+        const childIds = category.children.map((child: any) => child.id);
+        where.categoryId = { [Op.in]: childIds };
+      } else {
+        // Leaf category: filter by exact categoryId
+        where.categoryId = parseInt(categoryId as string);
+      }
     }
 
     if (search) {
