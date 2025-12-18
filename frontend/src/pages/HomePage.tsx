@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Carousel } from "@/components/ui/carousel";
 import apiClient from "../api/client";
-import { Gavel, TrendingUp, Users, Sparkles, LoaderIcon } from "lucide-react";
+import { Gavel, TrendingUp, Users, Sparkles } from "lucide-react";
 import { ProductCard, type ProductCardProduct } from "@/components/ProductCard";
 import Loading from "@/components/Loading";
 

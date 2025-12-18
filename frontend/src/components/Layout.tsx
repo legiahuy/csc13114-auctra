@@ -60,12 +60,14 @@ export default function Layout({ children }: LayoutProps) {
       <header className="sticky top-0 z-50 -mb-4 px-4 pb-4">
         <div className="fade-bottom bg-background/15 absolute left-0 h-24 w-full backdrop-blur-lg" />
         <div className="container mx-auto px-4 relative">
-          <div className="flex h-16 items-center justify-between">
-            <Link
-              to="/"
-              className="text-xl font-bold text-foreground hover:text-primary transition-colors"
-            >
-              Online Auction
+          <div className="flex h-16 items-center justify-between ">
+            <Link to="/" className="flex items-center gap-2 ">
+              <img
+                className="hover:rotate-180 transition-transform"
+                src="/auctra.svg"
+                width={30}
+              />
+              <div className="text-xl font-bold text-foreground">Auctra</div>
             </Link>
             <nav className="flex items-center gap-4">
               <Button variant="ghost" asChild>
@@ -192,7 +194,7 @@ export default function Layout({ children }: LayoutProps) {
       </main>
       <footer className="border-t py-4">
         <div className="container mx-auto px-4 text-center text-muted-foreground">
-          <p className="my-0">© 2025 Online Auction Platform</p>
+          <p className="my-0">© 2025 Auctra</p>
         </div>
       </footer>
     </div>

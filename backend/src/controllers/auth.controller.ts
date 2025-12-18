@@ -1,30 +1,39 @@
-import { Request, Response, NextFunction } from 'express';
-import { validationResult } from 'express-validator';
-import { User } from '../models';
-import { AppError } from '../middleware/errorHandler';
-import { generateAccessToken, generateRefreshToken } from '../utils/jwt.util';
-import { sendOTPEmail } from '../utils/email.util';
-import { generateOTP, generateToken } from '../utils/otp.util';
-import { Op } from 'sequelize';
+import { Request, Response, NextFunction } from "express";
+import { validationResult } from "express-validator";
+import { User } from "../models";
+import { AppError } from "../middleware/errorHandler";
+import { generateAccessToken, generateRefreshToken } from "../utils/jwt.util";
+import { sendOTPEmail } from "../utils/email.util";
+import { generateOTP, generateToken } from "../utils/otp.util";
+import { verifyRecaptcha } from "../utils/recaptcha.util";
+import { Op } from "sequelize";
 
-export const register = async (req: Request, res: Response, next: NextFunction) => {
+export const register = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return next(new AppError('Validation failed', 400));
+      return next(new AppError("Validation failed", 400));
     }
 
-    const { email, password, fullName, address, dateOfBirth, recaptchaToken } = req.body;
+    const { email, password, fullName, address, dateOfBirth, recaptchaToken } =
+      req.body;
 
-    // Verify reCAPTCHA (implement actual verification)
-    // if (!verifyRecaptcha(recaptchaToken)) {
-    //   return next(new AppError('reCAPTCHA verification failed', 400));
-    // }
+    // Verify reCAPTCHA
+    const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
+    if (!isRecaptchaValid) {
+      return next(
+        new AppError("reCAPTCHA verification failed. Please try again.", 400)
+      );
+    }
 
     // Check if email exists
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
-      return next(new AppError('Email already exists', 400));
+      return next(new AppError("Email already exists", 400));
     }
 
     // Generate OTP
@@ -40,7 +49,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       fullName,
       address,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-      role: 'bidder',
+      role: "bidder",
       emailVerificationToken: verificationToken,
       emailVerificationExpires: expires,
     });
@@ -50,7 +59,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
     res.status(201).json({
       success: true,
-      message: 'Registration successful. Please verify your email.',
+      message: "Registration successful. Please verify your email.",
       data: {
         userId: user.id,
         email: user.email,
@@ -62,7 +71,11 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
   }
 };
 
-export const verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
+export const verifyEmail = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { token, otp } = req.body;
 
@@ -74,7 +87,7 @@ export const verifyEmail = async (req: Request, res: Response, next: NextFunctio
     });
 
     if (!user) {
-      return next(new AppError('Invalid or expired verification token', 400));
+      return next(new AppError("Invalid or expired verification token", 400));
     }
 
     // Verify OTP (in production, store OTP in database)
@@ -87,34 +100,46 @@ export const verifyEmail = async (req: Request, res: Response, next: NextFunctio
 
     res.json({
       success: true,
-      message: 'Email verified successfully',
+      message: "Email verified successfully",
     });
   } catch (error) {
     next(error);
   }
 };
 
-export const login = async (req: Request, res: Response, next: NextFunction) => {
+export const login = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return next(new AppError('Validation failed', 400));
+      return next(new AppError("Validation failed", 400));
     }
 
-    const { email, password } = req.body;
+    const { email, password, recaptchaToken } = req.body;
+
+    // Verify reCAPTCHA
+    const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
+    if (!isRecaptchaValid) {
+      return next(
+        new AppError("reCAPTCHA verification failed. Please try again.", 400)
+      );
+    }
 
     const user = await User.findOne({ where: { email } });
     if (!user) {
-      return next(new AppError('Invalid credentials', 401));
+      return next(new AppError("Invalid credentials", 401));
     }
 
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
-      return next(new AppError('Invalid credentials', 401));
+      return next(new AppError("Invalid credentials", 401));
     }
 
     if (!user.isEmailVerified) {
-      return next(new AppError('Please verify your email first', 401));
+      return next(new AppError("Please verify your email first", 401));
     }
 
     const accessToken = generateAccessToken({
@@ -147,20 +172,24 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
   }
 };
 
-export const refreshToken = async (req: Request, res: Response, next: NextFunction) => {
+export const refreshToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { refreshToken } = req.body;
 
     if (!refreshToken) {
-      return next(new AppError('Refresh token required', 400));
+      return next(new AppError("Refresh token required", 400));
     }
 
-    const { verifyRefreshToken } = require('../utils/jwt.util');
+    const { verifyRefreshToken } = require("../utils/jwt.util");
     const decoded = verifyRefreshToken(refreshToken);
 
     const user = await User.findByPk(decoded.id);
     if (!user) {
-      return next(new AppError('User not found', 404));
+      return next(new AppError("User not found", 404));
     }
 
     const accessToken = generateAccessToken({
@@ -176,11 +205,15 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
       },
     });
   } catch (error) {
-    next(new AppError('Invalid refresh token', 401));
+    next(new AppError("Invalid refresh token", 401));
   }
 };
 
-export const forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
+export const forgotPassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { email } = req.body;
 
@@ -189,7 +222,7 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
       // Don't reveal if email exists
       return res.json({
         success: true,
-        message: 'If email exists, password reset link has been sent',
+        message: "If email exists, password reset link has been sent",
       });
     }
 
@@ -207,7 +240,7 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
 
     res.json({
       success: true,
-      message: 'Password reset OTP sent to email',
+      message: "Password reset OTP sent to email",
       data: {
         resetToken,
       },
@@ -217,7 +250,11 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
+export const resetPassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const { token, otp, newPassword } = req.body;
 
@@ -229,7 +266,7 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
     });
 
     if (!user) {
-      return next(new AppError('Invalid or expired reset token', 400));
+      return next(new AppError("Invalid or expired reset token", 400));
     }
 
     // Verify OTP (in production, verify against stored OTP)
@@ -240,10 +277,9 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 
     res.json({
       success: true,
-      message: 'Password reset successfully',
+      message: "Password reset successfully",
     });
   } catch (error) {
     next(error);
   }
 };
-
