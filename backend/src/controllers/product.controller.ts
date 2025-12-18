@@ -11,6 +11,13 @@ import { sequelize } from "../config/database";
 
 const NEW_PRODUCT_MINUTES = parseInt(process.env.NEW_PRODUCT_MINUTES || "60");
 
+const isProductNew = (product: any) => {
+  if (!product || !product.createdAt) return false;
+  const now = new Date();
+  const created = new Date(product.createdAt);
+  return now.getTime() - created.getTime() < NEW_PRODUCT_MINUTES * 60 * 1000;
+};
+
 export const getHomepageProducts = async (
   req: Request,
   res: Response,
@@ -37,6 +44,11 @@ export const getHomepageProducts = async (
       limit: 5,
     });
 
+    // Mark isNew based on creation time and config
+    endingSoon.forEach((p) => {
+      p.setDataValue("isNew", isProductNew(p));
+    });
+
     // Top 5 products with most bids
     const mostBids = await Product.findAll({
       where: {
@@ -55,6 +67,11 @@ export const getHomepageProducts = async (
       limit: 5,
     });
 
+    // Mark isNew based on creation time and config
+    mostBids.forEach((p) => {
+      p.setDataValue("isNew", isProductNew(p));
+    });
+
     // Top 5 products with highest price
     const highestPrice = await Product.findAll({
       where: {
@@ -71,6 +88,11 @@ export const getHomepageProducts = async (
       ],
       order: [["currentPrice", "DESC"]],
       limit: 5,
+    });
+
+    // Mark isNew based on creation time and config
+    highestPrice.forEach((p) => {
+      p.setDataValue("isNew", isProductNew(p));
     });
 
     res.json({
@@ -116,7 +138,7 @@ export const getProducts = async (
         include: [
           {
             model: Category,
-            as: 'children',
+            as: "children",
           },
         ],
       });
@@ -187,6 +209,11 @@ export const getProducts = async (
       offset,
     });
 
+    // Mark isNew based on creation time and config
+    rows.forEach((p) => {
+      p.setDataValue("isNew", isProductNew(p));
+    });
+
     res.json({
       success: true,
       data: {
@@ -254,6 +281,9 @@ export const getProductById = async (
       return next(new AppError("Product not found", 404));
     }
 
+    // Mark isNew
+    product.setDataValue("isNew", isProductNew(product));
+
     // Increment view count
     product.viewCount += 1;
     await product.save();
@@ -277,6 +307,8 @@ export const getProductById = async (
       limit: 5,
       order: [["createdAt", "DESC"]],
     });
+
+    relatedProducts.forEach((p) => p.setDataValue("isNew", isProductNew(p)));
 
     res.json({
       success: true,
@@ -398,6 +430,9 @@ export const getMyProducts = async (
       ],
       order: [["createdAt", "DESC"]],
     });
+
+    // Mark isNew based on creation time and config
+    products.forEach((p) => p.setDataValue("isNew", isProductNew(p)));
 
     res.json({
       success: true,
