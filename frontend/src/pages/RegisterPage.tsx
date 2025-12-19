@@ -9,10 +9,10 @@ import toast from 'react-hot-toast';
 import * as Yup from 'yup';
 
 const validationSchema = Yup.object({
-  email: Yup.string().email('Email không hợp lệ').required('Bắt buộc'),
-  password: Yup.string().min(6, 'Tối thiểu 6 ký tự').required('Bắt buộc'),
-  fullName: Yup.string().required('Bắt buộc'),
-  address: Yup.string().required('Bắt buộc'),
+  email: Yup.string().email('Invalid email').required('Required'),
+  password: Yup.string().min(6, 'Minimum 6 characters').required('Required'),
+  fullName: Yup.string().required('Required'),
+  address: Yup.string().required('Required'),
 });
 
 export default function RegisterPage() {
@@ -22,7 +22,7 @@ export default function RegisterPage() {
     <div className="max-w-md mx-auto mt-16">
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Đăng ký</CardTitle>
+          <CardTitle className="text-2xl">Register</CardTitle>
         </CardHeader>
         <CardContent>
           <Formik
@@ -31,10 +31,10 @@ export default function RegisterPage() {
             onSubmit={async (values, { setSubmitting }) => {
               try {
                 await apiClient.post('/auth/register', values);
-                toast.success('Đăng ký thành công. Vui lòng kiểm tra email để xác nhận.');
+                toast.success('Registration successful. Please check your email to verify your account.');
                 navigate('/login');
               } catch (error: any) {
-                toast.error(error.response?.data?.error?.message || 'Đăng ký thất bại');
+                toast.error(error.response?.data?.error?.message || 'Registration failed');
               } finally {
                 setSubmitting(false);
               }
@@ -57,7 +57,7 @@ export default function RegisterPage() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Mật khẩu</Label>
+                  <Label htmlFor="password">Password</Label>
                   <Field
                     as={Input}
                     id="password"
@@ -70,7 +70,7 @@ export default function RegisterPage() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="fullName">Họ tên</Label>
+                  <Label htmlFor="fullName">Full name</Label>
                   <Field
                     as={Input}
                     id="fullName"
@@ -82,7 +82,7 @@ export default function RegisterPage() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="address">Địa chỉ</Label>
+                  <Label htmlFor="address">Address</Label>
                   <Field
                     as={Input}
                     id="address"
@@ -94,7 +94,7 @@ export default function RegisterPage() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="dateOfBirth">Ngày sinh</Label>
+                  <Label htmlFor="dateOfBirth">Date of birth</Label>
                   <Field
                     as={Input}
                     id="dateOfBirth"
@@ -107,7 +107,7 @@ export default function RegisterPage() {
                   className="w-full"
                   disabled={isSubmitting}
                 >
-                  Đăng ký
+                  Register
                 </Button>
               </Form>
             )}

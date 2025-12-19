@@ -65,15 +65,15 @@ export default function Layout({ children }: LayoutProps) {
             </Link>
             <nav className="flex items-center gap-4">
               <Button variant="ghost" asChild>
-                <Link to="/products">Sản phẩm</Link>
+                <Link to="/products">Products</Link>
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost">Danh mục</Button>
+                  <Button variant="ghost">Categories</Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   {categories.length === 0 ? (
-                    <DropdownMenuItem disabled>Đang tải...</DropdownMenuItem>
+                    <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
                   ) : (
                     categories.map((category) =>
                       category.children && category.children.length > 0 ? (
@@ -85,7 +85,7 @@ export default function Layout({ children }: LayoutProps) {
                             <DropdownMenuItem
                               onSelect={() => handleCategoryClick(category.id)}
                             >
-                              Tất cả {category.name}
+                              All {category.name}
                             </DropdownMenuItem>
                             {category.children.map((child) => (
                               <DropdownMenuItem
@@ -112,10 +112,10 @@ export default function Layout({ children }: LayoutProps) {
               {user && (
                 <>
                   <Button variant="ghost" asChild>
-                    <Link to="/watchlist">Yêu thích</Link>
+                    <Link to="/watchlist">Watchlist</Link>
                   </Button>
                   <Button variant="ghost" asChild>
-                    <Link to="/my-bids">Lịch sử đấu giá</Link>
+                    <Link to="/my-bids">My Bids</Link>
                   </Button>
                 </>
               )}
@@ -138,7 +138,7 @@ export default function Layout({ children }: LayoutProps) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onSelect={() => navigate("/profile")}>
-                        Hồ sơ
+                        Profile
                       </DropdownMenuItem>
                       {user.role === "seller" && (
                         <DropdownMenuItem
@@ -156,7 +156,7 @@ export default function Layout({ children }: LayoutProps) {
                       )}
                       <Separator />
                       <DropdownMenuItem onSelect={handleLogout}>
-                        Đăng xuất
+                        Logout
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -164,10 +164,10 @@ export default function Layout({ children }: LayoutProps) {
               ) : (
                 <>
                   <Button variant="ghost" asChild>
-                    <Link to="/login">Đăng nhập</Link>
+                    <Link to="/login">Login</Link>
                   </Button>
                   <Button asChild>
-                    <Link to="/register">Đăng ký</Link>
+                    <Link to="/register">Register</Link>
                   </Button>
                 </>
               )}
@@ -175,7 +175,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </header>
-      <main className="container mx-auto px-4 py-8 flex-1">{children}</main>
+      <main className="px-0 py-8 flex-1">{children}</main>
       <footer className="border-t py-8 text-center text-muted-foreground">
         <p>© 2025 Online Auction Platform</p>
       </footer>

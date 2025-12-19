@@ -1,24 +1,21 @@
-import { createTheme } from '@mui/material/styles';
+import { createTheme } from "@mui/material/styles";
 
 export const theme = createTheme({
   palette: {
     primary: {
-      main: '#1976d2',
+      main: "#0f172a", // deep neutral similar to Nextwaves text color
     },
     secondary: {
-      main: '#dc004e',
+      main: "#111827",
     },
   },
   typography: {
     fontFamily: [
-      '-apple-system',
-      'BlinkMacSystemFont',
+      "Inter",
+      "-apple-system",
+      "BlinkMacSystemFont",
       '"Segoe UI"',
-      'Roboto',
-      '"Helvetica Neue"',
-      'Arial',
-      'sans-serif',
-    ].join(','),
+      "sans-serif",
+    ].join(","),
   },
 });
-
