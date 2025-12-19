@@ -1,22 +1,27 @@
 version: "3.8"
 
-services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: online-auction-db
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: online_auction
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+# Note: Database is now hosted on Supabase (or another cloud provider)
+# No local PostgreSQL service needed.
+# Configure DATABASE_URL in backend/.env file with your Supabase connection string.
 
-volumes:
-  postgres_data:
+# If you need a local database for development, uncomment the service below:
+# services:
+#   postgres:
+#     image: postgres:15-alpine
+#     container_name: online-auction-db
+#     environment:
+#       POSTGRES_USER: postgres
+#       POSTGRES_PASSWORD: postgres
+#       POSTGRES_DB: online_auction
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U postgres"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+#
+# volumes:
+#   postgres_data:

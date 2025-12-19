@@ -135,46 +135,46 @@ export default function ProductListPage() {
   };
 
   if (loading) {
-    return <div className="text-center py-8">Đang tải...</div>;
+    return <div className="text-center py-8">Loading...</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
         <div className="flex-1 space-y-2">
-          <Label htmlFor="search">Tìm kiếm</Label>
+          <Label htmlFor="search">Search</Label>
           <div className="flex gap-2">
             <Input
               id="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Tìm kiếm sản phẩm..."
+              placeholder="Search products..."
             />
-            <Button onClick={handleSearch}>Tìm</Button>
+            <Button onClick={handleSearch}>Search</Button>
           </div>
         </div>
         <div className="space-y-2">
-          <Label>Sắp xếp</Label>
+          <Label>Sort by</Label>
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-[180px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="endDate">Thời gian kết thúc</SelectItem>
-              <SelectItem value="price">Giá</SelectItem>
+              <SelectItem value="endDate">End time</SelectItem>
+              <SelectItem value="price">Price</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Thứ tự</Label>
+          <Label>Order</Label>
           <Select value={sortOrder} onValueChange={setSortOrder}>
             <SelectTrigger className="w-[140px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ASC">Tăng dần</SelectItem>
-              <SelectItem value="DESC">Giảm dần</SelectItem>
+              <SelectItem value="ASC">Ascending</SelectItem>
+              <SelectItem value="DESC">Descending</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -210,14 +210,14 @@ export default function ProductListPage() {
               </p>
               <div className="space-y-1.5 text-sm text-muted-foreground">
                 <p className="leading-relaxed">
-                  Còn lại: {formatDistanceToNow(new Date(product.endDate), { addSuffix: true })}
+                  Time left: {formatDistanceToNow(new Date(product.endDate), { addSuffix: true })}
                 </p>
                 <p className="leading-relaxed">
-                  {product.bidCount} lượt đấu giá
+                  {product.bidCount} bids
                 </p>
                 {product.bids && product.bids[0] && (
                   <p className="leading-relaxed">
-                    Người đặt giá cao nhất: {product.bids[0].bidder.fullName}
+                    Highest bidder: {product.bids[0].bidder.fullName}
                   </p>
                 )}
               </div>
@@ -233,17 +233,17 @@ export default function ProductListPage() {
             onClick={() => handlePageChange(pagination.page - 1)}
             disabled={pagination.page === 1}
           >
-            Trước
+            Previous
           </Button>
           <span className="text-sm text-muted-foreground">
-            Trang {pagination.page} / {pagination.totalPages}
+            Page {pagination.page} / {pagination.totalPages}
           </span>
           <Button
             variant="outline"
             onClick={() => handlePageChange(pagination.page + 1)}
             disabled={pagination.page === pagination.totalPages}
           >
-            Sau
+            Next
           </Button>
         </div>
       )}
