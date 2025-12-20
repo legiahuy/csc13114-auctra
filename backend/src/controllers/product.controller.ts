@@ -11,6 +11,13 @@ import { sequelize } from "../config/database";
 
 const NEW_PRODUCT_MINUTES = parseInt(process.env.NEW_PRODUCT_MINUTES || "60");
 
+const isProductNew = (product: any) => {
+  if (!product || !product.createdAt) return false;
+  const now = new Date();
+  const created = new Date(product.createdAt);
+  return now.getTime() - created.getTime() < NEW_PRODUCT_MINUTES * 60 * 1000;
+};
+
 export const getHomepageProducts = async (
   req: Request,
   res: Response,
@@ -26,7 +33,16 @@ export const getHomepageProducts = async (
         endDate: { [Op.gt]: now },
       },
       include: [
-        { model: Category, as: "category" },
+        {
+          model: Category,
+          as: "category",
+          include: [
+            {
+              model: Category,
+              as: "parent",
+            },
+          ],
+        },
         {
           model: User,
           as: "seller",
@@ -37,6 +53,11 @@ export const getHomepageProducts = async (
       limit: 5,
     });
 
+    // Mark isNew based on creation time and config
+    endingSoon.forEach((p) => {
+      p.setDataValue("isNew", isProductNew(p));
+    });
+
     // Top 5 products with most bids
     const mostBids = await Product.findAll({
       where: {
@@ -44,7 +65,16 @@ export const getHomepageProducts = async (
         endDate: { [Op.gt]: now },
       },
       include: [
-        { model: Category, as: "category" },
+        {
+          model: Category,
+          as: "category",
+          include: [
+            {
+              model: Category,
+              as: "parent",
+            },
+          ],
+        },
         {
           model: User,
           as: "seller",
@@ -55,6 +85,11 @@ export const getHomepageProducts = async (
       limit: 5,
     });
 
+    // Mark isNew based on creation time and config
+    mostBids.forEach((p) => {
+      p.setDataValue("isNew", isProductNew(p));
+    });
+
     // Top 5 products with highest price
     const highestPrice = await Product.findAll({
       where: {
@@ -62,7 +97,16 @@ export const getHomepageProducts = async (
         endDate: { [Op.gt]: now },
       },
       include: [
-        { model: Category, as: "category" },
+        {
+          model: Category,
+          as: "category",
+          include: [
+            {
+              model: Category,
+              as: "parent",
+            },
+          ],
+        },
         {
           model: User,
           as: "seller",
@@ -71,6 +115,11 @@ export const getHomepageProducts = async (
       ],
       order: [["currentPrice", "DESC"]],
       limit: 5,
+    });
+
+    // Mark isNew based on creation time and config
+    highestPrice.forEach((p) => {
+      p.setDataValue("isNew", isProductNew(p));
     });
 
     res.json({
@@ -111,14 +160,40 @@ export const getProducts = async (
     };
 
     if (categoryId) {
-      where.categoryId = categoryId;
+      // Check if category has children - if so, include products from all child categories
+      const category = await Category.findByPk(categoryId as string, {
+        include: [
+          {
+            model: Category,
+            as: "children",
+          },
+        ],
+      });
+
+      if (category && category.children && category.children.length > 0) {
+        // Parent category: include products from all child categories
+        // (Products are typically assigned to leaf categories, not parent categories)
+        const childIds = category.children.map((child: any) => child.id);
+        where.categoryId = { [Op.in]: childIds };
+      } else {
+        // Leaf category: filter by exact categoryId
+        where.categoryId = parseInt(categoryId as string);
+      }
     }
 
     if (search) {
       const searchTerm = removeVietnameseDiacritics(search as string);
       where[Op.or] = [
         sequelize.where(
-          sequelize.fn("LOWER", sequelize.col("name")),
+          sequelize.fn("LOWER", sequelize.col("Product.nameNoDiacritics")),
+          "LIKE",
+          `%${searchTerm}%`
+        ),
+        sequelize.where(
+          sequelize.fn(
+            "LOWER",
+            sequelize.col("Product.descriptionNoDiacritics")
+          ),
           "LIKE",
           `%${searchTerm}%`
         ),
@@ -137,7 +212,16 @@ export const getProducts = async (
     const { count, rows } = await Product.findAndCountAll({
       where,
       include: [
-        { model: Category, as: "category" },
+        {
+          model: Category,
+          as: "category",
+          include: [
+            {
+              model: Category,
+              as: "parent",
+            },
+          ],
+        },
         {
           model: User,
           as: "seller",
@@ -152,7 +236,7 @@ export const getProducts = async (
             {
               model: User,
               as: "bidder",
-              attributes: ["id", "fullName"],
+              attributes: ["id", "fullName", "rating", "totalRatings"],
             },
           ],
           order: [["amount", "DESC"]],
@@ -162,6 +246,11 @@ export const getProducts = async (
       order,
       limit: limitNum,
       offset,
+    });
+
+    // Mark isNew based on creation time and config
+    rows.forEach((p) => {
+      p.setDataValue("isNew", isProductNew(p));
     });
 
     res.json({
@@ -191,7 +280,16 @@ export const getProductById = async (
 
     const product = await Product.findByPk(id, {
       include: [
-        { model: Category, as: "category" },
+        {
+          model: Category,
+          as: "category",
+          include: [
+            {
+              model: Category,
+              as: "parent",
+            },
+          ],
+        },
         {
           model: User,
           as: "seller",
@@ -206,7 +304,7 @@ export const getProductById = async (
             {
               model: User,
               as: "bidder",
-              attributes: ["id", "fullName"],
+              attributes: ["id", "fullName", "rating", "totalRatings"],
             },
           ],
           order: [["amount", "DESC"]],
@@ -231,6 +329,9 @@ export const getProductById = async (
       return next(new AppError("Product not found", 404));
     }
 
+    // Mark isNew
+    product.setDataValue("isNew", isProductNew(product));
+
     // Increment view count
     product.viewCount += 1;
     await product.save();
@@ -254,6 +355,8 @@ export const getProductById = async (
       limit: 5,
       order: [["createdAt", "DESC"]],
     });
+
+    relatedProducts.forEach((p) => p.setDataValue("isNew", isProductNew(p)));
 
     res.json({
       success: true,
@@ -312,6 +415,8 @@ export const createProduct = async (
       name,
       slug,
       description,
+      nameNoDiacritics: removeVietnameseDiacritics(name),
+      descriptionNoDiacritics: removeVietnameseDiacritics(description),
       startingPrice,
       currentPrice: startingPrice,
       bidStep,
@@ -320,6 +425,7 @@ export const createProduct = async (
       sellerId: req.user.id,
       mainImage,
       images: imageArray,
+      startDate: new Date(),
       endDate: new Date(endDate),
       autoExtend: autoExtend || false,
       isNew: true,
@@ -375,6 +481,9 @@ export const getMyProducts = async (
       ],
       order: [["createdAt", "DESC"]],
     });
+
+    // Mark isNew based on creation time and config
+    products.forEach((p) => p.setDataValue("isNew", isProductNew(p)));
 
     res.json({
       success: true,
