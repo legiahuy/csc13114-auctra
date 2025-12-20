@@ -158,12 +158,15 @@ export const getProducts = async (
       const searchTerm = removeVietnameseDiacritics(search as string);
       where[Op.or] = [
         sequelize.where(
-          sequelize.fn("LOWER", sequelize.col("Product.name")),
+          sequelize.fn("LOWER", sequelize.col("Product.nameNoDiacritics")),
           "LIKE",
           `%${searchTerm}%`
         ),
         sequelize.where(
-          sequelize.fn("LOWER", sequelize.col("Product.description")),
+          sequelize.fn(
+            "LOWER",
+            sequelize.col("Product.descriptionNoDiacritics")
+          ),
           "LIKE",
           `%${searchTerm}%`
         ),
@@ -367,6 +370,8 @@ export const createProduct = async (
       name,
       slug,
       description,
+      nameNoDiacritics: removeVietnameseDiacritics(name),
+      descriptionNoDiacritics: removeVietnameseDiacritics(description),
       startingPrice,
       currentPrice: startingPrice,
       bidStep,
@@ -375,6 +380,7 @@ export const createProduct = async (
       sellerId: req.user.id,
       mainImage,
       images: imageArray,
+      startDate: new Date(),
       endDate: new Date(endDate),
       autoExtend: autoExtend || false,
       isNew: true,

@@ -1,6 +1,9 @@
 import { sequelize } from "../config/database";
 import { User, Category, Product, Bid } from "../models/index";
-import { createSlug } from "../utils/vietnamese.util";
+import {
+  createSlug,
+  removeVietnameseDiacritics,
+} from "../utils/vietnamese.util";
 
 const seed = async () => {
   try {
@@ -628,6 +631,10 @@ const seed = async () => {
       const product = await Product.create({
         ...productData,
         slug: createSlug(productData.name),
+        nameNoDiacritics: removeVietnameseDiacritics(productData.name),
+        descriptionNoDiacritics: removeVietnameseDiacritics(
+          productData.description
+        ),
         currentPrice: productData.startingPrice,
         startDate: new Date(),
         status: "active",
