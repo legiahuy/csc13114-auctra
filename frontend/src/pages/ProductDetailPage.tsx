@@ -6,7 +6,6 @@ import {
   Clock,
   Gavel,
   Heart,
-  HeartOff,
   Image as ImageIcon,
   User,
 } from "lucide-react";
@@ -489,9 +488,26 @@ export default function ProductDetailPage() {
                 <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white mb-4 leading-tight">
                   {product.name}
                 </h1>
-                {product.isNew && (
-                  <Badge className="bg-emerald-500 text-white">New</Badge>
-                )}
+                <div className="flex items-center gap-2">
+                  {product.isNew && (
+                    <Badge className="bg-emerald-500 text-white">New</Badge>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleToggleWatchlist}
+                    aria-label="Toggle watchlist"
+                    className="h-8 w-8"
+                  >
+                    <Heart
+                      className={`h-5 w-5 transition-colors ${
+                        isInWatchlist
+                          ? "text-red-500 fill-red-500"
+                          : ""
+                      }`}
+                    />
+                  </Button>
+                </div>
               </CardTitle>
 
               <CardDescription className="flex flex-wrap gap-2">
@@ -689,28 +705,13 @@ export default function ProductDetailPage() {
         {/* Right column – bidding panel */}
         <div className="space-y-4 lg:sticky lg:top-20 lg:h-fit">
           <Card className="bg-transparent border-none shadow-none">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <div>
-                <CardTitle className="text-base font-semibold">
-                  Place a bid
-                </CardTitle>
-                <CardDescription className="text-sm text-muted-foreground">
-                  Submit a bid for this product
-                </CardDescription>
-              </div>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleToggleWatchlist}
-                aria-label="Toggle watchlist"
-              >
-                {isInWatchlist ? (
-                  <HeartOff className="h-5 w-5 text-destructive" />
-                ) : (
-                  <Heart className="h-5 w-5" />
-                )}
-              </Button>
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">
+                Place a bid
+              </CardTitle>
+              <CardDescription className="text-sm text-muted-foreground">
+                Submit a bid for this product
+              </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-4">

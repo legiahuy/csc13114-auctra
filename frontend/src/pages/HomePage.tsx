@@ -1,15 +1,19 @@
 import { useEffect, useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Carousel } from "@/components/ui/carousel";
 import apiClient from "../api/client";
 import { Gavel, TrendingUp, Users, Sparkles } from "lucide-react";
 import { ProductCard, type ProductCardProduct } from "@/components/ProductCard";
 import Loading from "@/components/Loading";
+import { useAuthStore } from "../store/authStore";
+import toast from "react-hot-toast";
 
 type Product = ProductCardProduct;
 
 export default function HomePage() {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [endingSoon, setEndingSoon] = useState<Product[]>([]);
   const [mostBids, setMostBids] = useState<Product[]>([]);
   const [highestPrice, setHighestPrice] = useState<Product[]>([]);
@@ -21,6 +25,9 @@ export default function HomePage() {
   });
   const statsRef = useRef<HTMLDivElement>(null);
   const [hasAnimated, setHasAnimated] = useState(false);
+  
+  // Watchlist
+  const [watchlistIds, setWatchlistIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,6 +64,60 @@ export default function HomePage() {
 
     fetchData();
   }, []);
+
+  // Fetch watchlist
+  useEffect(() => {
+    const fetchWatchlist = async () => {
+      if (!user) {
+        setWatchlistIds(new Set());
+        return;
+      }
+      try {
+        const res = await apiClient.get("/users/watchlist");
+        const ids = new Set<number>();
+        res.data.data.forEach((item: any) => {
+          if (item.product?.id) ids.add(item.product.id);
+        });
+        setWatchlistIds(ids);
+      } catch (error) {
+        console.error("Error fetching watchlist:", error);
+      }
+    };
+
+    fetchWatchlist();
+  }, [user]);
+
+  const handleToggleWatchlist = async (productId: number) => {
+    if (!user) {
+      toast.error("Vui lòng đăng nhập để thêm yêu thích");
+      navigate("/login");
+      return;
+    }
+
+    const isFavorite = watchlistIds.has(productId);
+
+    try {
+      if (isFavorite) {
+        await apiClient.delete(`/users/watchlist/${productId}`);
+        toast.success("Đã xóa khỏi danh sách yêu thích");
+        setWatchlistIds((prev) => {
+          const next = new Set(prev);
+          next.delete(productId);
+          return next;
+        });
+      } else {
+        await apiClient.post("/users/watchlist", { productId });
+        toast.success("Đã thêm vào danh sách yêu thích");
+        setWatchlistIds((prev) => {
+          const next = new Set(prev);
+          next.add(productId);
+          return next;
+        });
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || "Thao tác thất bại");
+    }
+  };
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -207,6 +268,8 @@ export default function HomePage() {
                 key={product.id}
                 product={product}
                 className="w-[320px] shrink-0"
+                isInWatchlist={watchlistIds.has(product.id)}
+                onToggleWatchlist={handleToggleWatchlist}
               />
             ))}
           </Carousel>
@@ -235,6 +298,8 @@ export default function HomePage() {
                 key={product.id}
                 product={product}
                 className="w-[320px] shrink-0"
+                isInWatchlist={watchlistIds.has(product.id)}
+                onToggleWatchlist={handleToggleWatchlist}
               />
             ))}
           </Carousel>
@@ -261,6 +326,8 @@ export default function HomePage() {
                 key={product.id}
                 product={product}
                 className="w-[320px] shrink-0"
+                isInWatchlist={watchlistIds.has(product.id)}
+                onToggleWatchlist={handleToggleWatchlist}
               />
             ))}
           </Carousel>

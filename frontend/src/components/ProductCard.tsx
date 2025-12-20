@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { format, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Heart } from "lucide-react";
 
 export interface ProductCardProduct {
   id: number;
@@ -36,16 +37,31 @@ export interface ProductCardProduct {
 interface ProductCardProps {
   product: ProductCardProduct;
   className?: string;
+  isInWatchlist?: boolean;
+  onToggleWatchlist?: (productId: number) => void;
 }
 
-export function ProductCard({ product, className }: ProductCardProps) {
+export function ProductCard({ 
+  product, 
+  className,
+  isInWatchlist = false,
+  onToggleWatchlist,
+}: ProductCardProps) {
   const highestBidderName = product.bids?.[0]?.bidder?.fullName;
+
+  const handleWatchlistClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onToggleWatchlist) {
+      onToggleWatchlist(product.id);
+    }
+  };
 
   return (
     <Link to={`/products/${product.id}`}>
       <Card
         className={cn(
-          "h-full flex flex-col hover:shadow-lg transition-shadow",
+          "h-full flex flex-col hover:shadow-lg transition-shadow relative",
           className
         )}
       >
@@ -55,6 +71,26 @@ export function ProductCard({ product, className }: ProductCardProps) {
             alt={product.name}
             className="w-full h-full object-cover"
           />
+          {onToggleWatchlist && (
+            <button
+              type="button"
+              onClick={handleWatchlistClick}
+              className="absolute left-3 top-3 z-10 rounded-full bg-white/85 dark:bg-gray-900/85 p-2 shadow-sm hover:shadow-md transition-all backdrop-blur-sm"
+              aria-label={
+                isInWatchlist
+                  ? "Xóa khỏi yêu thích"
+                  : "Thêm vào yêu thích"
+              }
+            >
+              <Heart
+                className={`h-5 w-5 transition-colors ${
+                  isInWatchlist
+                    ? "text-red-500 fill-red-500"
+                    : "text-gray-600 dark:text-gray-400"
+                }`}
+              />
+            </button>
+          )}
           {product.isNew && (
             <Badge className="absolute top-2 right-2 rounded-full border dark:border-border/20 text-xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 gap-2 px-2.5 py-1 border-brand/30 text-brand">
               New

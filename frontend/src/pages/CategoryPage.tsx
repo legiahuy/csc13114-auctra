@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { useSearchParams, useParams } from "react-router-dom";
+import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import apiClient from "../api/client";
 import { ProductCard, type ProductCardProduct } from "@/components/ProductCard";
 import Loading from "@/components/Loading";
+import { useAuthStore } from "../store/authStore";
+import toast from "react-hot-toast";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -23,6 +25,8 @@ interface Category {
 }
 
 export default function CategoryPage() {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
@@ -33,6 +37,9 @@ export default function CategoryPage() {
     total: 0,
   });
   const { slug } = useParams<{ slug: string }>();
+  
+  // Watchlist
+  const [watchlistIds, setWatchlistIds] = useState<Set<number>>(new Set());
 
   const getCategoryIdBySlug = (slug?: string | number) => {
     if (!slug) return undefined;
@@ -106,6 +113,60 @@ export default function CategoryPage() {
     }
   }, [searchParams, id]);
 
+  // Fetch watchlist
+  useEffect(() => {
+    const fetchWatchlist = async () => {
+      if (!user) {
+        setWatchlistIds(new Set());
+        return;
+      }
+      try {
+        const res = await apiClient.get("/users/watchlist");
+        const ids = new Set<number>();
+        res.data.data.forEach((item: any) => {
+          if (item.product?.id) ids.add(item.product.id);
+        });
+        setWatchlistIds(ids);
+      } catch (error) {
+        console.error("Error fetching watchlist:", error);
+      }
+    };
+
+    fetchWatchlist();
+  }, [user]);
+
+  const handleToggleWatchlist = async (productId: number) => {
+    if (!user) {
+      toast.error("Vui lòng đăng nhập để thêm yêu thích");
+      navigate("/login");
+      return;
+    }
+
+    const isFavorite = watchlistIds.has(productId);
+
+    try {
+      if (isFavorite) {
+        await apiClient.delete(`/users/watchlist/${productId}`);
+        toast.success("Đã xóa khỏi danh sách yêu thích");
+        setWatchlistIds((prev) => {
+          const next = new Set(prev);
+          next.delete(productId);
+          return next;
+        });
+      } else {
+        await apiClient.post("/users/watchlist", { productId });
+        toast.success("Đã thêm vào danh sách yêu thích");
+        setWatchlistIds((prev) => {
+          const next = new Set(prev);
+          next.add(productId);
+          return next;
+        });
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || "Thao tác thất bại");
+    }
+  };
+
   const handlePageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
     params.set("page", page.toString());
@@ -154,7 +215,12 @@ export default function CategoryPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard
+              key={product.id}
+              product={product}
+              isInWatchlist={watchlistIds.has(product.id)}
+              onToggleWatchlist={handleToggleWatchlist}
+            />
           ))}
         </div>
       )}
