@@ -15,6 +15,14 @@ export interface ProductCardProduct {
   buyNowPrice?: number;
   startDate?: string;
   isNew?: boolean;
+  category?: {
+    name: string;
+    slug: string;
+    parent?: {
+      name: string;
+      slug: string;
+    };
+  };
   seller?: {
     fullName: string;
   };
@@ -34,32 +42,59 @@ export function ProductCard({ product, className }: ProductCardProps) {
   const highestBidderName = product.bids?.[0]?.bidder?.fullName;
 
   return (
-    <Card
-      className={cn(
-        "h-full flex flex-col hover:shadow-lg transition-shadow",
-        className
-      )}
-    >
-      <div className="aspect-video overflow-hidden rounded-t-xl relative">
-        <img
-          src={product.mainImage}
-          alt={product.name}
-          className="w-full h-full object-cover"
-        />
-        {product.isNew && (
-          <Badge className="absolute border-brand/30 top-2 right-2 bg-primary text-brand font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2">
-            New
-          </Badge>
+    <Link to={`/products/${product.id}`}>
+      <Card
+        className={cn(
+          "h-full flex flex-col hover:shadow-lg transition-shadow",
+          className
         )}
-      </div>
-      <CardContent className="p-6 space-y-3 flex-1 flex flex-col justify-between">
-        <div className="space-y-3">
-          <Link
-            to={`/products/${product.id}`}
-            className="text-lg font-semibold transition-colors block leading-tight min-h-[3.5rem]"
-          >
-            {product.name}
-          </Link>
+      >
+        <div className="aspect-video overflow-hidden rounded-t-xl relative">
+          <img
+            src={product.mainImage}
+            alt={product.name}
+            className="w-full h-full object-cover"
+          />
+          {product.isNew && (
+            <Badge className="absolute top-2 right-2 rounded-full border dark:border-border/20 text-xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 gap-2 px-2.5 py-1 border-brand/30 text-brand">
+              New
+            </Badge>
+          )}
+        </div>
+        <CardContent className="p-6 space-y-3 flex-1 flex flex-col justify-between">
+          <div className="space-y-2">
+            <p className="text-lg font-semibold transition-colors leading-tight line-clamp-2 text-ellipsis overflow-hidden w-full">
+              {product.name}
+            </p>
+            {product.category && (
+              <div className="flex flex-wrap gap-1">
+                {product.category.parent && (
+                  <Link
+                    to={`/category/${product.category.parent.slug}`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Badge
+                      variant="secondary"
+                      className="bg-secondary/80 text-secondary-foreground hover:bg-secondary/90 transition-colors cursor-pointer text-xs"
+                    >
+                      {product.category.parent.name}
+                    </Badge>
+                  </Link>
+                )}
+                <Link
+                  to={`/category/${product.category.slug}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Badge
+                    variant="secondary"
+                    className="bg-secondary/80 text-secondary-foreground hover:bg-secondary/90 transition-colors cursor-pointer text-xs"
+                  >
+                    {product.category.name}
+                  </Badge>
+                </Link>
+              </div>
+            )}
+          </div>
 
           <div className="space-y-2 min-h-[4.5rem]">
             <div>
@@ -88,32 +123,32 @@ export function ProductCard({ product, className }: ProductCardProps) {
               </div>
             )}
           </div>
-        </div>
 
-        <div className="space-y-1.5 text-sm text-muted-foreground pt-2 border-t mt-4">
-          {product.startDate && (
+          <div className="space-y-1.5 text-sm text-muted-foreground pt-2 border-t mt-4">
+            {product.startDate && (
+              <p className="leading-relaxed">
+                <span className="font-medium">Posted:</span>{" "}
+                {format(new Date(product.startDate), "dd/MM/yyyy HH:mm")}
+              </p>
+            )}
             <p className="leading-relaxed">
-              <span className="font-medium">Posted:</span>{" "}
-              {format(new Date(product.startDate), "dd/MM/yyyy HH:mm")}
+              <span className="font-medium">Time left:</span>{" "}
+              {formatDistanceToNow(new Date(product.endDate), {
+                addSuffix: true,
+              })}
             </p>
-          )}
-          <p className="leading-relaxed">
-            <span className="font-medium">Time left:</span>{" "}
-            {formatDistanceToNow(new Date(product.endDate), {
-              addSuffix: true,
-            })}
-          </p>
-          <p className="leading-relaxed">
-            <span className="font-medium">Bids:</span> {product.bidCount}
-          </p>
-          {highestBidderName && (
             <p className="leading-relaxed">
-              <span className="font-medium">Highest bidder:</span>{" "}
-              {highestBidderName}
+              <span className="font-medium">Bids:</span> {product.bidCount}
             </p>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+            {highestBidderName && (
+              <p className="leading-relaxed">
+                <span className="font-medium">Highest bidder:</span>{" "}
+                {highestBidderName}
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
