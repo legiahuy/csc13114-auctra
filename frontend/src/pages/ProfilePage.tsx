@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -18,7 +18,6 @@ import {
   Tabs,
   Tab,
   Chip,
-  Rating as MuiRating,
   Alert,
 } from "@mui/material";
 import { useFormik } from "formik";
@@ -37,6 +36,8 @@ interface User {
   rating: number;
   totalRatings: number;
   role: string;
+   upgradeRequestStatus?: 'pending' | 'approved' | 'rejected' | null;
+   upgradeExpireAt?: string | null;
 }
 
 interface Review {
@@ -108,7 +109,7 @@ const passwordSchema = yup.object({
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { user: authUser, logout } = useAuthStore();
+  const { user: authUser } = useAuthStore();
   const [user, setUser] = useState<User | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
@@ -117,6 +118,7 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState(0);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const reviewsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!authUser) {
@@ -212,6 +214,24 @@ export default function ProfilePage() {
   }
 
   const ratingPercentage = getRatingPercentage(user.rating, user.totalRatings);
+  const positiveCount = user.rating;
+  const negativeCount = Math.max(user.totalRatings - user.rating, 0);
+  const mockReviews: Review[] = [
+    {
+      id: -1,
+      rating: 1,
+      comment: "Giao dịch nhanh chóng, hàng đúng mô tả.",
+      reviewer: { id: -1, fullName: "Nguyễn Văn A" },
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: -2,
+      rating: -1,
+      comment: "Giao hàng chậm hơn dự kiến, nhưng người bán vẫn hỗ trợ.",
+      reviewer: { id: -2, fullName: "Trần Thị B" },
+      createdAt: new Date(Date.now() - 86400000).toISOString(),
+    },
+  ];
 
   return (
     <Box>
@@ -326,11 +346,17 @@ export default function ProfilePage() {
                 {ratingPercentage.toFixed(1)}%
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {user.rating}/{user.totalRatings} đánh giá tích cực
+                Tổng: {user.totalRatings} lượt đánh giá
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                + {positiveCount} đánh giá tích cực
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                - {negativeCount} đánh giá tiêu cực
               </Typography>
             </Box>
 
-            <Box sx={{ mt: 2 }}>
+            <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
               <Chip
                 label={
                   user.role === "admin"
@@ -340,6 +366,57 @@ export default function ProfilePage() {
                     : "Người đấu giá"
                 }
               />
+
+              {user.role === "bidder" && (
+                <Box sx={{ p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Nâng cấp thành người bán
+                  </Typography>
+                  {user.upgradeRequestStatus === "pending" && (
+                    <Alert severity="info" sx={{ mb: 1 }}>
+                      Yêu cầu nâng cấp đang được xét duyệt.
+                    </Alert>
+                  )}
+                  {user.upgradeRequestStatus === "approved" && user.upgradeExpireAt && (
+                    <Alert severity="success" sx={{ mb: 1 }}>
+                      Bạn đang có quyền bán đến{" "}
+                      {format(new Date(user.upgradeExpireAt), "dd/MM/yyyy HH:mm")}.
+                    </Alert>
+                  )}
+                  {user.upgradeRequestStatus === "rejected" && (
+                    <Alert severity="warning" sx={{ mb: 1 }}>
+                      Yêu cầu nâng cấp trước đó đã bị từ chối. Bạn có thể yêu cầu lại ngay.
+                    </Alert>
+                  )}
+                  {/* Kiểm tra nếu đã hết hạn seller (upgradeExpireAt đã qua) */}
+                  {user.upgradeExpireAt && new Date(user.upgradeExpireAt) < new Date() && (
+                    <Alert severity="warning" sx={{ mb: 1 }}>
+                      Quyền seller của bạn đã hết hạn. Bạn có thể yêu cầu nâng cấp lại ngay.
+                    </Alert>
+                  )}
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    disabled={user.upgradeRequestStatus === "pending"}
+                    onClick={async () => {
+                      try {
+                        await apiClient.post("/users/upgrade-request", {});
+                        toast.success("Đã gửi yêu cầu nâng cấp. Vui lòng chờ admin xét duyệt.");
+                        fetchData();
+                      } catch (error: any) {
+                        toast.error(
+                          error.response?.data?.error?.message ||
+                            "Gửi yêu cầu nâng cấp thất bại"
+                        );
+                      }
+                    }}
+                  >
+                    {user.upgradeRequestStatus === "pending"
+                      ? "Đã gửi yêu cầu"
+                      : "Xin nâng cấp thành người bán"}
+                  </Button>
+                </Box>
+              )}
             </Box>
           </Paper>
         </Grid>
@@ -347,7 +424,7 @@ export default function ProfilePage() {
         {/* Right Column - Tabs */}
         <Grid item xs={12} md={8}>
           <Paper>
-            <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
+            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
               <Tab label={`Đánh giá (${reviews.length})`} />
               <Tab label={`Yêu thích (${watchlist.length})`} />
               <Tab label={`Lịch sử đấu giá (${bids.length})`} />
@@ -356,66 +433,61 @@ export default function ProfilePage() {
 
             {/* Reviews Tab */}
             {activeTab === 0 && (
-              <Box sx={{ p: 3 }}>
-                {reviews.length === 0 ? (
-                  <Alert severity="info">Chưa có đánh giá nào</Alert>
-                ) : (
-                  <Box
-                    sx={{ display: "flex", flexDirection: "column", gap: 2 }}
-                  >
-                    {reviews.map((review) => (
-                      <Card key={review.id}>
-                        <CardContent>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "start",
-                            }}
-                          >
-                            <Box>
-                              <Typography variant="subtitle1">
-                                {review.reviewer.fullName}
-                              </Typography>
-                              <Box
-                                sx={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 1,
-                                  mt: 1,
-                                }}
+              <Box sx={{ p: 3 }} ref={reviewsRef}>
+                {reviews.length === 0 && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Chưa có đánh giá nào. Hiển thị dữ liệu mẫu bên dưới.
+                  </Alert>
+                )}
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {(reviews.length ? reviews : mockReviews).map((review) => (
+                    <Card key={review.id} variant="outlined">
+                      <CardContent>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "start",
+                          }}
+                        >
+                          <Box>
+                            <Typography variant="subtitle1">
+                              {review.reviewer.fullName}
+                            </Typography>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                                mt: 1,
+                              }}
+                            >
+                              {review.rating === 1 ? (
+                                <Chip label="+1" color="success" size="small" />
+                              ) : (
+                                <Chip label="-1" color="error" size="small" />
+                              )}
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
                               >
-                                {review.rating === 1 ? (
-                                  <Chip
-                                    label="+1"
-                                    color="success"
-                                    size="small"
-                                  />
-                                ) : (
-                                  <Chip label="-1" color="error" size="small" />
+                                {format(
+                                  new Date(review.createdAt),
+                                  "dd/MM/yyyy HH:mm"
                                 )}
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  {format(
-                                    new Date(review.createdAt),
-                                    "dd/MM/yyyy HH:mm"
-                                  )}
-                                </Typography>
-                              </Box>
+                              </Typography>
                             </Box>
                           </Box>
-                          {review.comment && (
-                            <Typography variant="body2" sx={{ mt: 1 }}>
-                              {review.comment}
-                            </Typography>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Box>
-                )}
+                        </Box>
+                        {review.comment && (
+                          <Typography variant="body2" sx={{ mt: 1 }}>
+                            {review.comment}
+                          </Typography>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Box>
               </Box>
             )}
 
@@ -569,17 +641,25 @@ export default function ProfilePage() {
                             </Typography>
                             <Chip
                               label={
-                                order.status === "completed"
+                                order.status === "pending_payment"
+                                  ? "Chờ thanh toán"
+                                  : order.status === "pending_address"
+                                  ? "Chờ địa chỉ"
+                                  : order.status === "pending_shipping" ||
+                                    order.status === "pending_delivery"
+                                  ? "Đang giao hàng"
+                                  : order.status === "completed"
                                   ? "Hoàn thành"
-                                  : order.status === "cancelled"
-                                  ? "Đã hủy"
-                                  : "Đang xử lý"
+                                  : "Đã hủy"
                               }
                               color={
                                 order.status === "completed"
                                   ? "success"
                                   : order.status === "cancelled"
                                   ? "error"
+                                  : order.status === "pending_shipping" ||
+                                    order.status === "pending_delivery"
+                                  ? "info"
                                   : "warning"
                               }
                               size="small"

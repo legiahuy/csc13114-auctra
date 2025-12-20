@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -18,12 +18,14 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import apiClient from "../api/client";
-import { LoaderIcon } from "lucide-react";
+import { LoaderIcon, Heart } from "lucide-react";
 import { ProductCard, type ProductCardProduct } from "@/components/ProductCard";
 import Loading from "@/components/Loading";
 import { Separator } from "@/components/ui/separator";
+import { useAuthStore } from "../store/authStore";
+import toast from "react-hot-toast";
 
 interface Category {
   id: number;
@@ -34,15 +36,24 @@ interface Category {
 type Product = ProductCardProduct;
 
 export default function ProductListPage() {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [pagination, setPagination] = useState({
     page: 1,
     totalPages: 1,
     total: 0,
   });
+
   const [categories, setCategories] = useState<Category[]>([]);
+
+  // Watchlist (from feature-bidder)
+  const [watchlistIds, setWatchlistIds] = useState<Set<number>>(new Set());
+  const [watchlistLoading, setWatchlistLoading] = useState(false);
 
   // Helper to find a category or child category name by id
   const getCategoryNameById = (id?: string | number) => {
@@ -59,30 +70,28 @@ export default function ProductListPage() {
   };
 
   useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await apiClient.get("/categories");
+        setCategories(response.data.data || []);
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    };
+
     fetchCategories();
   }, []);
 
-  const fetchCategories = async () => {
-    try {
-      const response = await apiClient.get("/categories");
-      setCategories(response.data.data || []);
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-    }
-  };
-
   // Local search input value (for immediate UI updates)
-  const [searchInput, setSearchInput] = useState(
-    searchParams.get("search") || ""
-  );
+  const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
   // Debounced search value (for actual API calls)
   const [debouncedSearch, setDebouncedSearch] = useState(
     searchParams.get("search") || ""
   );
 
-  const [categoryId, setCategoryId] = useState(
-    searchParams.get("categoryId") || ""
-  );
+  const [categoryId, setCategoryId] = useState(searchParams.get("categoryId") || "");
+
+  // Sync category -> URL
   useEffect(() => {
     const params = new URLSearchParams(searchParams);
     if (categoryId) {
@@ -90,14 +99,13 @@ export default function ProductListPage() {
     } else {
       params.delete("categoryId");
     }
-    // Reset to page 1 when changing category
     params.set("page", "1");
     setSearchParams(params, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryId]);
+
   const [sortBy, setSortBy] = useState(searchParams.get("sortBy") || "endDate");
-  const [sortOrder, setSortOrder] = useState(
-    searchParams.get("sortOrder") || "ASC"
-  );
+  const [sortOrder, setSortOrder] = useState(searchParams.get("sortOrder") || "ASC");
 
   // Debounce search input - update debouncedSearch after 400ms of no typing
   useEffect(() => {
@@ -116,16 +124,14 @@ export default function ProductListPage() {
     } else {
       params.delete("search");
     }
-    params.set("page", "1"); // Reset to page 1 on search change
+    params.set("page", "1");
     setSearchParams(params, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
 
   // Sync search input with URL params when they change externally (e.g., browser back/forward)
-  // This effect only runs when searchParams change, and we check if it's different from our state
   useEffect(() => {
     const urlSearch = searchParams.get("search") || "";
-    // Only sync if URL search is different from what we have in state
-    // This prevents loops when we update URL from debouncedSearch
     if (urlSearch !== debouncedSearch) {
       setSearchInput(urlSearch);
       setDebouncedSearch(urlSearch);
@@ -144,8 +150,10 @@ export default function ProductListPage() {
           sortBy,
           sortOrder,
         };
+
         const searchValue = searchParams.get("search");
         if (searchValue) params.search = searchValue;
+
         const categoryIdParam = searchParams.get("categoryId");
         if (categoryIdParam) params.categoryId = categoryIdParam;
 
@@ -162,19 +170,72 @@ export default function ProductListPage() {
     fetchProducts();
   }, [searchParams, sortBy, sortOrder]);
 
+  // Fetch watchlist
+  useEffect(() => {
+    const fetchWatchlist = async () => {
+      if (!user) {
+        setWatchlistIds(new Set());
+        return;
+      }
+      setWatchlistLoading(true);
+      try {
+        const res = await apiClient.get("/users/watchlist");
+        const ids = new Set<number>();
+        res.data.data.forEach((item: any) => {
+          if (item.product?.id) ids.add(item.product.id);
+        });
+        setWatchlistIds(ids);
+      } catch (error) {
+        console.error("Error fetching watchlist:", error);
+      } finally {
+        setWatchlistLoading(false);
+      }
+    };
+
+    fetchWatchlist();
+  }, [user]);
+
   const handlePageChange = (page: number) => {
     const params = new URLSearchParams(searchParams);
     params.set("page", page.toString());
     setSearchParams(params);
   };
 
-  const handleSearchInputChange = (value: string) => {
-    setSearchInput(value);
-  };
-
   const handleClearSearch = () => {
     setSearchInput("");
     setDebouncedSearch("");
+  };
+
+  const handleToggleWatchlist = async (productId: number) => {
+    if (!user) {
+      toast.error("Vui lòng đăng nhập để thêm yêu thích");
+      navigate("/login");
+      return;
+    }
+
+    const isFavorite = watchlistIds.has(productId);
+
+    try {
+      if (isFavorite) {
+        await apiClient.delete(`/users/watchlist/${productId}`);
+        toast.success("Đã xóa khỏi danh sách yêu thích");
+        setWatchlistIds((prev) => {
+          const next = new Set(prev);
+          next.delete(productId);
+          return next;
+        });
+      } else {
+        await apiClient.post("/users/watchlist", { productId });
+        toast.success("Đã thêm vào danh sách yêu thích");
+        setWatchlistIds((prev) => {
+          const next = new Set(prev);
+          next.add(productId);
+          return next;
+        });
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || "Thao tác thất bại");
+    }
   };
 
   if (loading && products.length === 0) {
@@ -200,7 +261,7 @@ export default function ProductListPage() {
             <Input
               id="search"
               value={searchInput}
-              onChange={(e) => handleSearchInputChange(e.target.value)}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search products..."
               className="pr-10 bg-background"
             />
@@ -234,6 +295,7 @@ export default function ProductListPage() {
             )}
           </div>
         </div>
+
         <div className="flex flex-col space-y-1.5">
           <Label>Category</Label>
           <DropdownMenu>
@@ -289,7 +351,8 @@ export default function ProductListPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="space-y-2 ">
+
+        <div className="space-y-2">
           <Label>Sort by</Label>
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-[180px] bg-background">
@@ -301,6 +364,7 @@ export default function ProductListPage() {
             </SelectContent>
           </Select>
         </div>
+
         <div className="space-y-2">
           <Label>Order</Label>
           <Select value={sortOrder} onValueChange={setSortOrder}>
@@ -327,7 +391,33 @@ export default function ProductListPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <div key={product.id} className="relative">
+              {/* If ProductCard already navigates on click, keep it. */}
+              <ProductCard product={product} />
+
+              {/* Overlay favorite button without modifying ProductCard file */}
+              <button
+                type="button"
+                className="absolute right-3 top-3 z-10 rounded-full bg-white/85 p-2 shadow-sm transition hover:shadow-md"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleToggleWatchlist(product.id);
+                }}
+                aria-label={
+                  watchlistIds.has(product.id)
+                    ? "Xóa khỏi yêu thích"
+                    : "Thêm vào yêu thích"
+                }
+                disabled={watchlistLoading}
+              >
+                {watchlistIds.has(product.id) ? (
+                  <Heart className="h-5 w-5 text-red-500 fill-red-500" />
+                ) : (
+                  <Heart className="h-5 w-5 text-gray-600" />
+                )}
+              </button>
+            </div>
           ))}
         </div>
       )}

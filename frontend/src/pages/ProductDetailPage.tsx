@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useEffect, useState, type ChangeEvent } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   AlertCircle,
@@ -61,6 +61,7 @@ interface Product {
   endDate: string;
   status: string;
   autoExtend: boolean;
+  allowUnratedBidders: boolean;
   bidCount: number;
   viewCount: number;
   isNew: boolean;
@@ -115,23 +116,32 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [bidHistory, setBidHistory] = useState<BidHistory[]>([]);
+
   const [bidAmount, setBidAmount] = useState("");
   const [maxAmount, setMaxAmount] = useState("");
   const [isAutoBid, setIsAutoBid] = useState(false);
+
   const [isInWatchlist, setIsInWatchlist] = useState(false);
+
   const [loading, setLoading] = useState(true);
+
   const [bidHistoryOpen, setBidHistoryOpen] = useState(false);
   const [questionDialogOpen, setQuestionDialogOpen] = useState(false);
   const [answerDialogOpen, setAnswerDialogOpen] = useState(false);
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(
     null
   );
+
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+
   const [selectedImage, setSelectedImage] = useState(0);
+
   const [order, setOrder] = useState<any>(null);
 
-  // Scroll to top when component mounts or product ID changes
+  // Confirm place bid dialog
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [id]);
@@ -145,6 +155,7 @@ export default function ProductDetailPage() {
         ]);
 
         const productData = productRes.data.data.product as Product;
+
         setProduct(productData);
         setRelatedProducts(productRes.data.data.relatedProducts || []);
         setBidHistory(bidHistoryRes.data.data || []);
@@ -152,11 +163,10 @@ export default function ProductDetailPage() {
         // Suggested bid
         if (productData.bids && productData.bids[0]) {
           const suggestedBid =
-            parseFloat(productData.currentPrice.toString()) +
-            parseFloat(productData.bidStep.toString());
-          setBidAmount(suggestedBid.toString());
+            Number(productData.currentPrice) + Number(productData.bidStep);
+          setBidAmount(String(suggestedBid));
         } else {
-          setBidAmount(productData.startingPrice.toString());
+          setBidAmount(String(productData.startingPrice));
         }
 
         // Watchlist + order info (only if logged in)
@@ -164,7 +174,7 @@ export default function ProductDetailPage() {
           try {
             const watchlistRes = await apiClient.get("/users/watchlist");
             const inWatchlist = watchlistRes.data.data.some(
-              (item: any) => item.product?.id === parseInt(id!)
+              (item: any) => item.product?.id === Number(id)
             );
             setIsInWatchlist(inWatchlist);
           } catch {
@@ -175,12 +185,10 @@ export default function ProductDetailPage() {
             const ordersRes = await apiClient.get("/orders");
             const productOrder = ordersRes.data.data.find(
               (o: any) =>
-                o.productId === parseInt(id!) &&
+                o.productId === Number(id) &&
                 (o.sellerId === user.id || o.buyerId === user.id)
             );
-            if (productOrder) {
-              setOrder(productOrder);
-            }
+            if (productOrder) setOrder(productOrder);
           } catch {
             // ignore
           }
@@ -196,7 +204,7 @@ export default function ProductDetailPage() {
     fetchData();
   }, [id, user]);
 
-  const handlePlaceBid = async () => {
+  const handlePlaceBid = () => {
     if (!user) {
       toast.error("Please log in to place a bid");
       navigate("/login");
@@ -213,6 +221,10 @@ export default function ProductDetailPage() {
       return;
     }
 
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmBid = async () => {
     try {
       await apiClient.post("/bids", {
         productId: id,
@@ -220,8 +232,11 @@ export default function ProductDetailPage() {
         maxAmount: isAutoBid ? maxAmount : undefined,
         isAutoBid,
       });
-      toast.success("Bid placed successfully");
 
+      toast.success("Bid placed successfully");
+      setConfirmOpen(false);
+
+      // Refresh data
       const [productRes, bidHistoryRes] = await Promise.all([
         apiClient.get(`/products/${id}`),
         apiClient.get(`/bids/history/${id}`),
@@ -229,9 +244,7 @@ export default function ProductDetailPage() {
       setProduct(productRes.data.data.product);
       setBidHistory(bidHistoryRes.data.data);
     } catch (error: any) {
-      toast.error(
-        error.response?.data?.error?.message || "Failed to place bid"
-      );
+      toast.error(error.response?.data?.error?.message || "Failed to place bid");
     }
   };
 
@@ -250,7 +263,7 @@ export default function ProductDetailPage() {
         await apiClient.post("/users/watchlist", { productId: id });
         toast.success("Added to watchlist");
       }
-      setIsInWatchlist(!isInWatchlist);
+      setIsInWatchlist((prev) => !prev);
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || "Action failed");
     }
@@ -270,6 +283,7 @@ export default function ProductDetailPage() {
       toast.success("Question submitted");
       setQuestion("");
       setQuestionDialogOpen(false);
+
       const response = await apiClient.get(`/products/${id}`);
       setProduct(response.data.data.product);
     } catch (error: any) {
@@ -292,6 +306,7 @@ export default function ProductDetailPage() {
       toast.success("Answer submitted");
       setAnswer("");
       setAnswerDialogOpen(false);
+
       const response = await apiClient.get(`/products/${id}`);
       setProduct(response.data.data.product);
     } catch (error: any) {
@@ -307,16 +322,16 @@ export default function ProductDetailPage() {
     try {
       await apiClient.put(`/bids/${bidId}/reject`);
       toast.success("Bid rejected");
+
       const [productRes, bidHistoryRes] = await Promise.all([
         apiClient.get(`/products/${id}`),
         apiClient.get(`/bids/history/${id}`),
       ]);
+
       setProduct(productRes.data.data.product);
       setBidHistory(bidHistoryRes.data.data);
     } catch (error: any) {
-      toast.error(
-        error.response?.data?.error?.message || "Failed to reject bid"
-      );
+      toast.error(error.response?.data?.error?.message || "Failed to reject bid");
     }
   };
 
@@ -337,35 +352,26 @@ export default function ProductDetailPage() {
     return format(endDate, "dd/MM/yyyy HH:mm");
   };
 
-  // Format number as Vietnamese currency for display
   const formatCurrencyDisplay = (value: string): string => {
     if (!value) return "";
-    // Remove all non-digit characters
     const numericValue = value.replace(/\D/g, "");
     if (!numericValue) return "";
-    // Format with Vietnamese locale
     return parseInt(numericValue, 10).toLocaleString("vi-VN");
   };
 
-  // Parse formatted currency string back to number
-  const parseCurrencyValue = (value: string): string => {
-    // Remove all non-digit characters
-    return value.replace(/\D/g, "");
-  };
+  const parseCurrencyValue = (value: string): string => value.replace(/\D/g, "");
 
-  const handleBidAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBidAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
     const rawValue = parseCurrencyValue(e.target.value);
     setBidAmount(rawValue);
   };
 
-  const handleMaxAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMaxAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
     const rawValue = parseCurrencyValue(e.target.value);
     setMaxAmount(rawValue);
   };
 
-  if (loading) {
-    return <Loading />;
-  }
+  if (loading) return <Loading />;
 
   if (!product) {
     return (
@@ -387,12 +393,14 @@ export default function ProductDetailPage() {
   const isSeller = user?.id === product.sellerId;
   const isEnded =
     product.status === "ended" || new Date(product.endDate) <= new Date();
+
   const sellerRating = getRatingPercentage(
     product.seller.rating,
     product.seller.totalRatings
   );
+
   const highestBidder = product.bids && product.bids[0];
-  const allImages = [product.mainImage, ...(product.images || [])];
+
   const highestBidderRating =
     highestBidder && highestBidder.bidder.totalRatings > 0
       ? getRatingPercentage(
@@ -400,6 +408,11 @@ export default function ProductDetailPage() {
           highestBidder.bidder.totalRatings
         )
       : 0;
+
+  const allImages = [product.mainImage, ...(product.images || [])];
+
+  const suggestedNextBid =
+    Number(product.currentPrice) + Number(product.bidStep);
 
   return (
     <div className="space-y-6">
@@ -445,6 +458,7 @@ export default function ProductDetailPage() {
                   </div>
                 )}
               </div>
+
               <div className="flex flex-wrap gap-2">
                 {allImages.map((img, idx) => (
                   <button
@@ -479,6 +493,7 @@ export default function ProductDetailPage() {
                   <Badge className="bg-emerald-500 text-white">New</Badge>
                 )}
               </CardTitle>
+
               <CardDescription className="flex flex-wrap gap-2">
                 <Badge className="flex items-center gap-1 border-brand/30 text-brand font-semibold transition-colors">
                   <Clock className="h-3.5 w-3.5" />
@@ -491,16 +506,14 @@ export default function ProductDetailPage() {
                 <Badge variant="outline">{product.viewCount} views</Badge>
               </CardDescription>
             </CardHeader>
+
             <CardContent className="space-y-6">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">
                   Current price
                 </p>
                 <p className="text-3xl font-bold text-brand">
-                  {parseFloat(product.currentPrice.toString()).toLocaleString(
-                    "vi-VN"
-                  )}{" "}
-                  VNĐ
+                  {Number(product.currentPrice).toLocaleString("vi-VN")} VNĐ
                 </p>
               </div>
 
@@ -510,10 +523,7 @@ export default function ProductDetailPage() {
                     Buy now price
                   </p>
                   <p className="text-xl font-semibold text-foreground">
-                    {parseFloat(product.buyNowPrice.toString()).toLocaleString(
-                      "vi-VN"
-                    )}{" "}
-                    VNĐ
+                    {Number(product.buyNowPrice).toLocaleString("vi-VN")} VNĐ
                   </p>
                 </div>
               )}
@@ -522,27 +532,24 @@ export default function ProductDetailPage() {
                 <div className="flex justify-between">
                   <span>Starting price</span>
                   <span className="font-medium text-foreground">
-                    {parseFloat(
-                      product.startingPrice.toString()
-                    ).toLocaleString("vi-VN")}{" "}
-                    VNĐ
+                    {Number(product.startingPrice).toLocaleString("vi-VN")} VNĐ
                   </span>
                 </div>
+
                 <div className="flex justify-between">
                   <span>Bid step</span>
                   <span className="font-medium text-foreground">
-                    {parseFloat(product.bidStep.toString()).toLocaleString(
-                      "vi-VN"
-                    )}{" "}
-                    VNĐ
+                    {Number(product.bidStep).toLocaleString("vi-VN")} VNĐ
                   </span>
                 </div>
+
                 <div className="flex justify-between">
                   <span>Posted at</span>
                   <span className="font-medium text-foreground">
                     {format(new Date(product.startDate), "dd/MM/yyyy HH:mm")}
                   </span>
                 </div>
+
                 {highestBidder && (
                   <div className="flex justify-between">
                     <span>Highest bidder</span>
@@ -565,9 +572,7 @@ export default function ProductDetailPage() {
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Rating:{" "}
-                  <span className="font-medium">
-                    {sellerRating.toFixed(1)}%
-                  </span>{" "}
+                  <span className="font-medium">{sellerRating.toFixed(1)}%</span>{" "}
                   ({product.seller.rating}/{product.seller.totalRatings})
                 </p>
               </div>
@@ -608,14 +613,13 @@ export default function ProductDetailPage() {
                           {q.user.fullName} asked:
                         </p>
                         <p className="text-sm text-foreground">{q.question}</p>
+
                         {q.answer ? (
                           <div className="space-y-1">
                             <p className="text-xs font-semibold text-primary">
                               Seller answered:
                             </p>
-                            <p className="text-sm text-foreground">
-                              {q.answer}
-                            </p>
+                            <p className="text-sm text-foreground">{q.answer}</p>
                           </div>
                         ) : isSeller ? (
                           <Button
@@ -671,10 +675,7 @@ export default function ProductDetailPage() {
                           {p.name}
                         </p>
                         <p className="text-sm font-semibold text-brand">
-                          {parseFloat(p.currentPrice.toString()).toLocaleString(
-                            "vi-VN"
-                          )}{" "}
-                          VNĐ
+                          {Number(p.currentPrice).toLocaleString("vi-VN")} VNĐ
                         </p>
                       </div>
                     </Link>
@@ -697,6 +698,7 @@ export default function ProductDetailPage() {
                   Submit a bid for this product
                 </CardDescription>
               </div>
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -710,6 +712,7 @@ export default function ProductDetailPage() {
                 )}
               </Button>
             </CardHeader>
+
             <CardContent className="space-y-4">
               {!isEnded ? (
                 <>
@@ -753,11 +756,7 @@ export default function ProductDetailPage() {
                               </div>
                               <p className="text-xs text-muted-foreground">
                                 Suggested next bid:{" "}
-                                {(
-                                  parseFloat(product.currentPrice.toString()) +
-                                  parseFloat(product.bidStep.toString())
-                                ).toLocaleString("vi-VN")}{" "}
-                                VNĐ
+                                {suggestedNextBid.toLocaleString("vi-VN")} VNĐ
                               </p>
                             </div>
                           ) : (
@@ -788,7 +787,7 @@ export default function ProductDetailPage() {
                           <Button
                             className="w-full"
                             onClick={handlePlaceBid}
-                            disabled={!bidAmount && !isAutoBid}
+                            disabled={!isAutoBid && !bidAmount}
                           >
                             {isAutoBid ? "Place automatic bid" : "Place bid"}
                           </Button>
@@ -808,10 +807,7 @@ export default function ProductDetailPage() {
                       </Button>
                     </>
                   ) : (
-                    <Button
-                      className="w-full"
-                      onClick={() => navigate("/login")}
-                    >
+                    <Button className="w-full" onClick={() => navigate("/login")}>
                       Log in to bid
                     </Button>
                   )}
@@ -827,12 +823,67 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
+      {/* Confirm bid dialog */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm your bid</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 text-sm">
+            {!isAutoBid ? (
+              <>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">You will bid</span>
+                  <span className="font-semibold">
+                    {Number(bidAmount || "0").toLocaleString("vi-VN")} VNĐ
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">Auto-bid max</span>
+                  <span className="font-semibold">
+                    {Number(maxAmount || "0").toLocaleString("vi-VN")} VNĐ
+                  </span>
+                </div>
+              </>
+            )}
+
+            <Separator />
+
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Current price</span>
+              <span className="font-medium">
+                {Number(product.currentPrice).toLocaleString("vi-VN")} VNĐ
+              </span>
+            </div>
+
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Bid step</span>
+              <span className="font-medium">
+                {Number(product.bidStep).toLocaleString("vi-VN")} VNĐ
+              </span>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmBid}>Confirm</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Bid history dialog */}
       <Dialog open={bidHistoryOpen} onOpenChange={setBidHistoryOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Bid history</DialogTitle>
           </DialogHeader>
+
           <div className="border rounded-md">
             <Table>
               <TableHeader>
@@ -851,10 +902,7 @@ export default function ProductDetailPage() {
                     </TableCell>
                     <TableCell>{bid.bidder.fullName}</TableCell>
                     <TableCell>
-                      {parseFloat(bid.amount.toString()).toLocaleString(
-                        "vi-VN"
-                      )}{" "}
-                      VNĐ
+                      {Number(bid.amount).toLocaleString("vi-VN")} VNĐ
                     </TableCell>
                     {isSeller && (
                       <TableCell>
@@ -872,6 +920,7 @@ export default function ProductDetailPage() {
               </TableBody>
             </Table>
           </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setBidHistoryOpen(false)}>
               Close
@@ -886,6 +935,7 @@ export default function ProductDetailPage() {
           <DialogHeader>
             <DialogTitle>Ask a question</DialogTitle>
           </DialogHeader>
+
           <div className="space-y-3">
             <Textarea
               rows={4}
@@ -894,6 +944,7 @@ export default function ProductDetailPage() {
               onChange={(e) => setQuestion(e.target.value)}
             />
           </div>
+
           <DialogFooter>
             <Button
               variant="outline"
@@ -912,6 +963,7 @@ export default function ProductDetailPage() {
           <DialogHeader>
             <DialogTitle>Answer question</DialogTitle>
           </DialogHeader>
+
           <div className="space-y-3">
             <Textarea
               rows={4}
@@ -920,6 +972,7 @@ export default function ProductDetailPage() {
               onChange={(e) => setAnswer(e.target.value)}
             />
           </div>
+
           <DialogFooter>
             <Button
               variant="outline"

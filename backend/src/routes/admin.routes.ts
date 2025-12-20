@@ -9,6 +9,7 @@ import {
   updateUser,
   deleteUser,
   getAllProducts,
+  testEmail,
 } from '../controllers/admin.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 
@@ -29,6 +30,7 @@ router.put('/users/:id', updateUser);
 router.delete('/users/:id', deleteUser);
 
 router.get('/products', getAllProducts);
+router.post('/test-email', testEmail);
 
 export default router;
 

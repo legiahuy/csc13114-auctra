@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import SellerCountdownTimer from "./SellerCountdownTimer";
 
 interface LayoutProps {
   children: ReactNode;
@@ -137,6 +138,7 @@ export default function Layout({ children }: LayoutProps) {
                 </>
               )}
               <Separator orientation="vertical" className="h-6" />
+              {user && user.role === "seller" && <SellerCountdownTimer />}
               {user ? (
                 <>
                   <DropdownMenu>

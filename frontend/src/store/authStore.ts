@@ -6,6 +6,7 @@ interface User {
   email: string;
   fullName: string;
   role: string;
+  upgradeExpireAt?: string | null;
 }
 
 interface AuthState {

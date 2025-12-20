@@ -81,6 +81,17 @@ const seed = async () => {
       rating: 13, // 13 out of 15 = ~87%
       totalRatings: 15,
     });
+    
+      const seller6 = await User.create({
+      email: "khoavosng123@gmail.com",
+      password: "seller123",
+      fullName: "Khoavo",
+      address: "456 Seller Avenue",
+      role: "seller",
+      isEmailVerified: true,
+      rating: 9,
+      totalRatings: 10,
+    });
 
     // Create bidder users
     const bidder1 = await User.create({
@@ -641,6 +652,7 @@ const seed = async () => {
         bidCount: 0,
         viewCount: 0,
         isNew: true,
+        allowUnratedBidders: true,
       });
       createdProducts.push(product);
     }
