@@ -23,6 +23,7 @@ interface Category {
   id: number;
   name: string;
   children?: Category[];
+  slug: string;
 }
 
 export default function Layout({ children }: LayoutProps) {
@@ -48,20 +49,26 @@ export default function Layout({ children }: LayoutProps) {
     navigate("/");
   };
 
-  const handleCategoryClick = (categoryId: number) => {
-    navigate(`/products?categoryId=${categoryId}`);
+  const handleCategoryClick = (catSlug: string) => {
+    navigate(`/category/${catSlug}`);
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <header className="border-b bg-background sticky top-0 z-50">
-        <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-between">
-            <Link
-              to="/"
-              className="text-xl font-bold text-foreground hover:text-primary transition-colors"
-            >
-              Online Auction
+    <div className="flex flex-col min-h-screen relative">
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-brand/20 blur-[120px] rounded-full pointer-events-none -z-10" />
+      <div className="fixed bottom-0 right-0 w-[800px] h-[600px] bg-brand/15 blur-[130px] rounded-full pointer-events-none -z-10" />
+      <div className="fixed top-1/2 left-0 -translate-y-1/2 w-[600px] h-[400px] bg-brand/10 blur-[100px] rounded-full pointer-events-none -z-10" />
+      <header className="sticky top-0 z-50 -mb-4 px-4 pb-4">
+        <div className="fade-bottom bg-background/15 absolute left-0 h-24 w-full backdrop-blur-lg" />
+        <div className="container mx-auto px-4 relative">
+          <div className="flex h-16 items-center justify-between ">
+            <Link to="/" className="flex items-center gap-2 ">
+              <img
+                className="hover:rotate-180 transition-transform"
+                src="/auctra.svg"
+                width={30}
+              />
+              <div className="text-xl font-bold text-foreground">Auctra</div>
             </Link>
             <nav className="flex items-center gap-4">
               <Button variant="ghost" asChild>
@@ -78,19 +85,28 @@ export default function Layout({ children }: LayoutProps) {
                     categories.map((category) =>
                       category.children && category.children.length > 0 ? (
                         <DropdownMenuSub key={category.id}>
-                          <DropdownMenuSubTrigger>
+                          <DropdownMenuSubTrigger
+                            onSelect={(e) => {
+                              e.preventDefault();
+                            }}
+                          >
                             {category.name}
                           </DropdownMenuSubTrigger>
                           <DropdownMenuSubContent>
                             <DropdownMenuItem
-                              onSelect={() => handleCategoryClick(category.id)}
+                              onSelect={() =>
+                                handleCategoryClick(category.slug)
+                              }
+                              className="focus-visible:outline-none focus-visible:ring-0"
                             >
-                              All {category.name}
+                              {category.name}
                             </DropdownMenuItem>
+                            <Separator />
                             {category.children.map((child) => (
                               <DropdownMenuItem
                                 key={child.id}
-                                onSelect={() => handleCategoryClick(child.id)}
+                                onSelect={() => handleCategoryClick(child.slug)}
+                                className="focus-visible:outline-none focus-visible:ring-0"
                               >
                                 {child.name}
                               </DropdownMenuItem>
@@ -99,8 +115,9 @@ export default function Layout({ children }: LayoutProps) {
                         </DropdownMenuSub>
                       ) : (
                         <DropdownMenuItem
-                          key={category.id}
-                          onSelect={() => handleCategoryClick(category.id)}
+                          key={category.slug}
+                          onSelect={() => handleCategoryClick(category.slug)}
+                          className="focus-visible:outline-none focus-visible:ring-0"
                         >
                           {category.name}
                         </DropdownMenuItem>
@@ -175,9 +192,15 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </header>
-      <main className="px-0 py-8 flex-1">{children}</main>
-      <footer className="border-t py-8 text-center text-muted-foreground">
-        <p>© 2025 Online Auction Platform</p>
+      <main className="py-8 flex-1">
+        <div className="container mx-auto px-4">{children}</div>
+      </main>
+      <footer className="border-t py-5">
+        <div className="container mx-auto text-center text-muted-foreground">
+          <p className="my-0 text-xs sm:flex-row">
+            © 2025 Auctra. All rights reserved
+          </p>
+        </div>
       </footer>
     </div>
   );

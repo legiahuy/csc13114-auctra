@@ -1,11 +1,13 @@
-import { DataTypes, Model, Optional } from 'sequelize';
-import { sequelize } from '../config/database';
+import { DataTypes, Model, Optional } from "sequelize";
+import { sequelize } from "../config/database";
 
 export interface ProductAttributes {
   id: number;
   name: string;
   slug: string;
   description: string;
+  nameNoDiacritics: string;
+  descriptionNoDiacritics: string;
   startingPrice: number;
   currentPrice: number;
   bidStep: number;
@@ -16,7 +18,7 @@ export interface ProductAttributes {
   images: string[]; // JSON array of image URLs
   startDate: Date;
   endDate: Date;
-  status: 'active' | 'ended' | 'cancelled';
+  status: "active" | "ended" | "cancelled";
   autoExtend: boolean;
   bidCount: number;
   viewCount: number;
@@ -25,13 +27,29 @@ export interface ProductAttributes {
   updatedAt?: Date;
 }
 
-export interface ProductCreationAttributes extends Optional<ProductAttributes, 'id' | 'currentPrice' | 'status' | 'bidCount' | 'viewCount' | 'isNew' | 'createdAt' | 'updatedAt'> {}
+export interface ProductCreationAttributes
+  extends Optional<
+    ProductAttributes,
+    | "id"
+    | "currentPrice"
+    | "status"
+    | "bidCount"
+    | "viewCount"
+    | "isNew"
+    | "createdAt"
+    | "updatedAt"
+  > {}
 
-export class Product extends Model<ProductAttributes, ProductCreationAttributes> implements ProductAttributes {
+export class Product
+  extends Model<ProductAttributes, ProductCreationAttributes>
+  implements ProductAttributes
+{
   public id!: number;
   public name!: string;
   public slug!: string;
   public description!: string;
+  public nameNoDiacritics!: string;
+  public descriptionNoDiacritics!: string;
   public startingPrice!: number;
   public currentPrice!: number;
   public bidStep!: number;
@@ -42,7 +60,7 @@ export class Product extends Model<ProductAttributes, ProductCreationAttributes>
   public images!: string[];
   public startDate!: Date;
   public endDate!: Date;
-  public status!: 'active' | 'ended' | 'cancelled';
+  public status!: "active" | "ended" | "cancelled";
   public autoExtend!: boolean;
   public bidCount!: number;
   public viewCount!: number;
@@ -71,6 +89,16 @@ Product.init(
       type: DataTypes.TEXT,
       allowNull: false,
     },
+    nameNoDiacritics: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: "",
+    },
+    descriptionNoDiacritics: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+      defaultValue: "",
+    },
     startingPrice: {
       type: DataTypes.DECIMAL(15, 2),
       allowNull: false,
@@ -91,16 +119,16 @@ Product.init(
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'categories',
-        key: 'id',
+        model: "categories",
+        key: "id",
       },
     },
     sellerId: {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'users',
-        key: 'id',
+        model: "users",
+        key: "id",
       },
     },
     mainImage: {
@@ -122,8 +150,8 @@ Product.init(
       allowNull: false,
     },
     status: {
-      type: DataTypes.ENUM('active', 'ended', 'cancelled'),
-      defaultValue: 'active',
+      type: DataTypes.ENUM("active", "ended", "cancelled"),
+      defaultValue: "active",
       allowNull: false,
     },
     autoExtend: {
@@ -149,7 +177,6 @@ Product.init(
   },
   {
     sequelize,
-    tableName: 'products',
+    tableName: "products",
   }
 );
-
