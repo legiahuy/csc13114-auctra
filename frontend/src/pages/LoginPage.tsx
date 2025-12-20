@@ -10,6 +10,7 @@ import apiClient from "../api/client";
 import toast from "react-hot-toast";
 import * as Yup from "yup";
 import ReCAPTCHA from "react-google-recaptcha";
+import { Loader2 } from "lucide-react";
 
 const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
@@ -62,11 +63,30 @@ export default function LoginPage() {
                 }
                 navigate("/");
               } catch (error: any) {
-                toast.error(
-                  error.response?.data?.error?.message || "Login failed"
-                );
-                if (recaptchaRef.current) {
-                  recaptchaRef.current.reset();
+                const errorMessage = error.response?.data?.message;
+                const errorData = error.response?.data?.data;
+
+                // Check if email is not verified
+                if (
+                  errorMessage === "Please verify your email first" &&
+                  errorData?.email
+                ) {
+                  toast.error("Please verify your email to continue");
+                  navigate("/verify-email", {
+                    state: {
+                      email: errorData.email,
+                      verificationToken: errorData.verificationToken || "",
+                    },
+                  });
+                } else {
+                  toast.error(
+                    errorMessage ||
+                      error.response?.data?.error?.message ||
+                      "Login failed"
+                  );
+                  if (recaptchaRef.current) {
+                    recaptchaRef.current.reset();
+                  }
                 }
               } finally {
                 setSubmitting(false);
@@ -99,7 +119,16 @@ export default function LoginPage() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="password">Password</Label>
+                      <Link
+                        to="/forgot-password"
+                        className="text-sm text-muted-foreground hover:underline"
+                      >
+                        Forgot password?
+                      </Link>
+                    </div>
+
                     <Field
                       as={Input}
                       id="password"
@@ -117,6 +146,7 @@ export default function LoginPage() {
                       </p>
                     )}
                   </div>
+                  <div className="flex justify-end"></div>
                   <div className="space-y-2">
                     <ReCAPTCHA
                       className="min-w-full"
@@ -135,7 +165,14 @@ export default function LoginPage() {
                     className="w-full"
                     disabled={isSubmitting}
                   >
-                    Login
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Logging in...
+                      </>
+                    ) : (
+                      "Login"
+                    )}
                   </Button>
                   <div className="flex items-center justify-center gap-1">
                     <p className="text-muted-foreground text-sm mb-0">

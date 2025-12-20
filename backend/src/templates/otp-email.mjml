@@ -5,6 +5,7 @@
 
     <mj-attributes>
       <mj-all font-family="Inter, Arial, Helvetica, sans-serif" />
+
       <mj-text color="#6b7280" font-size="15px" line-height="1.6" />
     </mj-attributes>
 
@@ -17,14 +18,13 @@
 
   <mj-body background-color="#f9fafb">
     <!-- Header Section -->
-    <!-- Header Section -->
     <mj-section background-color="#526ba8" padding="20px 40px">
-      <mj-column align="center">
+      <mj-column>
         <mj-image
           src="https://iili.io/f0V24LJ.png"
           width="50px"
           alt="Auctra"
-          padding="0 0 0px 0"
+          padding="0 0px 0 0"
         />
 
         <mj-text

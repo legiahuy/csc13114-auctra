@@ -9,6 +9,7 @@ import apiClient from "../api/client";
 import toast from "react-hot-toast";
 import * as Yup from "yup";
 import ReCAPTCHA from "react-google-recaptcha";
+import { Loader2 } from "lucide-react";
 
 const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
@@ -56,18 +57,24 @@ export default function RegisterPage() {
               try {
                 // Send recaptchaToken instead of recaptcha
                 const { recaptcha, ...restValues } = values;
-                await apiClient.post("/auth/register", {
+                const response = await apiClient.post("/auth/register", {
                   ...restValues,
                   recaptchaToken: recaptcha,
                 });
                 toast.success(
-                  "Registration successful. Please check your email to verify your account."
+                  "Registration successful. Please verify your email with the code sent to your inbox."
                 );
                 resetForm();
                 if (recaptchaRef.current) {
                   recaptchaRef.current.reset();
                 }
-                navigate("/login");
+                // Navigate to verify email page with state
+                navigate("/verify-email", {
+                  state: {
+                    email: values.email,
+                    verificationToken: response.data.data.verificationToken,
+                  },
+                });
               } catch (error: any) {
                 toast.error(
                   error.response?.data?.error?.message || "Registration failed"
@@ -188,7 +195,14 @@ export default function RegisterPage() {
                     className="w-full"
                     disabled={isSubmitting}
                   >
-                    Register
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      "Register"
+                    )}
                   </Button>
                   <div className="flex items-center justify-center gap-1">
                     <p className="text-muted-foreground text-sm mb-0">
