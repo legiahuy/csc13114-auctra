@@ -1,5 +1,5 @@
-import { Router } from 'express';
-import { body } from 'express-validator';
+import { Router } from "express";
+import { body } from "express-validator";
 import {
   register,
   verifyEmail,
@@ -7,52 +7,55 @@ import {
   refreshToken,
   forgotPassword,
   resetPassword,
-} from '../controllers/auth.controller';
-import { authRateLimiter } from '../middleware/rateLimiter';
+  resendOTP,
+} from "../controllers/auth.controller";
+import { authRateLimiter } from "../middleware/rateLimiter";
 
 const router = Router();
 
 router.post(
-  '/register',
+  "/register",
   authRateLimiter,
   [
-    body('email').isEmail().normalizeEmail(),
-    body('password').isLength({ min: 6 }),
-    body('fullName').trim().notEmpty(),
-    body('address').trim().notEmpty(),
+    body("email").isEmail().normalizeEmail(),
+    body("password").isLength({ min: 6 }),
+    body("fullName").trim().notEmpty(),
+    body("address").trim().notEmpty(),
   ],
   register
 );
 
-router.post('/verify-email', verifyEmail);
+router.post("/verify-email", verifyEmail);
 
 router.post(
-  '/login',
+  "/login",
   authRateLimiter,
-  [
-    body('email').isEmail().normalizeEmail(),
-    body('password').notEmpty(),
-  ],
+  [body("email").isEmail().normalizeEmail(), body("password").notEmpty()],
   login
 );
 
-router.post('/refresh-token', refreshToken);
+router.post("/refresh-token", refreshToken);
 
 router.post(
-  '/forgot-password',
-  [body('email').isEmail().normalizeEmail()],
+  "/forgot-password",
+  [body("email").isEmail().normalizeEmail()],
   forgotPassword
 );
 
 router.post(
-  '/reset-password',
+  "/reset-password",
   [
-    body('token').notEmpty(),
-    body('otp').notEmpty(),
-    body('newPassword').isLength({ min: 6 }),
+    body("token").notEmpty(),
+    body("otp").notEmpty(),
+    body("newPassword").isLength({ min: 6 }),
   ],
   resetPassword
 );
 
-export default router;
+router.post(
+  "/resend-otp",
+  [body("email").isEmail().normalizeEmail()],
+  resendOTP
+);
 
+export default router;

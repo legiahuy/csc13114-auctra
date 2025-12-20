@@ -1,0 +1,133 @@
+<mjml>
+  <mj-head>
+    <mj-title>{{emailType}} - Auctra</mj-title>
+    <mj-preview>{{message}}</mj-preview>
+
+    <mj-attributes>
+      <mj-all font-family="Inter, Arial, Helvetica, sans-serif" />
+
+      <mj-text color="#6b7280" font-size="15px" line-height="1.6" />
+    </mj-attributes>
+
+    <mj-style>
+      .brand-color { background-color: #526ba8 !important; } .code-box {
+      background-color: #f3f4f6; border: 2px solid #e5e7eb; padding: 24px;
+      border-radius: 8px; text-align: center; }
+    </mj-style>
+  </mj-head>
+
+  <mj-body background-color="#f9fafb">
+    <!-- Header Section -->
+    <mj-section background-color="#526ba8" padding="20px 40px">
+      <mj-column>
+        <mj-image
+          src="https://iili.io/f0V24LJ.png"
+          width="50px"
+          alt="Auctra"
+          padding="0 0px 0 0"
+        />
+
+        <mj-text
+          font-size="28px"
+          font-weight="700"
+          color="#ffffff"
+          padding="0"
+          align="center"
+        >
+          Auctra
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- Content Section -->
+    <mj-section background-color="#ffffff" padding="48px 40px">
+      <mj-column>
+        <mj-text
+          font-size="22px"
+          font-weight="700"
+          color="#0f172a"
+          padding="0 0 12px 0"
+        >
+          {{emailType}}
+        </mj-text>
+
+        <mj-text color="#6b7280" padding="0 0 8px 0"> Hello, </mj-text>
+
+        <mj-text color="#6b7280" padding="0 0 32px 0"> {{message}} </mj-text>
+
+        <mj-text
+          font-size="12px"
+          font-weight="600"
+          color="#6b7280"
+          text-transform="uppercase"
+          letter-spacing="2px"
+          padding="0 0 12px 0"
+        >
+          {{codeLabel}}
+        </mj-text>
+
+        <mj-text
+          font-size="32px"
+          font-weight="700"
+          color="#0f172a"
+          padding="12px 0"
+          css-class="code-text"
+        >
+          {{code}}
+        </mj-text>
+
+        <mj-text font-size="13px" color="#6b7280" padding="0 0 32px 0">
+          {{expiryText}}
+        </mj-text>
+
+        <mj-text
+          font-size="14px"
+          font-weight="600"
+          color="#0f172a"
+          padding="0 0 6px 0"
+        >
+          Security Notice
+        </mj-text>
+
+        <mj-text font-size="14px" color="#6b7280" padding="0 0 24px 0">
+          Never share this code with anyone. We will never ask for this code via
+          phone, email, or message.
+        </mj-text>
+
+        <mj-text
+          font-size="14px"
+          font-weight="600"
+          color="#0f172a"
+          padding="0 0 6px 0"
+        >
+          Didn't request this?
+        </mj-text>
+
+        <mj-text font-size="14px" color="#6b7280" padding="0">
+          If you didn't request this {{emailType}}, you can safely ignore this
+          email. Your account remains secure.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- Footer Section -->
+    <mj-section background-color="#f9fafb" padding="32px 40px">
+      <mj-column>
+        <mj-text font-size="12px" color="#6b7280" padding="0 0 16px 0">
+          This is an automated message from Auctra. Please do not reply to this
+          email.
+        </mj-text>
+
+        <mj-divider border-color="#e5e7eb" padding="16px 0" />
+
+        <mj-text font-size="12px" color="#6b7280" padding="0 0 4px 0">
+          © 2025 Auctra. All rights reserved.
+        </mj-text>
+
+        <mj-text font-size="12px" color="#6b7280" padding="0">
+          Contact: support@auctra.com
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

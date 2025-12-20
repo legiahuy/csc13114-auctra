@@ -1,25 +1,13 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Carousel } from "@/components/ui/carousel";
 import apiClient from "../api/client";
-import { formatDistanceToNow } from "date-fns";
-import { Gavel, TrendingUp, Clock, Users, Sparkles } from "lucide-react";
+import { Gavel, TrendingUp, Users, Sparkles } from "lucide-react";
+import { ProductCard, type ProductCardProduct } from "@/components/ProductCard";
+import Loading from "@/components/Loading";
 
-interface Product {
-  id: number;
-  name: string;
-  currentPrice: number;
-  mainImage: string;
-  endDate: string;
-  bidCount: number;
-  seller: {
-    fullName: string;
-  };
-  isNew?: boolean;
-}
+type Product = ProductCardProduct;
 
 export default function HomePage() {
   const [endingSoon, setEndingSoon] = useState<Product[]>([]);
@@ -93,62 +81,6 @@ export default function HomePage() {
     };
   }, [hasAnimated]);
 
-  const ProductCard = ({
-    product,
-    index = 0,
-  }: {
-    product: Product;
-    index?: number;
-  }) => (
-    <Card
-      className="w-[320px] flex-shrink-0 hover:shadow-xl transition-all duration-300 group overflow-hidden border-border/50"
-      style={{
-        animationDelay: `${index * 100}ms`,
-      }}
-    >
-      <div className="aspect-video overflow-hidden rounded-t-xl relative">
-        <img
-          src={product.mainImage}
-          alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-        />
-        {product.isNew && (
-          <Badge className="absolute top-2 right-2 bg-primary text-primary-foreground">
-            New
-          </Badge>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      </div>
-      <CardContent className="p-5 space-y-3">
-        <Link
-          to={`/products/${product.id}`}
-          className="text-lg font-semibold hover:text-primary transition-colors block line-clamp-2 min-h-[3.5rem]"
-        >
-          {product.name}
-        </Link>
-        <div className="flex items-baseline gap-2">
-          <p className="text-2xl font-bold text-primary">
-            ${product.currentPrice.toLocaleString("en-US")}
-          </p>
-        </div>
-        <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t">
-          <div className="flex items-center gap-1">
-            <Clock className="h-4 w-4" />
-            <span className="line-clamp-1">
-              {formatDistanceToNow(new Date(product.endDate), {
-                addSuffix: true,
-              })}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Users className="h-4 w-4" />
-            <span>{product.bidCount} bids</span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
   const StatCard = ({
     icon: Icon,
     value,
@@ -186,42 +118,37 @@ export default function HomePage() {
 
     return (
       <div
-        className="text-center p-6 rounded-xl bg-card border border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg"
+        className="text-center p-6  transition-all duration-300"
         style={{
           animationDelay: `${delay}ms`,
         }}
       >
         <div className="flex justify-center mb-3">
-          <div className="p-3 rounded-full bg-primary/10 text-primary">
+          <div className="text-muted-foreground text-sm font-semibold">
             <Icon className="h-6 w-6" />
           </div>
         </div>
-        <div className="text-3xl font-bold text-foreground mb-1">
+        <div className="from-foreground to-foreground dark:to-brand bg-linear-to-r bg-clip-text text-4xl font-medium text-transparent drop-shadow-[2px_1px_24px_var(--brand-foreground)] transition-all duration-300 sm:text-5xl md:text-6xl">
           {count.toLocaleString("en-US")}
         </div>
-        <div className="text-sm text-muted-foreground">{label}</div>
+        <div className="text-muted-foreground text-sm font-semibold text-pretty">
+          {label}
+        </div>
       </div>
     );
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh] bg-background">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <Loading />;
   }
 
   return (
     <div className="space-y-16 pb-16">
       {/* Hero Section - clearer, more colorful using theme tokens */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-accent/20 via-background to-background text-foreground border-b border-border">
+      <section className="relative overflow-hidden  text-foreground border-b border-border">
         <div className="container mx-auto px-4 py-20 md:py-28 relative">
           <div className="max-w-4xl mx-auto text-center space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary text-secondary-foreground text-sm font-medium mb-4 border border-border">
+            <div className="inline-flex items-center rounded-full border dark:border-border/20 text-xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 gap-2 px-2.5 py-1 border-brand/30 text-brand">
               <Sparkles className="h-4 w-4" />
               <span>Leading Online Auction Platform</span>
             </div>
@@ -238,11 +165,7 @@ export default function HomePage() {
               items at the best prices.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
-              <Button
-                size="lg"
-                asChild
-                className="text-lg px-8 py-6 shadow-lg shadow"
-              >
+              <Button size="lg" asChild className="text-lg px-8 py-6 shadow">
                 <Link to="/products">Explore Products</Link>
               </Button>
               <Button
@@ -257,6 +180,92 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Ending Soon Section */}
+      {endingSoon.length > 0 && (
+        <section className="container mx-auto px-4 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div>
+                <h2 className="text-3xl font-bold text-foreground">
+                  Ending Soon
+                </h2>
+                <p className="text-muted-foreground">
+                  Don't miss your last chance
+                </p>
+              </div>
+            </div>
+            <Button variant="ghost" asChild>
+              <Link to="/products?sortBy=endDate&sortOrder=ASC">
+                View All →
+              </Link>
+            </Button>
+          </div>
+          <Carousel autoScroll={true} autoScrollInterval={4000}>
+            {endingSoon.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                className="w-[320px] shrink-0"
+              />
+            ))}
+          </Carousel>
+        </section>
+      )}
+
+      {/* Most Bids Section */}
+      {mostBids.length > 0 && (
+        <section className="container mx-auto px-4 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div>
+                <h2 className="text-3xl font-bold text-foreground">Trending</h2>
+                <p className="text-muted-foreground">Most bid products</p>
+              </div>
+            </div>
+            <Button variant="ghost" asChild>
+              <Link to="/products?sortBy=bidCount&sortOrder=DESC">
+                View All →
+              </Link>
+            </Button>
+          </div>
+          <Carousel autoScroll={true} autoScrollInterval={4000}>
+            {mostBids.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                className="w-[320px] shrink-0"
+              />
+            ))}
+          </Carousel>
+        </section>
+      )}
+
+      {/* Highest Price Section */}
+      {highestPrice.length > 0 && (
+        <section className="container mx-auto px-4 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div>
+                <h2 className="text-3xl font-bold text-foreground">Premium</h2>
+                <p className="text-muted-foreground">High-value products</p>
+              </div>
+            </div>
+            <Button variant="ghost" asChild>
+              <Link to="/products?sortBy=price&sortOrder=DESC">View All →</Link>
+            </Button>
+          </div>
+          <Carousel autoScroll={true} autoScrollInterval={4000}>
+            {highestPrice.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                className="w-[320px] shrink-0"
+              />
+            ))}
+          </Carousel>
+        </section>
+      )}
 
       {/* Stats Section */}
       <section ref={statsRef} className="container mx-auto px-4">
@@ -282,92 +291,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Ending Soon Section */}
-      {endingSoon.length > 0 && (
-        <section className="container mx-auto px-4 space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-destructive/10 text-destructive">
-                <Clock className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 className="text-3xl font-bold text-foreground">
-                  Ending Soon
-                </h2>
-                <p className="text-muted-foreground">
-                  Don't miss your last chance
-                </p>
-              </div>
-            </div>
-            <Button variant="ghost" asChild>
-              <Link to="/products?sortBy=endDate&sortOrder=ASC">
-                View All →
-              </Link>
-            </Button>
-          </div>
-          <Carousel autoScroll={true} autoScrollInterval={4000}>
-            {endingSoon.map((product, index) => (
-              <ProductCard key={product.id} product={product} index={index} />
-            ))}
-          </Carousel>
-        </section>
-      )}
-
-      {/* Most Bids Section */}
-      {mostBids.length > 0 && (
-        <section className="container mx-auto px-4 space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                <TrendingUp className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 className="text-3xl font-bold text-foreground">Trending</h2>
-                <p className="text-muted-foreground">Most bid products</p>
-              </div>
-            </div>
-            <Button variant="ghost" asChild>
-              <Link to="/products?sortBy=bidCount&sortOrder=DESC">
-                View All →
-              </Link>
-            </Button>
-          </div>
-          <Carousel autoScroll={true} autoScrollInterval={4000}>
-            {mostBids.map((product, index) => (
-              <ProductCard key={product.id} product={product} index={index} />
-            ))}
-          </Carousel>
-        </section>
-      )}
-
-      {/* Highest Price Section */}
-      {highestPrice.length > 0 && (
-        <section className="container mx-auto px-4 space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-accent/10 text-accent-foreground">
-                <Sparkles className="h-6 w-6" />
-              </div>
-              <div>
-                <h2 className="text-3xl font-bold text-foreground">Premium</h2>
-                <p className="text-muted-foreground">High-value products</p>
-              </div>
-            </div>
-            <Button variant="ghost" asChild>
-              <Link to="/products?sortBy=price&sortOrder=DESC">View All →</Link>
-            </Button>
-          </div>
-          <Carousel autoScroll={true} autoScrollInterval={4000}>
-            {highestPrice.map((product, index) => (
-              <ProductCard key={product.id} product={product} index={index} />
-            ))}
-          </Carousel>
-        </section>
-      )}
-
       {/* CTA Section */}
       <section className="container mx-auto px-4">
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-accent/10 to-primary/5 border border-primary/20 p-12 text-center">
+        <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-primary/10 via-accent/10 to-primary/5 border border-primary/20 p-12 text-center">
           <div
             className="absolute inset-0 opacity-20"
             style={{
