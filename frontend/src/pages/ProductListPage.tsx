@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import apiClient from "../api/client";
-import { LoaderIcon, Heart } from "lucide-react";
+import { LoaderIcon } from "lucide-react";
 import { ProductCard, type ProductCardProduct } from "@/components/ProductCard";
 import Loading from "@/components/Loading";
 import { Separator } from "@/components/ui/separator";
@@ -391,33 +391,12 @@ export default function ProductListPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {products.map((product) => (
-            <div key={product.id} className="relative">
-              {/* If ProductCard already navigates on click, keep it. */}
-              <ProductCard product={product} />
-
-              {/* Overlay favorite button without modifying ProductCard file */}
-              <button
-                type="button"
-                className="absolute right-3 top-3 z-10 rounded-full bg-white/85 p-2 shadow-sm transition hover:shadow-md"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleToggleWatchlist(product.id);
-                }}
-                aria-label={
-                  watchlistIds.has(product.id)
-                    ? "Xóa khỏi yêu thích"
-                    : "Thêm vào yêu thích"
-                }
-                disabled={watchlistLoading}
-              >
-                {watchlistIds.has(product.id) ? (
-                  <Heart className="h-5 w-5 text-red-500 fill-red-500" />
-                ) : (
-                  <Heart className="h-5 w-5 text-gray-600" />
-                )}
-              </button>
-            </div>
+            <ProductCard
+              key={product.id}
+              product={product}
+              isInWatchlist={watchlistIds.has(product.id)}
+              onToggleWatchlist={handleToggleWatchlist}
+            />
           ))}
         </div>
       )}
