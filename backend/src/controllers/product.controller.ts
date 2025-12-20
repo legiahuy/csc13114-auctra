@@ -33,7 +33,16 @@ export const getHomepageProducts = async (
         endDate: { [Op.gt]: now },
       },
       include: [
-        { model: Category, as: "category" },
+        {
+          model: Category,
+          as: "category",
+          include: [
+            {
+              model: Category,
+              as: "parent",
+            },
+          ],
+        },
         {
           model: User,
           as: "seller",
@@ -56,7 +65,16 @@ export const getHomepageProducts = async (
         endDate: { [Op.gt]: now },
       },
       include: [
-        { model: Category, as: "category" },
+        {
+          model: Category,
+          as: "category",
+          include: [
+            {
+              model: Category,
+              as: "parent",
+            },
+          ],
+        },
         {
           model: User,
           as: "seller",
@@ -79,7 +97,16 @@ export const getHomepageProducts = async (
         endDate: { [Op.gt]: now },
       },
       include: [
-        { model: Category, as: "category" },
+        {
+          model: Category,
+          as: "category",
+          include: [
+            {
+              model: Category,
+              as: "parent",
+            },
+          ],
+        },
         {
           model: User,
           as: "seller",
@@ -185,7 +212,16 @@ export const getProducts = async (
     const { count, rows } = await Product.findAndCountAll({
       where,
       include: [
-        { model: Category, as: "category" },
+        {
+          model: Category,
+          as: "category",
+          include: [
+            {
+              model: Category,
+              as: "parent",
+            },
+          ],
+        },
         {
           model: User,
           as: "seller",
@@ -244,7 +280,16 @@ export const getProductById = async (
 
     const product = await Product.findByPk(id, {
       include: [
-        { model: Category, as: "category" },
+        {
+          model: Category,
+          as: "category",
+          include: [
+            {
+              model: Category,
+              as: "parent",
+            },
+          ],
+        },
         {
           model: User,
           as: "seller",

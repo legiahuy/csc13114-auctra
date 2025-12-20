@@ -3,7 +3,7 @@ import { validationResult } from "express-validator";
 import { User } from "../models";
 import { AppError } from "../middleware/errorHandler";
 import { generateAccessToken, generateRefreshToken } from "../utils/jwt.util";
-import { sendOTPEmail } from "../utils/email.util";
+import { sendOTPEmail, sendPasswordResetOTPEmail } from "../utils/email.util";
 import { generateOTP, generateToken } from "../utils/otp.util";
 import { verifyRecaptcha } from "../utils/recaptcha.util";
 import { Op } from "sequelize";
@@ -94,8 +94,8 @@ export const verifyEmail = async (
     // For now, we'll just verify the token exists
 
     user.isEmailVerified = true;
-    user.emailVerificationToken = null;
-    user.emailVerificationExpires = null;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
     await user.save();
 
     res.json({
@@ -139,7 +139,14 @@ export const login = async (
     }
 
     if (!user.isEmailVerified) {
-      return next(new AppError("Please verify your email first", 401));
+      return res.status(401).json({
+        success: false,
+        message: "Please verify your email first",
+        data: {
+          email: user.email,
+          verificationToken: user.emailVerificationToken,
+        },
+      });
     }
 
     const accessToken = generateAccessToken({
@@ -236,7 +243,7 @@ export const forgotPassword = async (
 
     // Send email with OTP
     const otp = generateOTP();
-    await sendOTPEmail(email, otp);
+    await sendPasswordResetOTPEmail(email, otp);
 
     res.json({
       success: true,
@@ -271,13 +278,39 @@ export const resetPassword = async (
 
     // Verify OTP (in production, verify against stored OTP)
     user.password = newPassword;
-    user.passwordResetToken = null;
-    user.passwordResetExpires = null;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
     await user.save();
 
     res.json({
       success: true,
       message: "Password reset successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resendOTP = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return next(new AppError("User not found", 404));
+    }
+
+    // Generate new OTP and send
+    const otp = generateOTP();
+    await sendOTPEmail(email, otp);
+
+    res.json({
+      success: true,
+      message: "OTP sent to email",
     });
   } catch (error) {
     next(error);
