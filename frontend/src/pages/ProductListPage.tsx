@@ -183,6 +183,16 @@ export default function ProductListPage() {
 
   return (
     <div className="space-y-6">
+      <div className="mb-6">
+        <h1 className="text-3xl md:text-5xl font-bold text-neutral-800 dark:text-neutral-200 font-sans mb-4">
+          Explore Products
+        </h1>
+        <p className="text-lg text-neutral-600 dark:text-neutral-400">
+          {pagination.total} product{pagination.total !== 1 ? "s" : ""}{" "}
+          available
+        </p>
+      </div>
+
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
         <div className="flex-1 space-y-2">
           <Label htmlFor="search">Search</Label>
@@ -230,9 +240,9 @@ export default function ProductListPage() {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                className="w-[180px] h-9 justify-start text-left font-normal"
+                className="w-[180px] h-9 justify-start text-left font-normal px-3"
               >
-                {getCategoryNameById(categoryId) || "Select Category"}
+                {getCategoryNameById(categoryId) || "All categories"}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">

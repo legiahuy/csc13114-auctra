@@ -23,6 +23,7 @@ interface Category {
   id: number;
   name: string;
   children?: Category[];
+  slug: string;
 }
 
 export default function Layout({ children }: LayoutProps) {
@@ -48,8 +49,8 @@ export default function Layout({ children }: LayoutProps) {
     navigate("/");
   };
 
-  const handleCategoryClick = (categoryId: number) => {
-    navigate(`/products?categoryId=${categoryId}`);
+  const handleCategoryClick = (catSlug: string) => {
+    navigate(`/category/${catSlug}`);
   };
 
   return (
@@ -93,7 +94,9 @@ export default function Layout({ children }: LayoutProps) {
                           </DropdownMenuSubTrigger>
                           <DropdownMenuSubContent>
                             <DropdownMenuItem
-                              onSelect={() => handleCategoryClick(category.id)}
+                              onSelect={() =>
+                                handleCategoryClick(category.slug)
+                              }
                               className="focus-visible:outline-none focus-visible:ring-0"
                             >
                               {category.name}
@@ -102,7 +105,7 @@ export default function Layout({ children }: LayoutProps) {
                             {category.children.map((child) => (
                               <DropdownMenuItem
                                 key={child.id}
-                                onSelect={() => handleCategoryClick(child.id)}
+                                onSelect={() => handleCategoryClick(child.slug)}
                                 className="focus-visible:outline-none focus-visible:ring-0"
                               >
                                 {child.name}
@@ -112,8 +115,8 @@ export default function Layout({ children }: LayoutProps) {
                         </DropdownMenuSub>
                       ) : (
                         <DropdownMenuItem
-                          key={category.id}
-                          onSelect={() => handleCategoryClick(category.id)}
+                          key={category.slug}
+                          onSelect={() => handleCategoryClick(category.slug)}
                           className="focus-visible:outline-none focus-visible:ring-0"
                         >
                           {category.name}
@@ -192,9 +195,11 @@ export default function Layout({ children }: LayoutProps) {
       <main className="py-8 flex-1">
         <div className="container mx-auto px-4">{children}</div>
       </main>
-      <footer className="border-t py-4">
-        <div className="container mx-auto px-4 text-center text-muted-foreground">
-          <p className="my-0">© 2025 Auctra</p>
+      <footer className="border-t py-5">
+        <div className="container mx-auto text-center text-muted-foreground">
+          <p className="my-0 text-xs sm:flex-row">
+            © 2025 Auctra. All rights reserved
+          </p>
         </div>
       </footer>
     </div>
