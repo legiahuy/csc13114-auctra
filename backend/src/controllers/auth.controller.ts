@@ -81,8 +81,8 @@ export const verifyEmail = async (req: Request, res: Response, next: NextFunctio
     // For now, we'll just verify the token exists
 
     user.isEmailVerified = true;
-    user.emailVerificationToken = null;
-    user.emailVerificationExpires = null;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
     await user.save();
 
     res.json({
@@ -139,6 +139,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
           email: user.email,
           fullName: user.fullName,
           role: user.role,
+          upgradeExpireAt: user.upgradeExpireAt || null,
         },
       },
     });
@@ -234,8 +235,8 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 
     // Verify OTP (in production, verify against stored OTP)
     user.password = newPassword;
-    user.passwordResetToken = null;
-    user.passwordResetExpires = null;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
     await user.save();
 
     res.json({

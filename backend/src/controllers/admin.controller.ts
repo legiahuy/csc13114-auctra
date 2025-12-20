@@ -124,13 +124,17 @@ export const approveUpgrade = async (req: AuthRequest, res: Response, next: Next
       return next(new AppError('User upgrade request is not pending', 400));
     }
 
+    const expireAt = new Date();
+    expireAt.setMinutes(expireAt.getMinutes() + 1); // seller quyền bán 1 phút (để test)
+
     user.role = 'seller';
     user.upgradeRequestStatus = 'approved';
+    user.upgradeExpireAt = expireAt;
     await user.save();
 
     res.json({
       success: true,
-      message: 'Upgrade approved successfully',
+      message: 'Upgrade approved successfully (seller for 1 minute)',
       data: user,
     });
   } catch (error) {
@@ -145,6 +149,7 @@ export const rejectUpgrade = async (req: AuthRequest, res: Response, next: NextF
     }
 
     const { userId } = req.params;
+    const { reason } = req.body;
 
     const user = await User.findByPk(userId);
     if (!user) {
@@ -152,6 +157,8 @@ export const rejectUpgrade = async (req: AuthRequest, res: Response, next: NextF
     }
 
     user.upgradeRequestStatus = 'rejected';
+    user.upgradeRejectionReason = reason || null;
+    user.upgradeExpireAt = undefined;
     await user.save();
 
     res.json({
@@ -340,6 +347,40 @@ export const getAllProducts = async (req: AuthRequest, res: Response, next: Next
     });
   } catch (error) {
     next(error);
+  }
+};
+
+export const testEmail = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Admin access required', 403));
+    }
+
+    const { email } = req.body;
+    if (!email) {
+      return next(new AppError('Email is required', 400));
+    }
+
+    const { sendQuestionNotificationEmail } = require('../utils/email.util');
+    
+    await sendQuestionNotificationEmail(
+      email,
+      'Sản phẩm test',
+      'Đây là câu hỏi test để kiểm tra hệ thống email',
+      1,
+      'Người test'
+    );
+
+    res.json({
+      success: true,
+      message: `Email test đã được gửi đến ${email}. Vui lòng kiểm tra hộp thư.`,
+    });
+  } catch (error: any) {
+    res.json({
+      success: false,
+      message: `Lỗi khi gửi email: ${error.message}`,
+      error: error.message,
+    });
   }
 };
 

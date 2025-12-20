@@ -53,6 +53,9 @@ interface User {
   fullName: string;
   role: string;
   upgradeRequestStatus?: string;
+  upgradeRequestDate?: string;
+  upgradeExpireAt?: string | null;
+  upgradeRejectionReason?: string | null;
 }
 
 interface Product {
@@ -197,6 +200,7 @@ export default function AdminDashboardPage() {
   }
 
   const parentCategories = categories.filter((c) => !c.parentId);
+  const hasPendingUpgrade = users.some((u) => u.upgradeRequestStatus === 'pending');
 
   return (
     <Box>
@@ -400,6 +404,11 @@ export default function AdminDashboardPage() {
         <Typography variant="h6" gutterBottom>
           Quản lý người dùng
         </Typography>
+        {stats.upgradeRequests > 0 && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Có {stats.upgradeRequests} yêu cầu nâng cấp đang chờ duyệt.
+          </Alert>
+        )}
         <TableContainer>
           <Table>
             <TableHead>
@@ -409,6 +418,7 @@ export default function AdminDashboardPage() {
                 <TableCell>Họ tên</TableCell>
                 <TableCell>Vai trò</TableCell>
                 <TableCell>Yêu cầu nâng cấp</TableCell>
+                {hasPendingUpgrade && <TableCell>Duyệt</TableCell>}
                 <TableCell>Thao tác</TableCell>
               </TableRow>
             </TableHead>
@@ -427,10 +437,67 @@ export default function AdminDashboardPage() {
                   <TableCell>
                     {user.upgradeRequestStatus === 'pending' ? (
                       <Chip label="Đang chờ" color="warning" size="small" />
+                    ) : user.upgradeRequestStatus === 'approved' ? (
+                      <Chip label="Đã duyệt" color="success" size="small" />
+                    ) : user.upgradeRequestStatus === 'rejected' ? (
+                      <Chip label="Đã từ chối" color="error" size="small" />
                     ) : (
                       '-'
                     )}
                   </TableCell>
+                  {hasPendingUpgrade && (
+                    <TableCell>
+                      {user.upgradeRequestStatus === 'pending' ? (
+                        <>
+                          <Button
+                            size="small"
+                            color="success"
+                            sx={{ mr: 1, mb: 0.5 }}
+                            onClick={async () => {
+                              try {
+                                await apiClient.put(`/admin/upgrade-requests/${user.id}/approve`);
+                                toast.success('Đã duyệt nâng cấp seller trong 7 ngày');
+                                fetchData();
+                              } catch (error: any) {
+                                toast.error(
+                                  error.response?.data?.error?.message ||
+                                    'Duyệt nâng cấp thất bại'
+                                );
+                              }
+                            }}
+                          >
+                            Duyệt
+                          </Button>
+                          <Button
+                            size="small"
+                            color="warning"
+                            sx={{ mr: 1, mb: 0.5 }}
+                            onClick={async () => {
+                              const reason =
+                                window.prompt('Nhập lý do từ chối (tùy chọn):') || '';
+                              try {
+                                await apiClient.put(
+                                  `/admin/upgrade-requests/${user.id}/reject`,
+                                  { reason }
+                                );
+                                toast.success('Đã từ chối yêu cầu nâng cấp');
+                                fetchData();
+                              } catch (error: any) {
+                                toast.error(
+                                  error.response?.data?.error?.message ||
+                                    'Từ chối nâng cấp thất bại'
+                                );
+                              }
+                            }}
+                          >
+                            Từ chối
+                          </Button>
+                        </>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Button
                       size="small"

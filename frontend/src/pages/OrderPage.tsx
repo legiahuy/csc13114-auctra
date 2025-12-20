@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -17,7 +17,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Rating,
   Chip,
   Alert,
 } from '@mui/material';
@@ -79,7 +78,6 @@ const steps = [
 
 export default function OrderPage() {
   const { orderId } = useParams();
-  const navigate = useNavigate();
   const { user } = useAuthStore();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,17 +85,51 @@ export default function OrderPage() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [paymentProofUrl, setPaymentProofUrl] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentTransactionId, setPaymentTransactionId] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
-  const [shippingInvoice, setShippingInvoice] = useState<File | null>(null);
   const [shippingInvoiceUrl, setShippingInvoiceUrl] = useState('');
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewRating, setReviewRating] = useState<1 | -1>(1);
   const [reviewComment, setReviewComment] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialLoadRef = useRef(true);
+  const lastSavedRef = useRef<{
+    paymentMethod?: string;
+    paymentTransactionId?: string;
+    paymentProof?: string;
+    shippingAddress?: string;
+    shippingInvoice?: string;
+  }>({});
+
+  // Auto-save function với debounce
+  const autoSave = async (data: {
+    paymentMethod?: string;
+    paymentTransactionId?: string;
+    paymentProof?: string;
+    shippingAddress?: string;
+    shippingInvoice?: string;
+  }) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await apiClient.put(`/orders/${orderId}`, {
+          ...data,
+          // Không gửi status để chỉ lưu draft, không thay đổi trạng thái
+        });
+        // Lưu lại giá trị đã save
+        lastSavedRef.current = { ...data };
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+        // Không hiển thị error để không làm phiền user
+      }
+    }, 1000); // Debounce 1 giây
+  };
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -107,11 +139,13 @@ export default function OrderPage() {
         setOrder(orderData);
         
         // Set active step based on status
+        // pending_address: bidder đã gửi địa chỉ, seller cần xác nhận gửi hàng (bước 3)
+        // pending_shipping: seller đã gửi hàng, bidder cần xác nhận nhận hàng (bước 4)
         const statusSteps: Record<string, number> = {
           pending_payment: 0,
-          pending_address: 1,
-          pending_shipping: 2,
-          pending_delivery: 3,
+          pending_address: 1, // Bidder đã gửi địa chỉ, seller thấy bước 3
+          pending_shipping: 3, // Seller đã gửi hàng, bidder thấy bước 4
+          pending_delivery: 3, // Tương tự pending_shipping
           completed: 4,
           cancelled: -1,
         };
@@ -121,6 +155,18 @@ export default function OrderPage() {
         setPaymentProofUrl(orderData.paymentProof || '');
         setShippingAddress(orderData.shippingAddress || '');
         setShippingInvoiceUrl(orderData.shippingInvoice || '');
+        
+        // Lưu giá trị ban đầu để so sánh
+        lastSavedRef.current = {
+          paymentMethod: orderData.paymentMethod || undefined,
+          paymentTransactionId: orderData.paymentTransactionId || undefined,
+          paymentProof: orderData.paymentProof || undefined,
+          shippingAddress: orderData.shippingAddress || undefined,
+          shippingInvoice: orderData.shippingInvoice || undefined,
+        };
+        
+        // Đánh dấu đã load xong
+        isInitialLoadRef.current = false;
       } catch (error) {
         console.error('Error fetching order:', error);
         toast.error('Không thể tải thông tin đơn hàng');
@@ -140,10 +186,44 @@ export default function OrderPage() {
 
     newSocket.on('connect', () => {
       newSocket.emit('join-room', `order-${orderId}`);
+      // Join vào user room để nhận order-list-updated
+      newSocket.emit('join-room', `user-${user.id}`);
     });
 
     newSocket.on('new-message', (message: ChatMessage) => {
       setMessages((prev) => [...prev, message]);
+    });
+
+    // Listen cho order-updated event
+    newSocket.on('order-updated', (updatedOrder: Order) => {
+      setOrder(updatedOrder);
+      // Cập nhật active step
+      // pending_address: bidder đã gửi địa chỉ, seller cần xác nhận gửi hàng (bước 3)
+      // pending_shipping: seller đã gửi hàng, bidder cần xác nhận nhận hàng (bước 4)
+      const statusSteps: Record<string, number> = {
+        pending_payment: 0,
+        pending_address: 1, // Bidder đã gửi địa chỉ, seller thấy bước 3
+        pending_shipping: 3, // Seller đã gửi hàng, bidder thấy bước 4
+        pending_delivery: 3, // Tương tự pending_shipping
+        completed: 4,
+        cancelled: -1,
+      };
+      setActiveStep(statusSteps[updatedOrder.status] || 0);
+      // Cập nhật các field
+      setPaymentMethod(updatedOrder.paymentMethod || '');
+      setPaymentTransactionId(updatedOrder.paymentTransactionId || '');
+      setPaymentProofUrl(updatedOrder.paymentProof || '');
+      setShippingAddress(updatedOrder.shippingAddress || '');
+      setShippingInvoiceUrl(updatedOrder.shippingInvoice || '');
+      
+      // Cập nhật lastSavedRef để tránh auto-save không cần thiết
+      lastSavedRef.current = {
+        paymentMethod: updatedOrder.paymentMethod || undefined,
+        paymentTransactionId: updatedOrder.paymentTransactionId || undefined,
+        paymentProof: updatedOrder.paymentProof || undefined,
+        shippingAddress: updatedOrder.shippingAddress || undefined,
+        shippingInvoice: updatedOrder.shippingInvoice || undefined,
+      };
     });
 
     setSocket(newSocket);
@@ -168,11 +248,62 @@ export default function OrderPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Auto-save khi các field thay đổi (chỉ khi order đã được load và user đã thay đổi)
+  useEffect(() => {
+    if (!order || !orderId || isInitialLoadRef.current) return;
+
+    // Chỉ auto-save nếu user là buyer và đang ở các bước tương ứng
+    const isBuyer = user?.id === order.buyerId;
+    const isSeller = user?.id === order.sellerId;
+    
+    // Kiểm tra xem có thay đổi không
+    const hasPaymentChanges = 
+      (paymentMethod || '') !== (lastSavedRef.current.paymentMethod || '') ||
+      (paymentTransactionId || '') !== (lastSavedRef.current.paymentTransactionId || '') ||
+      (paymentProofUrl || '') !== (lastSavedRef.current.paymentProof || '');
+    
+    const hasShippingAddressChanges = 
+      (shippingAddress || '') !== (lastSavedRef.current.shippingAddress || '');
+    
+    const hasShippingInvoiceChanges = 
+      (shippingInvoiceUrl || '') !== (lastSavedRef.current.shippingInvoice || '');
+
+    // Auto-save payment info (bước 1) - chỉ khi có thay đổi
+    if (isBuyer && hasPaymentChanges && (order.status === 'pending_payment' || order.status === 'pending_address')) {
+      autoSave({
+        paymentMethod: paymentMethod || undefined,
+        paymentTransactionId: paymentTransactionId || undefined,
+        paymentProof: paymentProofUrl || undefined,
+      });
+    }
+
+    // Auto-save shipping address (bước 2) - chỉ khi có thay đổi
+    if (isBuyer && hasShippingAddressChanges && (order.status === 'pending_address' || order.status === 'pending_shipping')) {
+      autoSave({
+        shippingAddress: shippingAddress || undefined,
+      });
+    }
+
+    // Auto-save shipping invoice (bước 3 - seller) - chỉ khi có thay đổi
+    if (isSeller && hasShippingInvoiceChanges && shippingInvoiceUrl && (order.status === 'pending_shipping' || order.status === 'pending_delivery')) {
+      autoSave({
+        shippingInvoice: shippingInvoiceUrl || undefined,
+      });
+    }
+  }, [paymentMethod, paymentTransactionId, paymentProofUrl, shippingAddress, shippingInvoiceUrl, order, orderId, user]);
+
+  // Cleanup timeout khi unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handlePaymentProofUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    setPaymentProof(file);
     const formData = new FormData();
     formData.append('file', file);
 
@@ -182,8 +313,11 @@ export default function OrderPage() {
           'Content-Type': 'multipart/form-data',
         },
       });
-      setPaymentProofUrl(response.data.data.url);
+      const url = response.data.data.url;
+      setPaymentProofUrl(url);
       toast.success('Upload ảnh thành công');
+      // Auto-save payment proof
+      await autoSave({ paymentProof: url });
     } catch (error) {
       toast.error('Upload ảnh thất bại');
     }
@@ -192,8 +326,6 @@ export default function OrderPage() {
   const handleShippingInvoiceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    setShippingInvoice(file);
     const formData = new FormData();
     formData.append('file', file);
 
@@ -203,8 +335,11 @@ export default function OrderPage() {
           'Content-Type': 'multipart/form-data',
         },
       });
-      setShippingInvoiceUrl(response.data.data.url);
+      const url = response.data.data.url;
+      setShippingInvoiceUrl(url);
       toast.success('Upload hóa đơn thành công');
+      // Auto-save shipping invoice
+      await autoSave({ shippingInvoice: url });
     } catch (error) {
       toast.error('Upload hóa đơn thất bại');
     }
@@ -240,17 +375,17 @@ export default function OrderPage() {
     }
 
     try {
+      // Chỉ lưu địa chỉ, không thay đổi status (vẫn ở pending_address)
       await apiClient.put(`/orders/${orderId}`, {
-        status: 'pending_shipping',
         shippingAddress,
+        // Không gửi status để giữ nguyên pending_address
       });
-      toast.success('Xác nhận địa chỉ thành công');
-      setActiveStep(2);
+      toast.success('Đã gửi địa chỉ. Vui lòng chờ người bán xác nhận và gửi hàng.');
       if (order) {
-        setOrder({ ...order, status: 'pending_shipping', shippingAddress });
+        setOrder({ ...order, shippingAddress });
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Xác nhận địa chỉ thất bại');
+      toast.error(error.response?.data?.error?.message || 'Gửi địa chỉ thất bại');
     }
   };
 
@@ -261,14 +396,15 @@ export default function OrderPage() {
     }
 
     try {
+      // Seller xác nhận đã gửi hàng, chuyển từ pending_address → pending_shipping
       await apiClient.put(`/orders/${orderId}`, {
-        status: 'pending_delivery',
+        status: 'pending_shipping',
         shippingInvoice: shippingInvoiceUrl,
       });
       toast.success('Xác nhận đã gửi hàng thành công');
-      setActiveStep(3);
+      setActiveStep(2); // Seller đã hoàn thành bước 3
       if (order) {
-        setOrder({ ...order, status: 'pending_delivery', shippingInvoice: shippingInvoiceUrl });
+        setOrder({ ...order, status: 'pending_shipping', shippingInvoice: shippingInvoiceUrl });
       }
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || 'Xác nhận thất bại');
@@ -277,6 +413,7 @@ export default function OrderPage() {
 
   const handleStep4 = async () => {
     try {
+      // Bidder xác nhận đã nhận hàng, chuyển từ pending_shipping → completed
       await apiClient.put(`/orders/${orderId}`, {
         status: 'completed',
       });
@@ -337,6 +474,41 @@ export default function OrderPage() {
     }
   };
 
+  const handleResetOrder = async () => {
+    if (!window.confirm('Bạn có chắc chắn muốn nhập lại toàn bộ thông tin đơn hàng từ đầu?')) return;
+
+    try {
+      await apiClient.put(`/orders/${orderId}`, {
+        status: 'pending_payment',
+        paymentMethod: '',
+        paymentTransactionId: '',
+        paymentProof: '',
+        shippingAddress: '',
+        shippingInvoice: '',
+      });
+      toast.success('Đã reset quy trình đơn hàng, vui lòng nhập lại từ bước 1');
+      setActiveStep(0);
+      if (order) {
+        setOrder({
+          ...order,
+          status: 'pending_payment',
+          paymentMethod: '',
+          paymentTransactionId: '',
+          paymentProof: '',
+          shippingAddress: '',
+          shippingInvoice: '',
+        } as any);
+      }
+      setPaymentMethod('');
+      setPaymentTransactionId('');
+      setPaymentProofUrl('');
+      setShippingAddress('');
+      setShippingInvoiceUrl('');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Không thể reset đơn hàng');
+    }
+  };
+
   if (loading) {
     return <Typography>Đang tải...</Typography>;
   }
@@ -348,6 +520,10 @@ export default function OrderPage() {
   const isBuyer = user?.id === order.buyerId;
   const isSeller = user?.id === order.sellerId;
   const canCancel = isSeller && order.status !== 'completed' && order.status !== 'cancelled';
+  const canReset =
+    isBuyer &&
+    order.status !== 'completed' &&
+    order.status !== 'cancelled';
 
   return (
     <Box>
@@ -460,7 +636,10 @@ export default function OrderPage() {
                       rows={4}
                       margin="normal"
                       value={shippingAddress}
-                      onChange={(e) => setShippingAddress(e.target.value)}
+                      onChange={(e) => {
+                        setShippingAddress(e.target.value);
+                        // Auto-save sẽ được trigger bởi useEffect
+                      }}
                       required
                     />
                     <Button
@@ -474,8 +653,15 @@ export default function OrderPage() {
                   </Box>
                 )}
 
-                {/* Step 3: Seller confirms shipping */}
-                {activeStep === 2 && isSeller && (
+                {/* Buyer waiting for seller to ship */}
+                {activeStep === 1 && order?.status === 'pending_address' && order?.shippingAddress && isBuyer && (
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    Bạn đã gửi địa chỉ. Vui lòng chờ người bán xác nhận và gửi hàng.
+                  </Alert>
+                )}
+
+                {/* Step 3: Seller confirms shipping - hiển thị khi status là pending_address và đã có shippingAddress */}
+                {order?.status === 'pending_address' && order?.shippingAddress && isSeller && (
                   <Box>
                     <Typography variant="h6" gutterBottom>
                       Bước 3: Xác nhận đã nhận tiền và gửi hàng
@@ -519,8 +705,8 @@ export default function OrderPage() {
                   </Box>
                 )}
 
-                {/* Step 4: Buyer confirms delivery */}
-                {activeStep === 3 && isBuyer && (
+                {/* Step 4: Buyer confirms delivery - hiển thị khi status là pending_shipping */}
+                {order?.status === 'pending_shipping' && isBuyer && (
                   <Box>
                     <Typography variant="h6" gutterBottom>
                       Bước 4: Xác nhận đã nhận hàng
@@ -541,17 +727,27 @@ export default function OrderPage() {
                   </Alert>
                 )}
 
-                {/* Cancel button for seller */}
-                {canCancel && (
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    onClick={handleCancelOrder}
-                    sx={{ mt: 3 }}
-                  >
-                    Hủy đơn hàng
-                  </Button>
-                )}
+                {/* Actions for order */}
+                <Box sx={{ display: 'flex', gap: 2, mt: 3, flexWrap: 'wrap' }}>
+                  {canCancel && (
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      onClick={handleCancelOrder}
+                    >
+                      Hủy đơn hàng
+                    </Button>
+                  )}
+                  {canReset && (
+                    <Button
+                      variant="outlined"
+                      color="secondary"
+                      onClick={handleResetOrder}
+                    >
+                      Nhập lại từ đầu
+                    </Button>
+                  )}
+                </Box>
               </Box>
             )}
           </Paper>

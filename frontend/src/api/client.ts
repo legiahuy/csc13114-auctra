@@ -17,11 +17,20 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor to handle token refresh
+// Response interceptor to handle token refresh and seller expiration
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // Handle seller upgrade expiration (403)
+    if (error.response?.status === 403 && error.response?.data?.message?.includes('hết thời hạn')) {
+      const { updateUser } = useAuthStore.getState();
+      // Cập nhật role về bidder
+      updateUser({ role: 'bidder' });
+      // Không reject error để component có thể xử lý
+      return Promise.reject(error);
+    }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
