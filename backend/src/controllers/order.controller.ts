@@ -4,6 +4,7 @@ import { AppError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { sendAuctionEndedEmail } from '../utils/email.util';
 import { Op } from 'sequelize';
+import { Server } from 'socket.io';
 
 // This should be called by a cron job or scheduled task when auction ends
 export const processEndedAuctions = async () => {
@@ -128,16 +129,36 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response, next: N
     }
 
     // Authorization checks
+    if (status === 'pending_payment' && order.buyerId !== req.user.id) {
+      return next(new AppError('Only buyer can reset order steps', 403));
+    }
+
     if (status === 'pending_address' && order.buyerId !== req.user.id) {
       return next(new AppError('Only buyer can update shipping address', 403));
     }
 
-    if (status === 'pending_shipping' && order.sellerId !== req.user.id) {
-      return next(new AppError('Only seller can confirm payment and shipping', 403));
+    // Chỉ seller mới có thể chuyển từ pending_address → pending_shipping (xác nhận đã gửi hàng)
+    if (status === 'pending_shipping') {
+      if (order.status !== 'pending_address') {
+        return next(new AppError('Chỉ có thể xác nhận gửi hàng khi đơn hàng đang ở trạng thái chờ địa chỉ', 400));
+      }
+      if (order.sellerId !== req.user.id) {
+        return next(new AppError('Chỉ người bán mới có thể xác nhận đã gửi hàng', 403));
+      }
+      // Kiểm tra đã có địa chỉ giao hàng chưa
+      if (!order.shippingAddress && !shippingAddress) {
+        return next(new AppError('Chưa có địa chỉ giao hàng. Vui lòng chờ người mua gửi địa chỉ', 400));
+      }
     }
 
-    if (status === 'pending_delivery' && order.buyerId !== req.user.id) {
-      return next(new AppError('Only buyer can confirm delivery', 403));
+    // Bidder xác nhận đã nhận hàng, chuyển từ pending_shipping → completed
+    if (status === 'completed') {
+      if (order.status !== 'pending_shipping') {
+        return next(new AppError('Chỉ có thể xác nhận nhận hàng khi đơn hàng đang ở trạng thái đã gửi hàng', 400));
+      }
+      if (order.buyerId !== req.user.id) {
+        return next(new AppError('Chỉ người mua mới có thể xác nhận đã nhận hàng', 403));
+      }
     }
 
     if (status === 'cancelled') {
@@ -171,14 +192,42 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response, next: N
       }
     }
 
-    if (status) order.status = status;
-    if (paymentMethod) order.paymentMethod = paymentMethod;
-    if (paymentTransactionId) order.paymentTransactionId = paymentTransactionId;
-    if (paymentProof) order.paymentProof = paymentProof;
-    if (shippingAddress) order.shippingAddress = shippingAddress;
-    if (shippingInvoice) order.shippingInvoice = shippingInvoice;
+    // Cho phép lưu draft (không thay đổi status) nếu không có status trong request
+    // Hoặc nếu có status thì cập nhật status
+    if (status) {
+      order.status = status;
+    }
+    
+    // Luôn cho phép cập nhật các field thông tin, kể cả khi không thay đổi status
+    // Điều này cho phép auto-save draft
+    if (paymentMethod !== undefined) order.paymentMethod = paymentMethod;
+    if (paymentTransactionId !== undefined) order.paymentTransactionId = paymentTransactionId;
+    if (paymentProof !== undefined) order.paymentProof = paymentProof;
+    if (shippingAddress !== undefined) order.shippingAddress = shippingAddress;
+    if (shippingInvoice !== undefined) order.shippingInvoice = shippingInvoice;
 
     await order.save();
+
+    // Emit socket event để thông báo order đã được cập nhật
+    const io: Server = req.app.get('io');
+    const updatedOrder = await Order.findByPk(orderId, {
+      include: [
+        {
+          model: Product,
+          as: 'product',
+          include: [{ model: Category, as: 'category' }],
+        },
+        { model: User, as: 'seller', attributes: ['id', 'fullName', 'email'] },
+        { model: User, as: 'buyer', attributes: ['id', 'fullName', 'email'] },
+      ],
+    });
+    
+    if (updatedOrder) {
+      io.to(`order-${orderId}`).emit('order-updated', updatedOrder.toJSON());
+      // Emit cho seller và buyer để cập nhật orders list
+      io.to(`user-${order.sellerId}`).emit('order-list-updated');
+      io.to(`user-${order.buyerId}`).emit('order-list-updated');
+    }
 
     res.json({
       success: true,

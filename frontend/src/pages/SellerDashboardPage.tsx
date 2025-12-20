@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { io, Socket } from "socket.io-client";
 import {
   Box,
   Typography,
@@ -24,6 +25,9 @@ import {
   Tab,
   IconButton,
   Alert,
+  Stepper,
+  Step,
+  StepLabel,
 } from "@mui/material";
 import { Add, Delete, Edit, Image as ImageIcon } from "@mui/icons-material";
 import { useFormik } from "formik";
@@ -69,6 +73,10 @@ interface Order {
   id: number;
   status: string;
   finalPrice: number;
+  paymentMethod?: string;
+  paymentProof?: string;
+  shippingAddress?: string;
+  shippingInvoice?: string;
   product: {
     id: number;
     name: string;
@@ -79,6 +87,25 @@ interface Order {
     fullName: string;
   };
 }
+
+const orderSteps = [
+  'Thanh toán',
+  'Gửi địa chỉ',
+  'Gửi hàng',
+  'Nhận hàng',
+];
+
+const getOrderStepIndex = (status: string): number => {
+  const statusSteps: Record<string, number> = {
+    pending_payment: 0,
+    pending_address: 1,
+    pending_shipping: 2,
+    pending_delivery: 3,
+    completed: 4,
+    cancelled: -1,
+  };
+  return statusSteps[status] ?? 0;
+};
 
 const validationSchema = yup.object({
   name: yup.string().required("Tên sản phẩm là bắt buộc"),
@@ -95,11 +122,12 @@ const validationSchema = yup.object({
   categoryId: yup.number().required("Danh mục là bắt buộc"),
   endDate: yup.string().required("Ngày kết thúc là bắt buộc"),
   autoExtend: yup.boolean(),
+  allowUnratedBidders: yup.boolean(),
 });
 
 export default function SellerDashboardPage() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -108,14 +136,57 @@ export default function SellerDashboardPage() {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expired, setExpired] = useState(false);
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
     if (user?.role !== "seller") {
       navigate("/");
       return;
     }
-    fetchData();
+    // Kiểm tra upgradeExpireAt từ profile
+    checkSellerStatus();
   }, [user, navigate]);
+
+  const checkSellerStatus = async () => {
+    try {
+      const profileRes = await apiClient.get("/users/profile");
+      const userData = profileRes.data.data;
+      
+      if (userData.role === "seller" && userData.upgradeExpireAt) {
+        const expireDate = new Date(userData.upgradeExpireAt);
+        const now = new Date();
+        
+        if (expireDate < now) {
+          // Đã hết hạn
+          setExpired(true);
+          updateUser({ role: "bidder" });
+          toast.error("Tài khoản seller của bạn đã hết thời hạn. Vui lòng yêu cầu nâng cấp lại.");
+          setTimeout(() => {
+            navigate("/profile");
+          }, 2000);
+          return;
+        }
+      }
+      
+      // Nếu chưa hết hạn, tiếp tục fetch data
+      fetchData();
+    } catch (error: any) {
+      console.error("Error checking seller status:", error);
+      // Nếu lỗi 403 với thông báo hết hạn
+      if (error.response?.status === 403 && error.response?.data?.message?.includes("hết thời hạn")) {
+        setExpired(true);
+        updateUser({ role: "bidder" });
+        toast.error(error.response.data.message || "Tài khoản seller của bạn đã hết thời hạn.");
+        setTimeout(() => {
+          navigate("/profile");
+        }, 2000);
+        return;
+      }
+      // Nếu không phải lỗi hết hạn, vẫn thử fetch data
+      fetchData();
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -128,13 +199,76 @@ export default function SellerDashboardPage() {
       setCategories(categoriesRes.data.data);
       setProducts(productsRes.data.data);
       setOrders(ordersRes.data.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching data:", error);
-      toast.error("Không thể tải dữ liệu");
+      // Nếu lỗi 403 về seller expired
+      if (error.response?.status === 403 && error.response?.data?.message?.includes("hết thời hạn")) {
+        setExpired(true);
+        updateUser({ role: "bidder" });
+        toast.error(error.response.data.message || "Tài khoản seller của bạn đã hết thời hạn.");
+        setTimeout(() => {
+          navigate("/profile");
+        }, 2000);
+      } else {
+        toast.error("Không thể tải dữ liệu");
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // Setup Socket.IO để nhận cập nhật real-time
+  useEffect(() => {
+    if (!user || user.role !== "seller" || expired) return;
+
+    const newSocket = io("http://localhost:3000");
+
+    newSocket.on("connect", () => {
+      // Join vào room của user để nhận thông báo order-list-updated
+      newSocket.emit("join-room", `user-${user.id}`);
+    });
+
+    // Listen cho order-list-updated event
+    newSocket.on("order-list-updated", () => {
+      // Refresh orders list khi có cập nhật
+      apiClient
+        .get("/products/seller/orders")
+        .then((res) => {
+          setOrders(res.data.data);
+        })
+        .catch((error) => {
+          console.error("Error refreshing orders:", error);
+        });
+    });
+
+    // Listen cho order-updated event (cập nhật order cụ thể)
+    newSocket.on("order-updated", (updatedOrder: Order) => {
+      setOrders((prevOrders) => {
+        const index = prevOrders.findIndex((o) => o.id === updatedOrder.id);
+        if (index !== -1) {
+          const newOrders = [...prevOrders];
+          newOrders[index] = updatedOrder;
+          return newOrders;
+        }
+        return prevOrders;
+      });
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [user, expired]);
+
+  // Join vào order rooms khi orders thay đổi
+  useEffect(() => {
+    if (!socket || !socket.connected || !orders.length) return;
+
+    orders.forEach((order) => {
+      socket.emit("join-room", `order-${order.id}`);
+    });
+  }, [socket, orders]);
 
   const formik = useFormik({
     initialValues: {
@@ -146,6 +280,7 @@ export default function SellerDashboardPage() {
       categoryId: "",
       endDate: "",
       autoExtend: false,
+      allowUnratedBidders: true,
     },
     validationSchema,
     onSubmit: async (values) => {
@@ -182,6 +317,7 @@ export default function SellerDashboardPage() {
           images: imageUrls.slice(1),
           endDate: values.endDate,
           autoExtend: values.autoExtend,
+          allowUnratedBidders: values.allowUnratedBidders,
         });
 
         toast.success("Đăng sản phẩm thành công");
@@ -228,6 +364,30 @@ export default function SellerDashboardPage() {
 
   if (loading) {
     return <Typography>Đang tải...</Typography>;
+  }
+
+  if (expired) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Tài khoản seller đã hết thời hạn
+          </Typography>
+          <Typography>
+            Tài khoản seller của bạn đã hết thời hạn. Bạn không thể truy cập dashboard với tư cách seller nữa.
+            Vui lòng yêu cầu nâng cấp lại trong trang Profile.
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            sx={{ mt: 2 }}
+            onClick={() => navigate("/profile")}
+          >
+            Đi đến trang Profile
+          </Button>
+        </Alert>
+      </Box>
+    );
   }
 
   return (
@@ -391,72 +551,137 @@ export default function SellerDashboardPage() {
               <Alert severity="info">Chưa có đơn hàng nào</Alert>
             ) : (
               <Grid container spacing={2}>
-                {orders.map((order) => (
-                  <Grid item xs={12} key={order.id}>
-                    <Card>
-                      <CardContent>
-                        <Box sx={{ display: "flex", gap: 2 }}>
-                          <CardMedia
-                            component="img"
-                            sx={{ width: 100, height: 100 }}
-                            image={order.product.mainImage}
-                            alt={order.product.name}
-                          />
-                          <Box sx={{ flex: 1 }}>
-                            <Typography variant="h6">
-                              {order.product.name}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              Người mua: {order.buyer.fullName}
-                            </Typography>
-                            <Typography
-                              variant="h6"
-                              color="primary"
-                              sx={{ mt: 1 }}
-                            >
-                              {parseFloat(
-                                order.finalPrice.toString()
-                              ).toLocaleString("vi-VN")}{" "}
-                              VNĐ
-                            </Typography>
-                            <Chip
-                              label={
-                                order.status === "pending_payment"
-                                  ? "Chờ thanh toán"
-                                  : order.status === "pending_address"
-                                  ? "Chờ địa chỉ"
-                                  : order.status === "pending_shipping"
-                                  ? "Chờ gửi hàng"
-                                  : order.status === "pending_delivery"
-                                  ? "Chờ nhận hàng"
-                                  : order.status === "completed"
-                                  ? "Hoàn thành"
-                                  : "Đã hủy"
-                              }
-                              color={
-                                order.status === "completed"
-                                  ? "success"
-                                  : order.status === "cancelled"
-                                  ? "error"
-                                  : "warning"
-                              }
-                              size="small"
-                              sx={{ mt: 1 }}
+                {orders.map((order) => {
+                  const currentStep = getOrderStepIndex(order.status);
+                  const isCompleted = order.status === "completed";
+                  const isCancelled = order.status === "cancelled";
+                  
+                  return (
+                    <Grid item xs={12} key={order.id}>
+                      <Card>
+                        <CardContent>
+                          <Box sx={{ display: "flex", gap: 2 }}>
+                            <CardMedia
+                              component="img"
+                              sx={{ width: 100, height: 100, objectFit: "cover" }}
+                              image={order.product.mainImage}
+                              alt={order.product.name}
                             />
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="h6">
+                                {order.product.name}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                Người mua: {order.buyer.fullName}
+                              </Typography>
+                              <Typography
+                                variant="h6"
+                                color="primary"
+                                sx={{ mt: 1 }}
+                              >
+                                {parseFloat(
+                                  order.finalPrice.toString()
+                                ).toLocaleString("vi-VN")}{" "}
+                                VNĐ
+                              </Typography>
+                              
+                              {/* Hiển thị Stepper cho các bước */}
+                              {!isCancelled && (
+                                <Box sx={{ mt: 2, mb: 1 }}>
+                                  <Stepper 
+                                    activeStep={isCompleted ? orderSteps.length : currentStep} 
+                                    alternativeLabel
+                                  >
+                                    {orderSteps.map((label, index) => {
+                                      const isStepCompleted = isCompleted || index < currentStep;
+                                      const isStepActive = !isCompleted && index === currentStep;
+                                      
+                                      return (
+                                        <Step key={label} completed={isStepCompleted}>
+                                          <StepLabel
+                                            StepIconProps={{
+                                              sx: {
+                                                "&.Mui-completed": {
+                                                  color: "success.main",
+                                                },
+                                                "&.Mui-active": {
+                                                  color: "primary.main",
+                                                },
+                                              },
+                                            }}
+                                          >
+                                            <Typography variant="caption">
+                                              {label}
+                                            </Typography>
+                                          </StepLabel>
+                                        </Step>
+                                      );
+                                    })}
+                                  </Stepper>
+                                </Box>
+                              )}
+                              
+                              <Chip
+                                label={
+                                  order.status === "pending_payment"
+                                    ? "Chờ thanh toán"
+                                    : order.status === "pending_address"
+                                    ? "Chờ địa chỉ"
+                                    : order.status === "pending_shipping"
+                                    ? "Chờ gửi hàng"
+                                    : order.status === "pending_delivery"
+                                    ? "Chờ nhận hàng"
+                                    : order.status === "completed"
+                                    ? "Hoàn thành"
+                                    : "Đã hủy"
+                                }
+                                color={
+                                  isCompleted
+                                    ? "success"
+                                    : isCancelled
+                                    ? "error"
+                                    : "warning"
+                                }
+                                size="small"
+                                sx={{ mt: 1 }}
+                              />
+                              
+                              {/* Hiển thị thông tin chi tiết về các bước đã hoàn thành dựa trên status */}
+                              {currentStep > 0 && (
+                                <Typography variant="caption" color="success.main" display="block" sx={{ mt: 0.5 }}>
+                                  ✓ Đã thanh toán
+                                </Typography>
+                              )}
+                              {currentStep > 1 && (
+                                <Typography variant="caption" color="success.main" display="block" sx={{ mt: 0.5 }}>
+                                  ✓ Đã gửi địa chỉ
+                                </Typography>
+                              )}
+                              {currentStep > 2 && (
+                                <Typography variant="caption" color="success.main" display="block" sx={{ mt: 0.5 }}>
+                                  ✓ Đã gửi hàng
+                                </Typography>
+                              )}
+                              {isCompleted && (
+                                <Typography variant="caption" color="success.main" display="block" sx={{ mt: 0.5 }}>
+                                  ✓ Đã nhận hàng
+                                </Typography>
+                              )}
+                            </Box>
                           </Box>
-                        </Box>
-                      </CardContent>
-                      <CardActions>
-                        <Button
-                          size="small"
-                          onClick={() => navigate(`/orders/${order.id}`)}
-                        >
-                          Xem đơn hàng
-                        </Button>
-                      </CardActions>
-                    </Card>
-                  </Grid>
-                ))}
+                        </CardContent>
+                        <CardActions>
+                          <Button
+                            size="small"
+                            onClick={() => navigate(`/orders/${order.id}`)}
+                          >
+                            Xem đơn hàng
+                          </Button>
+                        </CardActions>
+                      </Card>
+                    </Grid>
+                  );
+                })}
               </Grid>
             )}
           </Box>
@@ -655,11 +880,24 @@ export default function SellerDashboardPage() {
                 type="checkbox"
                 id="autoExtend"
                 checked={formik.values.autoExtend}
-                onChange={formik.handleChange}
+                onChange={(e) => formik.setFieldValue("autoExtend", e.target.checked)}
                 name="autoExtend"
               />
               <label htmlFor="autoExtend" style={{ marginLeft: 8 }}>
                 Tự động gia hạn nếu có đấu giá trong 3 phút cuối
+              </label>
+            </Box>
+
+            <Box sx={{ mt: 1 }}>
+              <input
+                type="checkbox"
+                id="allowUnratedBidders"
+                checked={formik.values.allowUnratedBidders}
+                onChange={(e) => formik.setFieldValue("allowUnratedBidders", e.target.checked)}
+                name="allowUnratedBidders"
+              />
+              <label htmlFor="allowUnratedBidders" style={{ marginLeft: 8 }}>
+                Cho phép người chưa từng được đánh giá tham gia đấu giá
               </label>
             </Box>
           </DialogContent>

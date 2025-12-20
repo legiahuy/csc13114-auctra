@@ -5,6 +5,9 @@ import { AuthRequest } from '../middleware/auth.middleware';
 import { sendQuestionNotificationEmail, sendAnswerNotificationEmail } from '../utils/email.util';
 import { Op } from 'sequelize';
 
+// Thời gian chờ giữa các lần yêu cầu upgrade (ngày) - có thể chỉnh để test
+const UPGRADE_REQUEST_COOLDOWN_DAYS = 7;
+
 export const getProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user) {
@@ -238,9 +241,23 @@ export const getWonProducts = async (req: AuthRequest, res: Response, next: Next
       order: [['createdAt', 'DESC']],
     });
 
+    // Nếu vì lý do nào đó có nhiều order cho cùng một product (do seed nhiều lần,
+    // test dữ liệu, hoặc chạy lại xử lý phiên đấu giá), chỉ giữ lại order mới nhất
+    // cho mỗi product để tránh hiển thị "trùng" trên UI.
+    const latestOrdersByProduct = new Map<number, Order>();
+    for (const order of orders) {
+      const pid = order.productId;
+      const existing = latestOrdersByProduct.get(pid);
+      if (!existing || (order.createdAt && existing.createdAt && order.createdAt > existing.createdAt)) {
+        latestOrdersByProduct.set(pid, order);
+      }
+    }
+
+    const uniqueOrders = Array.from(latestOrdersByProduct.values());
+
     res.json({
       success: true,
-      data: orders,
+      data: uniqueOrders,
     });
   } catch (error) {
     next(error);
@@ -307,13 +324,20 @@ export const askQuestion = async (req: AuthRequest, res: Response, next: NextFun
       question,
     });
 
-    // Send email to seller
-    await sendQuestionNotificationEmail(
-      product.seller.email,
+    // Get asker info for email
+    const asker = await User.findByPk(req.user.id);
+
+    // Send email to seller (không await để không block response)
+    sendQuestionNotificationEmail(
+      (product as any).seller?.email,
       product.name,
       question,
-      productId
-    );
+      productId,
+      asker?.fullName
+    ).catch((error) => {
+      // Log error nhưng không làm crash request
+      console.error('Lỗi khi gửi email thông báo câu hỏi:', error);
+    });
 
     res.status(201).json({
       success: true,
@@ -348,7 +372,14 @@ export const answerQuestion = async (req: AuthRequest, res: Response, next: Next
       return next(new AppError('Question not found', 404));
     }
 
-    if (question.product.sellerId !== req.user.id && req.user.role !== 'admin') {
+    // Fix: The type 'Question' does not have a 'product' attribute; fetch Product manually by productId
+    const product = await Product.findByPk(question.productId);
+
+    if (!product) {
+      return next(new AppError('Product not found', 404));
+    }
+
+    if (product.sellerId !== req.user.id && req.user.role !== 'admin') {
       return next(new AppError('Not authorized', 403));
     }
 
@@ -357,12 +388,15 @@ export const answerQuestion = async (req: AuthRequest, res: Response, next: Next
     await question.save();
 
     // Send email to questioner and all bidders
-    await sendAnswerNotificationEmail(
-      question.user.email,
-      question.product.name,
-      answer,
-      question.productId
-    );
+    const questioner = await User.findByPk(question.userId);
+    if (questioner) {
+      await sendAnswerNotificationEmail(
+        questioner.email,
+        product.name,
+        answer,
+        question.productId
+      );
+    }
 
     // Get all users who asked questions or placed bids
     const questioners = await Question.findAll({
@@ -390,7 +424,7 @@ export const answerQuestion = async (req: AuthRequest, res: Response, next: Next
     for (const user of users) {
       await sendAnswerNotificationEmail(
         user.email,
-        question.product.name,
+        product.name,
         answer,
         question.productId
       );
@@ -420,11 +454,18 @@ export const requestSellerUpgrade = async (req: AuthRequest, res: Response, next
       return next(new AppError('User is already a seller or admin', 400));
     }
 
-    // Check if request was made within 7 days
-    if (user.upgradeRequestDate) {
+    // Cho phép yêu cầu lại ngay nếu:
+    // 1. Request trước đó bị từ chối (rejected)
+    // 2. Hoặc đã hết thời hạn seller (upgradeExpireAt đã qua và role đã về bidder)
+    const canRequestImmediately = 
+      user.upgradeRequestStatus === 'rejected' ||
+      (user.upgradeExpireAt && user.upgradeExpireAt < new Date() && user.role === 'bidder');
+
+    // Check if request was made within cooldown period (chỉ áp dụng nếu không được phép yêu cầu lại ngay)
+    if (!canRequestImmediately && user.upgradeRequestDate) {
       const daysSinceRequest = (new Date().getTime() - user.upgradeRequestDate.getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSinceRequest < 7) {
-        return next(new AppError('You can only request upgrade once every 7 days', 400));
+      if (daysSinceRequest < UPGRADE_REQUEST_COOLDOWN_DAYS) {
+        return next(new AppError(`You can only request upgrade once every ${UPGRADE_REQUEST_COOLDOWN_DAYS} days`, 400));
       }
     }
 

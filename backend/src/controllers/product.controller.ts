@@ -391,6 +391,7 @@ export const createProduct = async (
       images,
       endDate,
       autoExtend,
+      allowUnratedBidders,
     } = req.body;
 
     // Validate images
@@ -428,6 +429,7 @@ export const createProduct = async (
       startDate: new Date(),
       endDate: new Date(endDate),
       autoExtend: autoExtend || false,
+      allowUnratedBidders: allowUnratedBidders !== undefined ? allowUnratedBidders : true,
       isNew: true,
     });
 
@@ -517,9 +519,21 @@ export const getSellerOrders = async (
       order: [["createdAt", "DESC"]],
     });
 
+    // Giữ lại order mới nhất cho mỗi sản phẩm để tránh hiển thị trùng
+    const latestByProduct = new Map<number, Order>();
+    for (const ord of orders) {
+      const pid = ord.productId;
+      const exist = latestByProduct.get(pid);
+      if (!exist || (ord.createdAt && exist.createdAt && ord.createdAt > exist.createdAt)) {
+        latestByProduct.set(pid, ord);
+      }
+    }
+
+    const uniqueOrders = Array.from(latestByProduct.values());
+
     res.json({
       success: true,
-      data: orders,
+      data: uniqueOrders,
     });
   } catch (error) {
     next(error);

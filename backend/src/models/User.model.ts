@@ -19,6 +19,8 @@ export interface UserAttributes {
   passwordResetExpires?: Date;
   upgradeRequestDate?: Date;
   upgradeRequestStatus?: 'pending' | 'approved' | 'rejected';
+  upgradeExpireAt?: Date;
+  upgradeRejectionReason?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -42,6 +44,8 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
   public passwordResetExpires?: Date;
   public upgradeRequestDate?: Date;
   public upgradeRequestStatus?: 'pending' | 'approved' | 'rejected';
+  public upgradeExpireAt?: Date;
+  public upgradeRejectionReason?: string | null;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -129,6 +133,14 @@ User.init(
     },
     upgradeRequestStatus: {
       type: DataTypes.ENUM('pending', 'approved', 'rejected'),
+      allowNull: true,
+    },
+    upgradeExpireAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    upgradeRejectionReason: {
+      type: DataTypes.TEXT,
       allowNull: true,
     },
   },

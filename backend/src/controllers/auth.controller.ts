@@ -171,6 +171,7 @@ export const login = async (
           email: user.email,
           fullName: user.fullName,
           role: user.role,
+          upgradeExpireAt: user.upgradeExpireAt || null,
         },
       },
     });
