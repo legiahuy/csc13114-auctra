@@ -10,7 +10,7 @@ import toast from "react-hot-toast";
 import * as Yup from "yup";
 import ReCAPTCHA from "react-google-recaptcha";
 
-const siteKey = "6LeSUC8sAAAAAB6UQTmCl61hTMzILapbHYUux9jJ";
+const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
 const validationSchema = Yup.object({
   email: Yup.string().email("Invalid email").required("Required"),

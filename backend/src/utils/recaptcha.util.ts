@@ -27,9 +27,9 @@ export const verifyRecaptcha = async (token: string): Promise<boolean> => {
     );
 
     // Debug: log token (only in development) and Google's response to diagnose failures
-    if (process.env.NODE_ENV !== 'production') {
-      console.debug('reCAPTCHA token:', token);
-      console.debug('reCAPTCHA verify response:', response.data);
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("reCAPTCHA token:", token);
+      console.debug("reCAPTCHA verify response:", response.data);
     }
 
     return response.data.success === true;
