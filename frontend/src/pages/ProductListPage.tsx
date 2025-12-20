@@ -9,11 +9,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useSearchParams } from "react-router-dom";
 import apiClient from "../api/client";
 import { LoaderIcon } from "lucide-react";
 import { ProductCard, type ProductCardProduct } from "@/components/ProductCard";
 import Loading from "@/components/Loading";
+import { Separator } from "@/components/ui/separator";
+
+interface Category {
+  id: number;
+  name: string;
+  children?: Category[];
+}
 
 type Product = ProductCardProduct;
 
@@ -26,6 +42,34 @@ export default function ProductListPage() {
     totalPages: 1,
     total: 0,
   });
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  // Helper to find a category or child category name by id
+  const getCategoryNameById = (id?: string | number) => {
+    if (!id) return undefined;
+    const numId = Number(id);
+    for (const category of categories) {
+      if (category.id === numId) return category.name;
+      if (category.children) {
+        const child = category.children.find((c) => c.id === numId);
+        if (child) return child.name;
+      }
+    }
+    return undefined;
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await apiClient.get("/categories");
+      setCategories(response.data.data || []);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  };
 
   // Local search input value (for immediate UI updates)
   const [searchInput, setSearchInput] = useState(
@@ -36,6 +80,20 @@ export default function ProductListPage() {
     searchParams.get("search") || ""
   );
 
+  const [categoryId, setCategoryId] = useState(
+    searchParams.get("categoryId") || ""
+  );
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    if (categoryId) {
+      params.set("categoryId", categoryId);
+    } else {
+      params.delete("categoryId");
+    }
+    // Reset to page 1 when changing category
+    params.set("page", "1");
+    setSearchParams(params, { replace: true });
+  }, [categoryId]);
   const [sortBy, setSortBy] = useState(searchParams.get("sortBy") || "endDate");
   const [sortOrder, setSortOrder] = useState(
     searchParams.get("sortOrder") || "ASC"
@@ -165,6 +223,61 @@ export default function ProductListPage() {
               </button>
             )}
           </div>
+        </div>
+        <div className="flex flex-col space-y-1.5">
+          <Label>Category</Label>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-[180px] h-9 justify-start text-left font-normal"
+              >
+                {getCategoryNameById(categoryId) || "Select Category"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuItem onSelect={() => setCategoryId("")}>
+                All categories
+              </DropdownMenuItem>
+              <Separator />
+              {categories.map((category) =>
+                category.children && category.children.length > 0 ? (
+                  <DropdownMenuSub key={category.id}>
+                    <DropdownMenuSubTrigger
+                      onSelect={(e) => {
+                        e.preventDefault();
+                      }}
+                    >
+                      {category.name}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuItem
+                        onSelect={() => setCategoryId(category.id.toString())}
+                      >
+                        {category.name}
+                      </DropdownMenuItem>
+                      <Separator />
+                      {category.children.map((child) => (
+                        <DropdownMenuItem
+                          key={child.id}
+                          onSelect={() => setCategoryId(child.id.toString())}
+                        >
+                          {child.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                ) : (
+                  <DropdownMenuItem
+                    key={category.id}
+                    onSelect={() => setCategoryId(category.id.toString())}
+                  >
+                    {category.name}
+                  </DropdownMenuItem>
+                )
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <div className="space-y-2 ">
           <Label>Sort by</Label>
