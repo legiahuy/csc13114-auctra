@@ -15,7 +15,7 @@ import apiClient from '../api/client';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
-import { Heart, HeartOff } from 'lucide-react';
+import { Heart } from 'lucide-react';
 
 interface Product {
   id: number;
@@ -193,7 +193,7 @@ export default function ProductListPage() {
                 {watchlistIds.has(product.id) ? (
                   <Heart className="h-5 w-5 text-red-500 fill-red-500" />
                 ) : (
-                  <HeartOff className="h-5 w-5 text-gray-600" />
+                  <Heart className="h-5 w-5 text-gray-600" />
                 )}
               </button>
               <img src={product.mainImage} alt={product.name} className="w-full h-full object-cover" />

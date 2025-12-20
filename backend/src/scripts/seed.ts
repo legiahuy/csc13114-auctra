@@ -46,6 +46,17 @@ const seed = async () => {
       totalRatings: 10,
     });
 
+    const seller33 = await User.create({
+      email: "khoavosng123@gmail.com",
+      password: "seller123",
+      fullName: "Khoavo",
+      address: "456 Seller Avenue",
+      role: "seller",
+      isEmailVerified: true,
+      rating: 9,
+      totalRatings: 10,
+    });
+
     // Create bidder users
     const bidder1 = await User.create({
       email: "bidder1@auction.com",

@@ -28,7 +28,6 @@ import {
 import {
   Favorite,
   FavoriteBorder,
-  Image as ImageIcon,
   Person,
   AccessTime,
   Gavel,
@@ -122,6 +121,7 @@ export default function ProductDetailPage() {
   const [answer, setAnswer] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
   const [order, setOrder] = useState<any>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -180,7 +180,10 @@ export default function ProductDetailPage() {
     fetchData();
   }, [id, user]);
 
-  const handlePlaceBid = async () => {
+  const formatCurrency = (value: string | number) =>
+    parseFloat(value.toString()).toLocaleString('vi-VN');
+
+  const handlePlaceBid = () => {
     if (!user) {
       toast.error('Vui lòng đăng nhập để đấu giá');
       navigate('/login');
@@ -197,13 +200,10 @@ export default function ProductDetailPage() {
       return;
     }
 
-    const confirmed = window.confirm(
-      isAutoBid
-        ? `Xác nhận đặt đấu giá tự động tối đa ${parseFloat(maxAmount || '0').toLocaleString('vi-VN')} VNĐ?`
-        : `Xác nhận ra giá ${parseFloat(bidAmount || '0').toLocaleString('vi-VN')} VNĐ?`
-    );
-    if (!confirmed) return;
+    setConfirmOpen(true);
+  };
 
+  const handleConfirmBid = async () => {
     try {
       await apiClient.post('/bids', {
         productId: id,
@@ -212,6 +212,7 @@ export default function ProductDetailPage() {
         isAutoBid,
       });
       toast.success('Ra giá thành công');
+      setConfirmOpen(false);
       // Refresh data
       const [productRes, bidHistoryRes] = await Promise.all([
         apiClient.get(`/products/${id}`),
@@ -428,9 +429,9 @@ export default function ProductDetailPage() {
                 sx={{
                   p: 2.5,
                   borderRadius: 2,
-                  bgcolor: 'primary.main',
-                  color: 'primary.contrastText',
-                  boxShadow: 2,
+                  color: 'rgb(26, 46, 5)',
+                  background: 'linear-gradient(135deg, #d9f99d, #bef264)',
+                  boxShadow: 3,
                 }}
               >
                 <Typography variant="subtitle2" sx={{ opacity: 0.9 }}>
@@ -511,16 +512,47 @@ export default function ProductDetailPage() {
                 borderRadius: 2,
                 bgcolor: 'grey.50',
                 display: 'grid',
-                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gridTemplateColumns: { xs: '1fr', sm: '1.2fr 1fr' },
                 gap: 2,
               }}
             >
-              <Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Typography variant="subtitle2" gutterBottom>
                   Thông tin đấu giá
                 </Typography>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    color: 'rgb(26, 46, 5)',
+                    background: 'linear-gradient(135deg, #ecfccb, #d9f99d)',
+                    boxShadow: 3,
+                  }}
+                >
+                  <Box>
+                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                      Giá đề nghị tiếp theo
+                    </Typography>
+                    <Typography variant="h6" fontWeight={700}>
+                      {(parseFloat(product.currentPrice.toString()) + parseFloat(product.bidStep.toString())).toLocaleString('vi-VN')} VNĐ
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={`Bước giá ${parseFloat(product.bidStep.toString()).toLocaleString('vi-VN')} VNĐ`}
+                    variant="outlined"
+                    sx={{
+                      borderColor: 'rgba(74, 120, 18, 0.35)',
+                      color: 'rgb(47, 85, 10)',
+                      bgcolor: 'rgba(190, 242, 100, 0.45)',
+                    }}
+                    size="small"
+                  />
+                </Paper>
                 <Typography variant="body2">Giá khởi điểm: {parseFloat(product.startingPrice.toString()).toLocaleString('vi-VN')} VNĐ</Typography>
-                <Typography variant="body2">Bước giá: {parseFloat(product.bidStep.toString()).toLocaleString('vi-VN')} VNĐ</Typography>
                 <Typography variant="body2">Ngày đăng: {format(new Date(product.startDate), 'dd/MM/yyyy HH:mm')}</Typography>
                 {highestBidder && (
                   <Typography variant="body2" sx={{ mt: 0.5 }}>
@@ -753,6 +785,43 @@ export default function ProductDetailPage() {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Confirm Bid Dialog */}
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)}>
+        <DialogTitle>Xác nhận đặt giá</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+            {!isAutoBid ? (
+              <>
+                <Typography variant="body2" color="text.secondary">
+                  Bạn sẽ ra giá:
+                </Typography>
+                <Typography variant="h6" fontWeight={700}>
+                  {formatCurrency(bidAmount || '0')} VNĐ
+                </Typography>
+              </>
+            ) : (
+              <>
+                <Typography variant="body2" color="text.secondary">
+                  Bạn sẽ đặt đấu giá tự động với mức tối đa:
+                </Typography>
+                <Typography variant="h6" fontWeight={700}>
+                  {formatCurrency(maxAmount || '0')} VNĐ
+                </Typography>
+              </>
+            )}
+            <Typography variant="body2" color="text.secondary">
+              Giá hiện tại: {formatCurrency(product.currentPrice)} VNĐ · Bước giá: {formatCurrency(product.bidStep)} VNĐ
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmOpen(false)}>Hủy</Button>
+          <Button variant="contained" onClick={handleConfirmBid}>
+            Xác nhận
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Bid History Dialog */}
       <Dialog open={bidHistoryOpen} onClose={() => setBidHistoryOpen(false)} maxWidth="md" fullWidth>
