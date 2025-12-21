@@ -15,7 +15,7 @@ export default function VerifyEmailPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
-  const emailRef = useRef<string>("");
+  const [email, setEmail] = useState<string>("");
   const tokenRef = useRef<string>("");
 
   // Get email and token from navigation state
@@ -29,7 +29,7 @@ export default function VerifyEmailPage() {
       navigate("/register");
       return;
     }
-    emailRef.current = state.email;
+    setEmail(state.email);
     tokenRef.current = state.verificationToken || "";
   }, [location, navigate]);
 
@@ -71,7 +71,7 @@ export default function VerifyEmailPage() {
     setResendLoading(true);
     try {
       await apiClient.post("/auth/resend-otp", {
-        email: emailRef.current,
+        email: email,
       });
 
       toast.success("OTP sent to your email!");
@@ -98,7 +98,7 @@ export default function VerifyEmailPage() {
           </div>
           <CardTitle className="text-2xl">Verify Email</CardTitle>
           <p className="text-muted-foreground text-sm text-center">
-            We've sent a verification code to <b>{emailRef.current}</b>
+            We've sent a verification code to <b>{email}</b>
           </p>
         </CardHeader>
         <CardContent>

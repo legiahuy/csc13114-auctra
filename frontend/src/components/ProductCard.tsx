@@ -1,9 +1,12 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { format, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Heart } from "lucide-react";
+import { useAuthStore } from "@/store/authStore";
+import apiClient from "@/api/client";
+import toast from "react-hot-toast";
 
 export interface ProductCardProduct {
   id: number;
@@ -38,22 +41,41 @@ interface ProductCardProps {
   product: ProductCardProduct;
   className?: string;
   isInWatchlist?: boolean;
-  onToggleWatchlist?: (productId: number) => void;
+  onWatchlistChange?: (productId: number, isInWatchlist: boolean) => void;
 }
 
-export function ProductCard({ 
-  product, 
+export function ProductCard({
+  product,
   className,
   isInWatchlist = false,
-  onToggleWatchlist,
+  onWatchlistChange,
 }: ProductCardProps) {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
   const highestBidderName = product.bids?.[0]?.bidder?.fullName;
 
-  const handleWatchlistClick = (e: React.MouseEvent) => {
+  const handleWatchlistClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (onToggleWatchlist) {
-      onToggleWatchlist(product.id);
+
+    if (!user) {
+      toast.error("Please log in to add to watchlist");
+      navigate("/login");
+      return;
+    }
+
+    try {
+      if (isInWatchlist) {
+        await apiClient.delete(`/users/watchlist/${product.id}`);
+        toast.success("Removed from watchlist");
+        onWatchlistChange?.(product.id, false);
+      } else {
+        await apiClient.post("/users/watchlist", { productId: product.id });
+        toast.success("Added to watchlist");
+        onWatchlistChange?.(product.id, true);
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || "Action failed");
     }
   };
 
@@ -71,28 +93,24 @@ export function ProductCard({
             alt={product.name}
             className="w-full h-full object-cover"
           />
-          {onToggleWatchlist && (
-            <button
-              type="button"
-              onClick={handleWatchlistClick}
-              className="absolute left-3 top-3 z-10 rounded-full bg-white/85 dark:bg-gray-900/85 p-2 shadow-sm hover:shadow-md transition-all backdrop-blur-sm"
-              aria-label={
+          <button
+            type="button"
+            onClick={handleWatchlistClick}
+            className="absolute right-2 top-2 z-10 px-2 hover:cursor-pointer transition-all"
+            aria-label={
+              isInWatchlist ? "Remove from watchlist" : "Add to watchlist"
+            }
+          >
+            <Heart
+              className={`h-5 w-5 transition-colors ${
                 isInWatchlist
-                  ? "Xóa khỏi yêu thích"
-                  : "Thêm vào yêu thích"
-              }
-            >
-              <Heart
-                className={`h-5 w-5 transition-colors ${
-                  isInWatchlist
-                    ? "text-red-500 fill-red-500"
-                    : "text-gray-600 dark:text-gray-400"
-                }`}
-              />
-            </button>
-          )}
+                  ? "text-red-500 fill-red-500"
+                  : "text-gray-600 dark:text-gray-400"
+              }`}
+            />
+          </button>
           {product.isNew && (
-            <Badge className="absolute top-2 right-2 rounded-full border dark:border-border/20 text-xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 gap-2 px-2.5 py-1 border-brand/30 text-brand">
+            <Badge className="absolute top-2 left-2 rounded-full border dark:border-border/20 text-xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 gap-2 px-2.5 py-1 border-brand/30 text-brand">
               New
             </Badge>
           )}
