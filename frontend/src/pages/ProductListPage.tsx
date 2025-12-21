@@ -18,14 +18,13 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import apiClient from "../api/client";
 import { LoaderIcon } from "lucide-react";
 import { ProductCard, type ProductCardProduct } from "@/components/ProductCard";
 import Loading from "@/components/Loading";
 import { Separator } from "@/components/ui/separator";
 import { useAuthStore } from "../store/authStore";
-import toast from "react-hot-toast";
 
 interface Category {
   id: number;
@@ -36,7 +35,6 @@ interface Category {
 type Product = ProductCardProduct;
 
 export default function ProductListPage() {
-  const navigate = useNavigate();
   const { user } = useAuthStore();
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -83,13 +81,17 @@ export default function ProductListPage() {
   }, []);
 
   // Local search input value (for immediate UI updates)
-  const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
+  const [searchInput, setSearchInput] = useState(
+    searchParams.get("search") || ""
+  );
   // Debounced search value (for actual API calls)
   const [debouncedSearch, setDebouncedSearch] = useState(
     searchParams.get("search") || ""
   );
 
-  const [categoryId, setCategoryId] = useState(searchParams.get("categoryId") || "");
+  const [categoryId, setCategoryId] = useState(
+    searchParams.get("categoryId") || ""
+  );
 
   // Sync category -> URL
   useEffect(() => {
@@ -105,7 +107,9 @@ export default function ProductListPage() {
   }, [categoryId]);
 
   const [sortBy, setSortBy] = useState(searchParams.get("sortBy") || "endDate");
-  const [sortOrder, setSortOrder] = useState(searchParams.get("sortOrder") || "ASC");
+  const [sortOrder, setSortOrder] = useState(
+    searchParams.get("sortOrder") || "ASC"
+  );
 
   // Debounce search input - update debouncedSearch after 400ms of no typing
   useEffect(() => {
@@ -206,36 +210,16 @@ export default function ProductListPage() {
     setDebouncedSearch("");
   };
 
-  const handleToggleWatchlist = async (productId: number) => {
-    if (!user) {
-      toast.error("Vui lòng đăng nhập để thêm yêu thích");
-      navigate("/login");
-      return;
-    }
-
-    const isFavorite = watchlistIds.has(productId);
-
-    try {
-      if (isFavorite) {
-        await apiClient.delete(`/users/watchlist/${productId}`);
-        toast.success("Đã xóa khỏi danh sách yêu thích");
-        setWatchlistIds((prev) => {
-          const next = new Set(prev);
-          next.delete(productId);
-          return next;
-        });
+  const handleWatchlistChange = (productId: number, isInWatchlist: boolean) => {
+    setWatchlistIds((prev) => {
+      const next = new Set(prev);
+      if (isInWatchlist) {
+        next.add(productId);
       } else {
-        await apiClient.post("/users/watchlist", { productId });
-        toast.success("Đã thêm vào danh sách yêu thích");
-        setWatchlistIds((prev) => {
-          const next = new Set(prev);
-          next.add(productId);
-          return next;
-        });
+        next.delete(productId);
       }
-    } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || "Thao tác thất bại");
-    }
+      return next;
+    });
   };
 
   if (loading && products.length === 0) {
@@ -395,7 +379,7 @@ export default function ProductListPage() {
               key={product.id}
               product={product}
               isInWatchlist={watchlistIds.has(product.id)}
-              onToggleWatchlist={handleToggleWatchlist}
+              onWatchlistChange={handleWatchlistChange}
             />
           ))}
         </div>
