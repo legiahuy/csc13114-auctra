@@ -145,6 +145,13 @@ export default function AdminDashboardPage() {
     onConfirm: () => {},
   });
 
+  // Rejection Reason Dialog State
+  const [rejectDialog, setRejectDialog] = useState<{
+    open: boolean;
+    userId: number | null;
+  }>({ open: false, userId: null });
+  const [rejectReason, setRejectReason] = useState("");
+
   useEffect(() => {
     if (!user || user.role !== "admin") {
       navigate("/");
@@ -608,24 +615,12 @@ export default function AdminDashboardPage() {
                                 size="sm"
                                 variant="outline"
                                 className="h-7 px-2 text-xs"
-                                onClick={async () => {
-                                  const reason = window.prompt("Reason?") || "";
-                                  try {
-                                    await apiClient.put(
-                                      `/admin/upgrade-requests/${user.id}/reject`,
-                                      { reason }
-                                    );
-                                    toast.success("Rejected");
-                                    fetchData();
-                                  } catch (error: any) {
-                                    toast.error(
-                                      error.response?.data?.error?.message ||
-                                        "Failed"
-                                    );
-                                  }
+                                onClick={() => {
+                                  setRejectDialog({ open: true, userId: user.id });
+                                  setRejectReason("");
                                 }}
                               >
-                                ✕
+                                ✗
                               </Button>
                             </div>
                           </TableCell>
@@ -867,16 +862,34 @@ export default function AdminDashboardPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={
-                            user.upgradeRequestStatus === "pending"
-                              ? "outline"
-                              : "secondary"
-                          }
-                          className="text-xs"
-                        >
-                          {user.upgradeRequestStatus || "-"}
-                        </Badge>
+                        {(() => {
+                          // Check if upgrade has expired
+                          const isExpired = user.upgradeExpireAt && new Date(user.upgradeExpireAt) < new Date();
+                          const status = isExpired ? null : user.upgradeRequestStatus;
+
+                          return (
+                            <Badge
+                              variant={
+                                status === "pending"
+                                  ? "outline"
+                                  : status === "approved"
+                                  ? "default"
+                                  : status === "rejected"
+                                  ? "destructive"
+                                  : "secondary"
+                              }
+                              className={`text-xs ${
+                                status === "approved"
+                                  ? "bg-green-500 hover:bg-green-600"
+                                  : ""
+                              }`}
+                            >
+                              {status
+                                ? status.charAt(0).toUpperCase() + status.slice(1)
+                                : "-"}
+                            </Badge>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-center">
                         <Button
@@ -995,6 +1008,55 @@ export default function AdminDashboardPage() {
         onConfirm={confirmDialog.onConfirm}
         variant={confirmDialog.variant}
       />
+      {/* Rejection Reason Dialog */}
+      <Dialog open={rejectDialog.open} onOpenChange={(open) => setRejectDialog({ ...rejectDialog, open })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Upgrade Request</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reason for rejection</label>
+              <Input
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Enter reason..."
+                className="bg-background"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRejectDialog({ open: false, userId: null })}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!rejectDialog.userId) return;
+                try {
+                  await apiClient.put(
+                    `/admin/upgrade-requests/${rejectDialog.userId}/reject`,
+                    { reason: rejectReason }
+                  );
+                  toast.success("Request rejected");
+                  setRejectDialog({ open: false, userId: null });
+                  setRejectReason("");
+                  fetchData();
+                } catch (error: any) {
+                  toast.error(
+                    error.response?.data?.error?.message || "Failed to reject request"
+                  );
+                }
+              }}
+            >
+              Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
