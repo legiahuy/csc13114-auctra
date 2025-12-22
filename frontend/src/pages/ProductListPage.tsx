@@ -51,7 +51,6 @@ export default function ProductListPage() {
 
   // Watchlist (from feature-bidder)
   const [watchlistIds, setWatchlistIds] = useState<Set<number>>(new Set());
-  const [watchlistLoading, setWatchlistLoading] = useState(false);
 
   // Helper to find a category or child category name by id
   const getCategoryNameById = (id?: string | number) => {
@@ -181,7 +180,6 @@ export default function ProductListPage() {
         setWatchlistIds(new Set());
         return;
       }
-      setWatchlistLoading(true);
       try {
         const res = await apiClient.get("/users/watchlist");
         const ids = new Set<number>();
@@ -191,8 +189,6 @@ export default function ProductListPage() {
         setWatchlistIds(ids);
       } catch (error) {
         console.error("Error fetching watchlist:", error);
-      } finally {
-        setWatchlistLoading(false);
       }
     };
 
