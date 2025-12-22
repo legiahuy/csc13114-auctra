@@ -176,7 +176,7 @@ export const getAllUsers = async (req: AuthRequest, res: Response, next: NextFun
       return next(new AppError('Admin access required', 403));
     }
 
-    const { page = '1', limit = '20', search } = req.query;
+    const { page = '1', limit = '20', search, role } = req.query;
     const pageNum = parseInt(page as string);
     const limitNum = parseInt(limit as string);
     const offset = (pageNum - 1) * limitNum;
@@ -187,6 +187,9 @@ export const getAllUsers = async (req: AuthRequest, res: Response, next: NextFun
         { email: { [Op.iLike]: `%${search}%` } },
         { fullName: { [Op.iLike]: `%${search}%` } },
       ];
+    }
+    if (role) {
+      where.role = role;
     }
 
     const { count, rows } = await User.findAndCountAll({

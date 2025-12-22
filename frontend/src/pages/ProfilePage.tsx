@@ -159,7 +159,7 @@ export default function ProfilePage() {
       setUser(profileRes.data.data);
       setReviews(reviewsRes.data.data || []);
       setWatchlist(watchlistRes.data.data || []);
-      setBids(bidsRes.data.data || []);
+      setBids(bidsRes.data.data?.bids || bidsRes.data.data || []);
       setWonProducts(wonRes.data.data || []);
     } catch (error) {
       console.error("Error fetching profile:", error);
