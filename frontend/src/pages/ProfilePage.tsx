@@ -1,31 +1,48 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { format } from "date-fns";
 import {
-  Box,
-  Typography,
-  Paper,
-  TextField,
-  Button,
-  Grid,
-  Card,
-  CardContent,
-  CardMedia,
-  CardActions,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Tabs,
-  Tab,
-  Chip,
-  Alert,
-} from "@mui/material";
+  AlertCircle,
+  User,
+  Star,
+  Heart,
+  Gavel,
+  Trophy,
+  Edit,
+  Lock,
+} from "lucide-react";
 import { useFormik } from "formik";
 import * as yup from "yup";
 import apiClient from "../api/client";
 import { useAuthStore } from "../store/authStore";
 import toast from "react-hot-toast";
-import { format } from "date-fns";
+import Loading from "@/components/Loading";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 
 interface User {
   id: number;
@@ -36,8 +53,8 @@ interface User {
   rating: number;
   totalRatings: number;
   role: string;
-   upgradeRequestStatus?: 'pending' | 'approved' | 'rejected' | null;
-   upgradeExpireAt?: string | null;
+  upgradeRequestStatus?: "pending" | "approved" | "rejected" | null;
+  upgradeExpireAt?: string | null;
 }
 
 interface Review {
@@ -115,7 +132,7 @@ export default function ProfilePage() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [bids, setBids] = useState<Bid[]>([]);
   const [wonProducts, setWonProducts] = useState<WonProduct[]>([]);
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState("reviews");
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const reviewsRef = useRef<HTMLDivElement | null>(null);
@@ -206,11 +223,18 @@ export default function ProfilePage() {
   };
 
   if (loading) {
-    return <Typography>Đang tải...</Typography>;
+    return <Loading />;
   }
 
   if (!user) {
-    return <Typography>Không tìm thấy thông tin người dùng</Typography>;
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <AlertCircle className="h-5 w-5" />
+          <span>Không tìm thấy thông tin người dùng</span>
+        </div>
+      </div>
+    );
   }
 
   const ratingPercentage = getRatingPercentage(user.rating, user.totalRatings);
@@ -234,414 +258,503 @@ export default function ProfilePage() {
   ];
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Trang cá nhân
-      </Typography>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white mb-2">
+          Trang cá nhân
+        </h1>
+      </div>
 
-      <Grid container spacing={3}>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         {/* Left Column - Profile Info */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Thông tin cá nhân
-            </Typography>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Thông tin cá nhân
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <form onSubmit={profileFormik.handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Họ tên</label>
+                  <Input
+                    name="fullName"
+                    value={profileFormik.values.fullName}
+                    onChange={profileFormik.handleChange}
+                    onBlur={profileFormik.handleBlur}
+                    placeholder="Nhập họ tên"
+                  />
+                  {profileFormik.touched.fullName &&
+                    profileFormik.errors.fullName && (
+                      <p className="text-xs text-destructive">
+                        {profileFormik.errors.fullName}
+                      </p>
+                    )}
+                </div>
 
-            <form onSubmit={profileFormik.handleSubmit}>
-              <TextField
-                fullWidth
-                label="Họ tên"
-                name="fullName"
-                value={profileFormik.values.fullName}
-                onChange={profileFormik.handleChange}
-                error={
-                  profileFormik.touched.fullName &&
-                  Boolean(profileFormik.errors.fullName)
-                }
-                helperText={
-                  profileFormik.touched.fullName &&
-                  profileFormik.errors.fullName
-                }
-                margin="normal"
-              />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Email</label>
+                  <Input
+                    name="email"
+                    type="email"
+                    value={profileFormik.values.email}
+                    onChange={profileFormik.handleChange}
+                    onBlur={profileFormik.handleBlur}
+                    placeholder="Nhập email"
+                  />
+                  {profileFormik.touched.email &&
+                    profileFormik.errors.email && (
+                      <p className="text-xs text-destructive">
+                        {profileFormik.errors.email}
+                      </p>
+                    )}
+                </div>
 
-              <TextField
-                fullWidth
-                label="Email"
-                name="email"
-                type="email"
-                value={profileFormik.values.email}
-                onChange={profileFormik.handleChange}
-                error={
-                  profileFormik.touched.email &&
-                  Boolean(profileFormik.errors.email)
-                }
-                helperText={
-                  profileFormik.touched.email && profileFormik.errors.email
-                }
-                margin="normal"
-              />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Ngày sinh</label>
+                  <Input
+                    name="dateOfBirth"
+                    type="date"
+                    value={profileFormik.values.dateOfBirth}
+                    onChange={profileFormik.handleChange}
+                    onBlur={profileFormik.handleBlur}
+                  />
+                  {profileFormik.touched.dateOfBirth &&
+                    profileFormik.errors.dateOfBirth && (
+                      <p className="text-xs text-destructive">
+                        {profileFormik.errors.dateOfBirth}
+                      </p>
+                    )}
+                </div>
 
-              <TextField
-                fullWidth
-                label="Ngày sinh"
-                name="dateOfBirth"
-                type="date"
-                value={profileFormik.values.dateOfBirth}
-                onChange={profileFormik.handleChange}
-                error={
-                  profileFormik.touched.dateOfBirth &&
-                  Boolean(profileFormik.errors.dateOfBirth)
-                }
-                helperText={
-                  profileFormik.touched.dateOfBirth &&
-                  profileFormik.errors.dateOfBirth
-                }
-                margin="normal"
-                InputLabelProps={{ shrink: true }}
-              />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Địa chỉ</label>
+                  <Textarea
+                    name="address"
+                    rows={3}
+                    value={profileFormik.values.address}
+                    onChange={profileFormik.handleChange}
+                    onBlur={profileFormik.handleBlur}
+                    placeholder="Nhập địa chỉ"
+                  />
+                  {profileFormik.touched.address &&
+                    profileFormik.errors.address && (
+                      <p className="text-xs text-destructive">
+                        {profileFormik.errors.address}
+                      </p>
+                    )}
+                </div>
 
-              <TextField
-                fullWidth
-                label="Địa chỉ"
-                name="address"
-                multiline
-                rows={3}
-                value={profileFormik.values.address}
-                onChange={profileFormik.handleChange}
-                error={
-                  profileFormik.touched.address &&
-                  Boolean(profileFormik.errors.address)
-                }
-                helperText={
-                  profileFormik.touched.address && profileFormik.errors.address
-                }
-                margin="normal"
-              />
+                <Button type="submit" className="w-full">
+                  <Edit className="h-4 w-4 mr-2" />
+                  Cập nhật thông tin
+                </Button>
+              </form>
+
+              <Separator />
 
               <Button
-                type="submit"
-                variant="contained"
-                fullWidth
-                sx={{ mt: 2 }}
+                variant="outline"
+                className="w-full"
+                onClick={() => setPasswordDialogOpen(true)}
               >
-                Cập nhật thông tin
+                <Lock className="h-4 w-4 mr-2" />
+                Đổi mật khẩu
               </Button>
-            </form>
 
-            <Button
-              variant="outlined"
-              fullWidth
-              sx={{ mt: 2 }}
-              onClick={() => setPasswordDialogOpen(true)}
-            >
-              Đổi mật khẩu
-            </Button>
+              <Separator />
 
-            <Box sx={{ mt: 3, p: 2, bgcolor: "grey.100", borderRadius: 1 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                Điểm đánh giá
-              </Typography>
-              <Typography variant="h4" color="primary">
-                {ratingPercentage.toFixed(1)}%
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Tổng: {user.totalRatings} lượt đánh giá
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                + {positiveCount} đánh giá tích cực
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                - {negativeCount} đánh giá tiêu cực
-              </Typography>
-            </Box>
+              <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                  <h3 className="text-sm font-semibold">Điểm đánh giá</h3>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-brand">
+                    {ratingPercentage.toFixed(1)}%
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Tổng: {user.totalRatings} lượt đánh giá
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-green-600 font-medium">
+                      + {positiveCount}
+                    </span>{" "}
+                    <span className="text-muted-foreground">tích cực</span>
+                  </div>
+                  <div>
+                    <span className="text-red-600 font-medium">
+                      - {negativeCount}
+                    </span>{" "}
+                    <span className="text-muted-foreground">tiêu cực</span>
+                  </div>
+                </div>
+              </div>
 
-            <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
-              <Chip
-                label={
-                  user.role === "admin"
+              <div className="space-y-2">
+                <Badge
+                  variant={
+                    user.role === "admin"
+                      ? "destructive"
+                      : user.role === "seller"
+                      ? "default"
+                      : "secondary"
+                  }
+                  className="w-full justify-center py-2"
+                >
+                  {user.role === "admin"
                     ? "Quản trị viên"
                     : user.role === "seller"
                     ? "Người bán"
-                    : "Người đấu giá"
-                }
-              />
+                    : "Người đấu giá"}
+                </Badge>
 
-              {user.role === "bidder" && (
-                <Box sx={{ p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Nâng cấp thành người bán
-                  </Typography>
-                  {user.upgradeRequestStatus === "pending" && (
-                    <Alert severity="info" sx={{ mb: 1 }}>
-                      Yêu cầu nâng cấp đang được xét duyệt.
-                    </Alert>
-                  )}
-                  {user.upgradeRequestStatus === "approved" && user.upgradeExpireAt && (
-                    <Alert severity="success" sx={{ mb: 1 }}>
-                      Bạn đang có quyền bán đến{" "}
-                      {format(new Date(user.upgradeExpireAt), "dd/MM/yyyy HH:mm")}.
-                    </Alert>
-                  )}
-                  {user.upgradeRequestStatus === "rejected" && (
-                    <Alert severity="warning" sx={{ mb: 1 }}>
-                      Yêu cầu nâng cấp trước đó đã bị từ chối. Bạn có thể yêu cầu lại ngay.
-                    </Alert>
-                  )}
-                  {/* Kiểm tra nếu đã hết hạn seller (upgradeExpireAt đã qua) */}
-                  {user.upgradeExpireAt && new Date(user.upgradeExpireAt) < new Date() && (
-                    <Alert severity="warning" sx={{ mb: 1 }}>
-                      Quyền seller của bạn đã hết hạn. Bạn có thể yêu cầu nâng cấp lại ngay.
-                    </Alert>
-                  )}
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    disabled={user.upgradeRequestStatus === "pending"}
-                    onClick={async () => {
-                      try {
-                        await apiClient.post("/users/upgrade-request", {});
-                        toast.success("Đã gửi yêu cầu nâng cấp. Vui lòng chờ admin xét duyệt.");
-                        fetchData();
-                      } catch (error: any) {
-                        toast.error(
-                          error.response?.data?.error?.message ||
-                            "Gửi yêu cầu nâng cấp thất bại"
-                        );
-                      }
-                    }}
-                  >
-                    {user.upgradeRequestStatus === "pending"
-                      ? "Đã gửi yêu cầu"
-                      : "Xin nâng cấp thành người bán"}
-                  </Button>
-                </Box>
-              )}
-            </Box>
-          </Paper>
-        </Grid>
-
-        {/* Right Column - Tabs */}
-        <Grid item xs={12} md={8}>
-          <Paper>
-            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
-              <Tab label={`Đánh giá (${reviews.length})`} />
-              <Tab label={`Yêu thích (${watchlist.length})`} />
-              <Tab label={`Lịch sử đấu giá (${bids.length})`} />
-              <Tab label={`Sản phẩm đã thắng (${wonProducts.length})`} />
-            </Tabs>
-
-            {/* Reviews Tab */}
-            {activeTab === 0 && (
-              <Box sx={{ p: 3 }} ref={reviewsRef}>
-                {reviews.length === 0 && (
-                  <Alert severity="info" sx={{ mb: 2 }}>
-                    Chưa có đánh giá nào. Hiển thị dữ liệu mẫu bên dưới.
-                  </Alert>
-                )}
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  {(reviews.length ? reviews : mockReviews).map((review) => (
-                    <Card key={review.id} variant="outlined">
-                      <CardContent>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "start",
-                          }}
-                        >
-                          <Box>
-                            <Typography variant="subtitle1">
-                              {review.reviewer.fullName}
-                            </Typography>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1,
-                                mt: 1,
-                              }}
-                            >
-                              {review.rating === 1 ? (
-                                <Chip label="+1" color="success" size="small" />
-                              ) : (
-                                <Chip label="-1" color="error" size="small" />
-                              )}
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                {format(
-                                  new Date(review.createdAt),
-                                  "dd/MM/yyyy HH:mm"
-                                )}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </Box>
-                        {review.comment && (
-                          <Typography variant="body2" sx={{ mt: 1 }}>
-                            {review.comment}
-                          </Typography>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </Box>
-              </Box>
-            )}
-
-            {/* Watchlist Tab */}
-            {activeTab === 1 && (
-              <Box sx={{ p: 3 }}>
-                {watchlist.length === 0 ? (
-                  <Alert severity="info">Chưa có sản phẩm yêu thích nào</Alert>
-                ) : (
-                  <Grid container spacing={2}>
-                    {watchlist.map((item) => (
-                      <Grid item xs={12} sm={6} md={4} key={item.id}>
-                        <Card>
-                          <CardMedia
-                            component="img"
-                            height="200"
-                            image={item.product.mainImage}
-                            alt={item.product.name}
-                          />
-                          <CardContent>
-                            <Typography variant="h6" noWrap>
-                              {item.product.name}
-                            </Typography>
-                            <Typography
-                              variant="h6"
-                              color="primary"
-                              sx={{ mt: 1 }}
-                            >
-                              {parseFloat(
-                                item.product.currentPrice.toString()
-                              ).toLocaleString("vi-VN")}{" "}
-                              VNĐ
-                            </Typography>
-                          </CardContent>
-                          <CardActions>
-                            <Button
-                              size="small"
-                              onClick={() =>
-                                navigate(`/products/${item.product.id}`)
-                              }
-                            >
-                              Xem chi tiết
-                            </Button>
-                          </CardActions>
-                        </Card>
-                      </Grid>
-                    ))}
-                  </Grid>
-                )}
-              </Box>
-            )}
-
-            {/* Bids Tab */}
-            {activeTab === 2 && (
-              <Box sx={{ p: 3 }}>
-                {bids.length === 0 ? (
-                  <Alert severity="info">Chưa có lượt đấu giá nào</Alert>
-                ) : (
-                  <Grid container spacing={2}>
-                    {bids.map((bid) => (
-                      <Grid item xs={12} sm={6} md={4} key={bid.id}>
-                        <Card>
-                          <CardMedia
-                            component="img"
-                            height="200"
-                            image={bid.product.mainImage}
-                            alt={bid.product.name}
-                          />
-                          <CardContent>
-                            <Typography variant="h6" noWrap>
-                              {bid.product.name}
-                            </Typography>
-                            <Typography
-                              variant="h6"
-                              color="primary"
-                              sx={{ mt: 1 }}
-                            >
-                              {parseFloat(bid.amount.toString()).toLocaleString(
-                                "vi-VN"
-                              )}{" "}
-                              VNĐ
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                {user.role === "bidder" && (
+                  <Card className="bg-muted/50">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm">
+                        Nâng cấp thành người bán
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {user.upgradeRequestStatus === "pending" && (
+                        <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                          <AlertCircle className="h-4 w-4 mt-0.5" />
+                          <p>Yêu cầu nâng cấp đang được xét duyệt.</p>
+                        </div>
+                      )}
+                      {user.upgradeRequestStatus === "approved" &&
+                        user.upgradeExpireAt && (
+                          <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-900">
+                            <AlertCircle className="h-4 w-4 mt-0.5" />
+                            <p>
+                              Bạn đang có quyền bán đến{" "}
                               {format(
-                                new Date(bid.createdAt),
+                                new Date(user.upgradeExpireAt),
                                 "dd/MM/yyyy HH:mm"
                               )}
-                            </Typography>
-                            <Chip
-                              label={
-                                bid.product.status === "active"
-                                  ? "Đang đấu giá"
-                                  : "Đã kết thúc"
-                              }
-                              color={
-                                bid.product.status === "active"
-                                  ? "success"
-                                  : "default"
-                              }
-                              size="small"
-                              sx={{ mt: 1 }}
-                            />
-                          </CardContent>
-                          <CardActions>
-                            <Button
-                              size="small"
-                              onClick={() =>
-                                navigate(`/products/${bid.product.id}`)
-                              }
-                            >
-                              Xem chi tiết
-                            </Button>
-                          </CardActions>
-                        </Card>
-                      </Grid>
-                    ))}
-                  </Grid>
+                              .
+                            </p>
+                          </div>
+                        )}
+                      {user.upgradeRequestStatus === "rejected" && (
+                        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                          <AlertCircle className="h-4 w-4 mt-0.5" />
+                          <p>
+                            Yêu cầu nâng cấp trước đó đã bị từ chối. Bạn có thể
+                            yêu cầu lại ngay.
+                          </p>
+                        </div>
+                      )}
+                      {user.upgradeExpireAt &&
+                        new Date(user.upgradeExpireAt) < new Date() && (
+                          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                            <AlertCircle className="h-4 w-4 mt-0.5" />
+                            <p>
+                              Quyền seller của bạn đã hết hạn. Bạn có thể yêu
+                              cầu nâng cấp lại ngay.
+                            </p>
+                          </div>
+                        )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        disabled={user.upgradeRequestStatus === "pending"}
+                        onClick={async () => {
+                          try {
+                            await apiClient.post("/users/upgrade-request", {});
+                            toast.success(
+                              "Đã gửi yêu cầu nâng cấp. Vui lòng chờ admin xét duyệt."
+                            );
+                            fetchData();
+                          } catch (error: any) {
+                            toast.error(
+                              error.response?.data?.error?.message ||
+                                "Gửi yêu cầu nâng cấp thất bại"
+                            );
+                          }
+                        }}
+                      >
+                        {user.upgradeRequestStatus === "pending"
+                          ? "Đã gửi yêu cầu"
+                          : "Xin nâng cấp thành người bán"}
+                      </Button>
+                    </CardContent>
+                  </Card>
                 )}
-              </Box>
-            )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-            {/* Won Products Tab */}
-            {activeTab === 3 && (
-              <Box sx={{ p: 3 }}>
-                {wonProducts.length === 0 ? (
-                  <Alert severity="info">Chưa có sản phẩm nào đã thắng</Alert>
-                ) : (
-                  <Grid container spacing={2}>
-                    {wonProducts.map((order) => (
-                      <Grid item xs={12} sm={6} md={4} key={order.id}>
-                        <Card>
-                          <CardMedia
-                            component="img"
-                            height="200"
-                            image={order.product.mainImage}
-                            alt={order.product.name}
-                          />
-                          <CardContent>
-                            <Typography variant="h6" noWrap>
-                              {order.product.name}
-                            </Typography>
-                            <Typography
-                              variant="h6"
-                              color="primary"
-                              sx={{ mt: 1 }}
-                            >
-                              {parseFloat(
-                                order.finalPrice.toString()
-                              ).toLocaleString("vi-VN")}{" "}
-                              VNĐ
-                            </Typography>
-                            <Chip
-                              label={
-                                order.status === "pending_payment"
+        {/* Right Column - Tabs */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Hoạt động của tôi</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="reviews" className="flex items-center gap-2">
+                    <Star className="h-4 w-4" />
+                    <span className="hidden sm:inline">Đánh giá</span>
+                    <Badge variant="secondary" className="ml-1">
+                      {reviews.length}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="watchlist" className="flex items-center gap-2">
+                    <Heart className="h-4 w-4" />
+                    <span className="hidden sm:inline">Yêu thích</span>
+                    <Badge variant="secondary" className="ml-1">
+                      {watchlist.length}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="bids" className="flex items-center gap-2">
+                    <Gavel className="h-4 w-4" />
+                    <span className="hidden sm:inline">Đấu giá</span>
+                    <Badge variant="secondary" className="ml-1">
+                      {bids.length}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="won" className="flex items-center gap-2">
+                    <Trophy className="h-4 w-4" />
+                    <span className="hidden sm:inline">Đã thắng</span>
+                    <Badge variant="secondary" className="ml-1">
+                      {wonProducts.length}
+                    </Badge>
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Reviews Tab */}
+                <TabsContent value="reviews" className="mt-4">
+                  <div ref={reviewsRef} className="space-y-4">
+                    {reviews.length === 0 && (
+                      <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                        <AlertCircle className="h-4 w-4 mt-0.5" />
+                        <p>Chưa có đánh giá nào. Hiển thị dữ liệu mẫu bên dưới.</p>
+                      </div>
+                    )}
+                    <div className="space-y-3">
+                      {(reviews.length ? reviews : mockReviews).map((review) => (
+                        <Card key={review.id}>
+                          <CardContent className="p-4 space-y-3">
+                            <div className="flex items-start justify-between">
+                              <div className="space-y-1">
+                                <p className="text-sm font-semibold">
+                                  {review.reviewer.fullName}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  {review.rating === 1 ? (
+                                    <Badge
+                                      variant="default"
+                                      className="bg-green-500 hover:bg-green-600"
+                                    >
+                                      +1
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="destructive">-1</Badge>
+                                  )}
+                                  <span className="text-xs text-muted-foreground">
+                                    {format(
+                                      new Date(review.createdAt),
+                                      "dd/MM/yyyy HH:mm"
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            {review.comment && (
+                              <p className="text-sm text-foreground">
+                                {review.comment}
+                              </p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* Watchlist Tab */}
+                <TabsContent value="watchlist" className="mt-4">
+                  <div className="space-y-4">
+                    {watchlist.length === 0 ? (
+                      <div className="flex items-center justify-center py-12 text-muted-foreground">
+                        <div className="text-center space-y-2">
+                          <Heart className="h-12 w-12 mx-auto opacity-50" />
+                          <p>Chưa có sản phẩm yêu thích nào</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {watchlist.map((item) => (
+                          <Link
+                            key={item.id}
+                            to={`/products/${item.product.id}`}
+                            className="group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow"
+                          >
+                            <div className="aspect-video overflow-hidden">
+                              <img
+                                src={item.product.mainImage}
+                                alt={item.product.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            </div>
+                            <div className="p-3 space-y-1">
+                              <p className="text-sm font-medium line-clamp-2">
+                                {item.product.name}
+                              </p>
+                              <p className="text-sm font-semibold text-brand">
+                                {Number(
+                                  item.product.currentPrice
+                                ).toLocaleString("vi-VN")}{" "}
+                                VNĐ
+                              </p>
+                              <Badge
+                                variant={
+                                  item.product.status === "active"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                                className="text-xs"
+                              >
+                                {item.product.status === "active"
+                                  ? "Đang đấu giá"
+                                  : "Đã kết thúc"}
+                              </Badge>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                {/* Bids Tab */}
+                <TabsContent value="bids" className="mt-4">
+                  <div className="space-y-4">
+                    {bids.length === 0 ? (
+                      <div className="flex items-center justify-center py-12 text-muted-foreground">
+                        <div className="text-center space-y-2">
+                          <Gavel className="h-12 w-12 mx-auto opacity-50" />
+                          <p>Chưa có lượt đấu giá nào</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {bids.map((bid) => (
+                          <Link
+                            key={bid.id}
+                            to={`/products/${bid.product.id}`}
+                            className="group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow"
+                          >
+                            <div className="aspect-video overflow-hidden">
+                              <img
+                                src={bid.product.mainImage}
+                                alt={bid.product.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            </div>
+                            <div className="p-3 space-y-2">
+                              <p className="text-sm font-medium line-clamp-2">
+                                {bid.product.name}
+                              </p>
+                              <div>
+                                <p className="text-xs text-muted-foreground">
+                                  Giá đấu của bạn
+                                </p>
+                                <p className="text-sm font-semibold text-brand">
+                                  {Number(bid.amount).toLocaleString("vi-VN")}{" "}
+                                  VNĐ
+                                </p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {format(
+                                  new Date(bid.createdAt),
+                                  "dd/MM/yyyy HH:mm"
+                                )}
+                              </p>
+                              <Badge
+                                variant={
+                                  bid.product.status === "active"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                                className="text-xs"
+                              >
+                                {bid.product.status === "active"
+                                  ? "Đang đấu giá"
+                                  : "Đã kết thúc"}
+                              </Badge>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                {/* Won Products Tab */}
+                <TabsContent value="won" className="mt-4">
+                  <div className="space-y-4">
+                    {wonProducts.length === 0 ? (
+                      <div className="flex items-center justify-center py-12 text-muted-foreground">
+                        <div className="text-center space-y-2">
+                          <Trophy className="h-12 w-12 mx-auto opacity-50" />
+                          <p>Chưa có sản phẩm nào đã thắng</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {wonProducts.map((order) => (
+                          <Link
+                            key={order.id}
+                            to={`/orders/${order.id}`}
+                            className="group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow"
+                          >
+                            <div className="aspect-video overflow-hidden">
+                              <img
+                                src={order.product.mainImage}
+                                alt={order.product.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                            </div>
+                            <div className="p-3 space-y-2">
+                              <p className="text-sm font-medium line-clamp-2">
+                                {order.product.name}
+                              </p>
+                              <div>
+                                <p className="text-xs text-muted-foreground">
+                                  Giá cuối cùng
+                                </p>
+                                <p className="text-sm font-semibold text-brand">
+                                  {Number(order.finalPrice).toLocaleString(
+                                    "vi-VN"
+                                  )}{" "}
+                                  VNĐ
+                                </p>
+                              </div>
+                              <Badge
+                                variant={
+                                  order.status === "completed"
+                                    ? "default"
+                                    : order.status === "cancelled"
+                                    ? "destructive"
+                                    : "secondary"
+                                }
+                                className="text-xs"
+                              >
+                                {order.status === "pending_payment"
                                   ? "Chờ thanh toán"
                                   : order.status === "pending_address"
                                   ? "Chờ địa chỉ"
@@ -650,109 +763,92 @@ export default function ProfilePage() {
                                   ? "Đang giao hàng"
                                   : order.status === "completed"
                                   ? "Hoàn thành"
-                                  : "Đã hủy"
-                              }
-                              color={
-                                order.status === "completed"
-                                  ? "success"
-                                  : order.status === "cancelled"
-                                  ? "error"
-                                  : order.status === "pending_shipping" ||
-                                    order.status === "pending_delivery"
-                                  ? "info"
-                                  : "warning"
-                              }
-                              size="small"
-                              sx={{ mt: 1 }}
-                            />
-                          </CardContent>
-                          <CardActions>
-                            <Button
-                              size="small"
-                              onClick={() => navigate(`/orders/${order.id}`)}
-                            >
-                              Xem đơn hàng
-                            </Button>
-                          </CardActions>
-                        </Card>
-                      </Grid>
-                    ))}
-                  </Grid>
-                )}
-              </Box>
-            )}
-          </Paper>
-        </Grid>
-      </Grid>
+                                  : "Đã hủy"}
+                              </Badge>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* Change Password Dialog */}
-      <Dialog
-        open={passwordDialogOpen}
-        onClose={() => setPasswordDialogOpen(false)}
-      >
-        <form onSubmit={passwordFormik.handleSubmit}>
-          <DialogTitle>Đổi mật khẩu</DialogTitle>
-          <DialogContent>
-            <TextField
-              fullWidth
-              label="Mật khẩu cũ"
-              name="oldPassword"
-              type="password"
-              value={passwordFormik.values.oldPassword}
-              onChange={passwordFormik.handleChange}
-              error={
-                passwordFormik.touched.oldPassword &&
-                Boolean(passwordFormik.errors.oldPassword)
-              }
-              helperText={
-                passwordFormik.touched.oldPassword &&
-                passwordFormik.errors.oldPassword
-              }
-              margin="normal"
-            />
-            <TextField
-              fullWidth
-              label="Mật khẩu mới"
-              name="newPassword"
-              type="password"
-              value={passwordFormik.values.newPassword}
-              onChange={passwordFormik.handleChange}
-              error={
-                passwordFormik.touched.newPassword &&
-                Boolean(passwordFormik.errors.newPassword)
-              }
-              helperText={
-                passwordFormik.touched.newPassword &&
-                passwordFormik.errors.newPassword
-              }
-              margin="normal"
-            />
-            <TextField
-              fullWidth
-              label="Xác nhận mật khẩu"
-              name="confirmPassword"
-              type="password"
-              value={passwordFormik.values.confirmPassword}
-              onChange={passwordFormik.handleChange}
-              error={
-                passwordFormik.touched.confirmPassword &&
-                Boolean(passwordFormik.errors.confirmPassword)
-              }
-              helperText={
-                passwordFormik.touched.confirmPassword &&
-                passwordFormik.errors.confirmPassword
-              }
-              margin="normal"
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setPasswordDialogOpen(false)}>Hủy</Button>
-            <Button type="submit" variant="contained">
-              Đổi mật khẩu
-            </Button>
-          </DialogActions>
-        </form>
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Đổi mật khẩu</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={passwordFormik.handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Mật khẩu cũ</label>
+              <Input
+                name="oldPassword"
+                type="password"
+                value={passwordFormik.values.oldPassword}
+                onChange={passwordFormik.handleChange}
+                onBlur={passwordFormik.handleBlur}
+                placeholder="Nhập mật khẩu cũ"
+              />
+              {passwordFormik.touched.oldPassword &&
+                passwordFormik.errors.oldPassword && (
+                  <p className="text-xs text-destructive">
+                    {passwordFormik.errors.oldPassword}
+                  </p>
+                )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Mật khẩu mới</label>
+              <Input
+                name="newPassword"
+                type="password"
+                value={passwordFormik.values.newPassword}
+                onChange={passwordFormik.handleChange}
+                onBlur={passwordFormik.handleBlur}
+                placeholder="Nhập mật khẩu mới"
+              />
+              {passwordFormik.touched.newPassword &&
+                passwordFormik.errors.newPassword && (
+                  <p className="text-xs text-destructive">
+                    {passwordFormik.errors.newPassword}
+                  </p>
+                )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Xác nhận mật khẩu</label>
+              <Input
+                name="confirmPassword"
+                type="password"
+                value={passwordFormik.values.confirmPassword}
+                onChange={passwordFormik.handleChange}
+                onBlur={passwordFormik.handleBlur}
+                placeholder="Xác nhận mật khẩu mới"
+              />
+              {passwordFormik.touched.confirmPassword &&
+                passwordFormik.errors.confirmPassword && (
+                  <p className="text-xs text-destructive">
+                    {passwordFormik.errors.confirmPassword}
+                  </p>
+                )}
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPasswordDialogOpen(false)}
+              >
+                Hủy
+              </Button>
+              <Button type="submit">Đổi mật khẩu</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
       </Dialog>
-    </Box>
+    </div>
   );
 }
