@@ -391,7 +391,9 @@ export default function ProductDetailPage() {
 
   const isSeller = user?.id === product.sellerId;
   const isEnded =
-    product.status === "ended" || new Date(product.endDate) <= new Date();
+    product.status === "ended" ||
+    product.status === "cancelled" ||
+    new Date(product.endDate) <= new Date();
 
   const sellerRating = getRatingPercentage(
     product.seller.rating,
@@ -427,6 +429,13 @@ export default function ProductDetailPage() {
               View order details
             </Link>
           </div>
+        </div>
+      )}
+
+      {product.status === "cancelled" && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <AlertCircle className="h-4 w-4 mt-0.5" />
+          <p className="font-medium my-0">This product has been cancelled by the administrator.</p>
         </div>
       )}
 
@@ -511,10 +520,12 @@ export default function ProductDetailPage() {
               </CardTitle>
 
               <CardDescription className="flex flex-wrap gap-2">
-                <Badge className="flex items-center gap-1 border-brand/30 text-brand font-semibold transition-colors">
-                  <Clock className="h-3.5 w-3.5" />
-                  <span>Ends: {formatRelativeTime(product.endDate)}</span>
-                </Badge>
+                {product.status !== "cancelled" && (
+                  <Badge className="flex items-center gap-1 border-brand/30 text-brand font-semibold transition-colors">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>Ends: {formatRelativeTime(product.endDate)}</span>
+                  </Badge>
+                )}
                 <Badge variant="outline" className="flex items-center gap-1">
                   <Gavel className="h-3.5 w-3.5" />
                   <span>{product.bidCount} bids</span>

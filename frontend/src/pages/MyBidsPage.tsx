@@ -160,6 +160,7 @@ export default function MyBidsPage() {
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="ended">Ended</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -240,7 +241,11 @@ export default function MyBidsPage() {
                   <div className="flex items-center justify-between pt-2">
                     <Badge
                       variant={
-                        bid.product.status === "active" ? "default" : "outline"
+                        bid.product.status === "active"
+                          ? "default"
+                          : bid.product.status === "cancelled"
+                          ? "destructive"
+                          : "outline"
                       }
                       className={
                         bid.product.status === "active"
@@ -248,7 +253,11 @@ export default function MyBidsPage() {
                           : ""
                       }
                     >
-                      {bid.product.status === "active" ? "Active" : "Ended"}
+                      {bid.product.status === "active"
+                        ? "Active"
+                        : bid.product.status === "cancelled"
+                        ? "Cancelled"
+                        : "Ended"}
                     </Badge>
                     <Button variant="outline" size="sm" asChild>
                       <Link to={`/products/${bid.product.id}`}>
