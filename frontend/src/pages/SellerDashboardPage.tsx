@@ -1,41 +1,59 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { io, Socket } from "socket.io-client";
+import { format } from "date-fns";
 import {
-  Box,
-  Typography,
-  Paper,
-  Button,
-  TextField,
-  Grid,
-  Card,
-  CardMedia,
-  CardContent,
-  CardActions,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
-  Chip,
-  Tabs,
-  Tab,
-  IconButton,
-  Alert,
-  Stepper,
-  Step,
-  StepLabel,
-} from "@mui/material";
-import { Add, Delete, Edit, Image as ImageIcon } from "@mui/icons-material";
+  Plus,
+  Trash2,
+  Edit,
+  Image as ImageIcon,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Package,
+  Gavel,
+  X,
+} from "lucide-react";
 import { useFormik } from "formik";
 import * as yup from "yup";
 import apiClient from "../api/client";
 import { useAuthStore } from "../store/authStore";
 import toast from "react-hot-toast";
-import { format } from "date-fns";
+import Loading from "@/components/Loading";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
 
 interface Category {
   id: number;
@@ -89,10 +107,10 @@ interface Order {
 }
 
 const orderSteps = [
-  'Thanh toán',
-  'Gửi địa chỉ',
-  'Gửi hàng',
-  'Nhận hàng',
+  "Payment",
+  "Address",
+  "Shipping",
+  "Delivery",
 ];
 
 const getOrderStepIndex = (status: string): number => {
@@ -108,19 +126,19 @@ const getOrderStepIndex = (status: string): number => {
 };
 
 const validationSchema = yup.object({
-  name: yup.string().required("Tên sản phẩm là bắt buộc"),
-  description: yup.string().required("Mô tả là bắt buộc"),
+  name: yup.string().required("Product name is required"),
+  description: yup.string().required("Description is required"),
   startingPrice: yup
     .number()
-    .min(0, "Giá khởi điểm phải lớn hơn 0")
-    .required("Giá khởi điểm là bắt buộc"),
+    .min(0, "Starting price must be greater than 0")
+    .required("Starting price is required"),
   bidStep: yup
     .number()
-    .min(0, "Bước giá phải lớn hơn 0")
-    .required("Bước giá là bắt buộc"),
+    .min(0, "Bid step must be greater than 0")
+    .required("Bid step is required"),
   buyNowPrice: yup.number().min(0).optional(),
-  categoryId: yup.number().required("Danh mục là bắt buộc"),
-  endDate: yup.string().required("Ngày kết thúc là bắt buộc"),
+  categoryId: yup.number().required("Category is required"),
+  endDate: yup.string().required("End date is required"),
   autoExtend: yup.boolean(),
   allowUnratedBidders: yup.boolean(),
 });
@@ -131,7 +149,7 @@ export default function SellerDashboardPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState("active");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
@@ -144,7 +162,6 @@ export default function SellerDashboardPage() {
       navigate("/");
       return;
     }
-    // Kiểm tra upgradeExpireAt từ profile
     checkSellerStatus();
   }, [user, navigate]);
 
@@ -152,38 +169,42 @@ export default function SellerDashboardPage() {
     try {
       const profileRes = await apiClient.get("/users/profile");
       const userData = profileRes.data.data;
-      
+
       if (userData.role === "seller" && userData.upgradeExpireAt) {
         const expireDate = new Date(userData.upgradeExpireAt);
         const now = new Date();
-        
+
         if (expireDate < now) {
-          // Đã hết hạn
           setExpired(true);
           updateUser({ role: "bidder" });
-          toast.error("Tài khoản seller của bạn đã hết thời hạn. Vui lòng yêu cầu nâng cấp lại.");
+          toast.error(
+            "Your seller account has expired. Please request an upgrade again."
+          );
           setTimeout(() => {
             navigate("/profile");
           }, 2000);
           return;
         }
       }
-      
-      // Nếu chưa hết hạn, tiếp tục fetch data
+
       fetchData();
     } catch (error: any) {
       console.error("Error checking seller status:", error);
-      // Nếu lỗi 403 với thông báo hết hạn
-      if (error.response?.status === 403 && error.response?.data?.message?.includes("hết thời hạn")) {
+      if (
+        error.response?.status === 403 &&
+        error.response?.data?.message?.includes("expired")
+      ) {
         setExpired(true);
         updateUser({ role: "bidder" });
-        toast.error(error.response.data.message || "Tài khoản seller của bạn đã hết thời hạn.");
+        toast.error(
+          error.response.data.message ||
+            "Your seller account has expired."
+        );
         setTimeout(() => {
           navigate("/profile");
         }, 2000);
         return;
       }
-      // Nếu không phải lỗi hết hạn, vẫn thử fetch data
       fetchData();
     }
   };
@@ -201,16 +222,20 @@ export default function SellerDashboardPage() {
       setOrders(ordersRes.data.data);
     } catch (error: any) {
       console.error("Error fetching data:", error);
-      // Nếu lỗi 403 về seller expired
-      if (error.response?.status === 403 && error.response?.data?.message?.includes("hết thời hạn")) {
+      if (
+        error.response?.status === 403 &&
+        error.response?.data?.message?.includes("expired")
+      ) {
         setExpired(true);
         updateUser({ role: "bidder" });
-        toast.error(error.response.data.message || "Tài khoản seller của bạn đã hết thời hạn.");
+        toast.error(
+          error.response.data.message || "Your seller account has expired."
+        );
         setTimeout(() => {
           navigate("/profile");
         }, 2000);
       } else {
-        toast.error("Không thể tải dữ liệu");
+        toast.error("Unable to load data");
       }
     } finally {
       setLoading(false);
@@ -224,13 +249,10 @@ export default function SellerDashboardPage() {
     const newSocket = io("http://localhost:3000");
 
     newSocket.on("connect", () => {
-      // Join vào room của user để nhận thông báo order-list-updated
       newSocket.emit("join-room", `user-${user.id}`);
     });
 
-    // Listen cho order-list-updated event
     newSocket.on("order-list-updated", () => {
-      // Refresh orders list khi có cập nhật
       apiClient
         .get("/products/seller/orders")
         .then((res) => {
@@ -241,7 +263,6 @@ export default function SellerDashboardPage() {
         });
     });
 
-    // Listen cho order-updated event (cập nhật order cụ thể)
     newSocket.on("order-updated", (updatedOrder: Order) => {
       setOrders((prevOrders) => {
         const index = prevOrders.findIndex((o) => o.id === updatedOrder.id);
@@ -285,12 +306,11 @@ export default function SellerDashboardPage() {
     validationSchema,
     onSubmit: async (values) => {
       if (selectedImages.length < 3) {
-        toast.error("Vui lòng upload ít nhất 3 ảnh");
+        toast.error("Please upload at least 3 images");
         return;
       }
 
       try {
-        // Upload images first
         const imageUrls: string[] = [];
         for (const image of selectedImages) {
           const uploadFormData = new FormData();
@@ -303,7 +323,6 @@ export default function SellerDashboardPage() {
           imageUrls.push(uploadRes.data.data.url);
         }
 
-        // Create product with image URLs
         await apiClient.post("/products", {
           name: values.name,
           description: values.description,
@@ -320,7 +339,7 @@ export default function SellerDashboardPage() {
           allowUnratedBidders: values.allowUnratedBidders,
         });
 
-        toast.success("Đăng sản phẩm thành công");
+        toast.success("Product created successfully");
         setCreateDialogOpen(false);
         formik.resetForm();
         setSelectedImages([]);
@@ -328,7 +347,7 @@ export default function SellerDashboardPage() {
         fetchData();
       } catch (error: any) {
         toast.error(
-          error.response?.data?.error?.message || "Đăng sản phẩm thất bại"
+          error.response?.data?.error?.message || "Failed to create product"
         );
       }
     },
@@ -337,7 +356,7 @@ export default function SellerDashboardPage() {
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length + selectedImages.length > 10) {
-      toast.error("Tối đa 10 ảnh");
+      toast.error("Maximum 10 images");
       return;
     }
 
@@ -363,459 +382,515 @@ export default function SellerDashboardPage() {
   );
 
   if (loading) {
-    return <Typography>Đang tải...</Typography>;
+    return <Loading />;
   }
 
   if (expired) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error" sx={{ mb: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Tài khoản seller đã hết thời hạn
-          </Typography>
-          <Typography>
-            Tài khoản seller của bạn đã hết thời hạn. Bạn không thể truy cập dashboard với tư cách seller nữa.
-            Vui lòng yêu cầu nâng cấp lại trong trang Profile.
-          </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            sx={{ mt: 2 }}
-            onClick={() => navigate("/profile")}
-          >
-            Đi đến trang Profile
-          </Button>
-        </Alert>
-      </Box>
+      <div className="space-y-6">
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              Seller Account Expired
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Your seller account has expired. You can no longer access the
+              dashboard as a seller. Please request an upgrade again in the
+              Profile page.
+            </p>
+            <Button onClick={() => navigate("/profile")}>
+              Go to Profile Page
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <Box>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 3,
-        }}
-      >
-        <Typography variant="h4">Dashboard người bán</Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => setCreateDialogOpen(true)}
-        >
-          Đăng sản phẩm mới
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white">
+          Seller Dashboard
+        </h1>
+        <Button onClick={() => setCreateDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create New Product
         </Button>
-      </Box>
+      </div>
 
-      <Paper sx={{ mb: 3 }}>
-        <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
-          <Tab label={`Sản phẩm đang đăng (${activeProducts.length})`} />
-          <Tab label={`Sản phẩm đã kết thúc (${endedProducts.length})`} />
-          <Tab label={`Đơn hàng (${orders.length})`} />
-        </Tabs>
+      <Card>
+        <CardHeader>
+          <CardTitle>My Products & Orders</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="active" className="flex items-center gap-2">
+                <Gavel className="h-4 w-4" />
+                <span>Active Products</span>
+                <Badge variant="secondary">{activeProducts.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="ended" className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                <span>Ended Products</span>
+                <Badge variant="secondary">{endedProducts.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="orders" className="flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                <span>Orders</span>
+                <Badge variant="secondary">{orders.length}</Badge>
+              </TabsTrigger>
+            </TabsList>
 
-        {/* Active Products Tab */}
-        {activeTab === 0 && (
-          <Box sx={{ p: 3 }}>
-            {activeProducts.length === 0 ? (
-              <Alert severity="info">Chưa có sản phẩm nào đang đăng</Alert>
-            ) : (
-              <Grid container spacing={2}>
-                {activeProducts.map((product) => (
-                  <Grid item xs={12} sm={6} md={4} key={product.id}>
-                    <Card>
-                      <CardMedia
-                        component="img"
-                        height="200"
-                        image={product.mainImage}
-                        alt={product.name}
-                      />
-                      <CardContent>
-                        <Typography variant="h6" noWrap>
-                          {product.name}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {product.category.name}
-                        </Typography>
-                        <Typography variant="h6" color="primary" sx={{ mt: 1 }}>
-                          {parseFloat(
-                            product.currentPrice.toString()
-                          ).toLocaleString("vi-VN")}{" "}
-                          VNĐ
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {product.bidCount} lượt đấu giá
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Kết thúc:{" "}
-                          {format(
-                            new Date(product.endDate),
-                            "dd/MM/yyyy HH:mm"
+            {/* Active Products Tab */}
+            <TabsContent value="active" className="mt-4">
+              <div className="space-y-4">
+                {activeProducts.length === 0 ? (
+                  <div className="flex items-center justify-center py-12 text-muted-foreground">
+                    <div className="text-center space-y-2">
+                      <Gavel className="h-12 w-12 mx-auto opacity-50" />
+                      <p>No active products yet</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {activeProducts.map((product) => (
+                      <Link
+                        key={product.id}
+                        to={`/products/${product.id}`}
+                        className="group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow"
+                      >
+                        <div className="aspect-video overflow-hidden">
+                          <img
+                            src={product.mainImage}
+                            alt={product.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+                        <div className="p-4 space-y-2">
+                          <h3 className="font-semibold line-clamp-2">
+                            {product.name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {product.category.name}
+                          </p>
+                          <p className="text-lg font-semibold text-brand">
+                            {Number(product.currentPrice).toLocaleString("vi-VN")}{" "}
+                            VNĐ
+                          </p>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span>{product.bidCount} bids</span>
+                            <span>
+                              Ends: {format(new Date(product.endDate), "dd/MM/yyyy HH:mm")}
+                            </span>
+                          </div>
+                          {product.bids && product.bids[0] && (
+                            <p className="text-xs text-muted-foreground">
+                              Highest bidder: {product.bids[0].bidder.fullName}
+                            </p>
                           )}
-                        </Typography>
-                        {product.bids && product.bids[0] && (
-                          <Typography variant="body2" color="text.secondary">
-                            Người đặt giá cao nhất:{" "}
-                            {product.bids[0].bidder.fullName}
-                          </Typography>
-                        )}
-                      </CardContent>
-                      <CardActions>
-                        <Button
-                          size="small"
-                          onClick={() => navigate(`/products/${product.id}`)}
-                        >
-                          Xem chi tiết
-                        </Button>
-                      </CardActions>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-            )}
-          </Box>
-        )}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
 
-        {/* Ended Products Tab */}
-        {activeTab === 1 && (
-          <Box sx={{ p: 3 }}>
-            {endedProducts.length === 0 ? (
-              <Alert severity="info">Chưa có sản phẩm nào đã kết thúc</Alert>
-            ) : (
-              <Grid container spacing={2}>
-                {endedProducts.map((product) => (
-                  <Grid item xs={12} sm={6} md={4} key={product.id}>
-                    <Card>
-                      <CardMedia
-                        component="img"
-                        height="200"
-                        image={product.mainImage}
-                        alt={product.name}
-                      />
-                      <CardContent>
-                        <Typography variant="h6" noWrap>
-                          {product.name}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {product.category.name}
-                        </Typography>
-                        <Typography variant="h6" color="primary" sx={{ mt: 1 }}>
-                          {parseFloat(
-                            product.currentPrice.toString()
-                          ).toLocaleString("vi-VN")}{" "}
-                          VNĐ
-                        </Typography>
-                        <Chip
-                          label={
-                            product.status === "ended"
-                              ? "Đã kết thúc"
-                              : "Đã hết hạn"
-                          }
-                          color="error"
-                          size="small"
-                          sx={{ mt: 1 }}
-                        />
-                        {product.bids && product.bids[0] && (
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{ mt: 1 }}
+            {/* Ended Products Tab */}
+            <TabsContent value="ended" className="mt-4">
+              <div className="space-y-4">
+                {endedProducts.length === 0 ? (
+                  <div className="flex items-center justify-center py-12 text-muted-foreground">
+                    <div className="text-center space-y-2">
+                      <Clock className="h-12 w-12 mx-auto opacity-50" />
+                      <p>No ended products yet</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {endedProducts.map((product) => (
+                      <Link
+                        key={product.id}
+                        to={`/products/${product.id}`}
+                        className="group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow"
+                      >
+                        <div className="aspect-video overflow-hidden">
+                          <img
+                            src={product.mainImage}
+                            alt={product.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+                        <div className="p-4 space-y-2">
+                          <h3 className="font-semibold line-clamp-2">
+                            {product.name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {product.category.name}
+                          </p>
+                          <p className="text-lg font-semibold text-brand">
+                            {Number(product.currentPrice).toLocaleString("vi-VN")}{" "}
+                            VNĐ
+                          </p>
+                          <Badge
+                            variant={
+                              product.status === "ended"
+                                ? "destructive"
+                                : "secondary"
+                            }
+                            className="text-xs"
                           >
-                            Người thắng: {product.bids[0].bidder.fullName}
-                          </Typography>
-                        )}
-                      </CardContent>
-                      <CardActions>
-                        <Button
-                          size="small"
-                          onClick={() => navigate(`/products/${product.id}`)}
-                        >
-                          Xem chi tiết
-                        </Button>
-                      </CardActions>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-            )}
-          </Box>
-        )}
+                            {product.status === "ended" ? "Ended" : "Expired"}
+                          </Badge>
+                          {product.bids && product.bids[0] && (
+                            <p className="text-xs text-muted-foreground">
+                              Winner: {product.bids[0].bidder.fullName}
+                            </p>
+                          )}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
 
-        {/* Orders Tab */}
-        {activeTab === 2 && (
-          <Box sx={{ p: 3 }}>
-            {orders.length === 0 ? (
-              <Alert severity="info">Chưa có đơn hàng nào</Alert>
-            ) : (
-              <Grid container spacing={2}>
-                {orders.map((order) => {
-                  const currentStep = getOrderStepIndex(order.status);
-                  const isCompleted = order.status === "completed";
-                  const isCancelled = order.status === "cancelled";
-                  
-                  return (
-                    <Grid item xs={12} key={order.id}>
-                      <Card>
-                        <CardContent>
-                          <Box sx={{ display: "flex", gap: 2 }}>
-                            <CardMedia
-                              component="img"
-                              sx={{ width: 100, height: 100, objectFit: "cover" }}
-                              image={order.product.mainImage}
-                              alt={order.product.name}
-                            />
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="h6">
-                                {order.product.name}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                Người mua: {order.buyer.fullName}
-                              </Typography>
-                              <Typography
-                                variant="h6"
-                                color="primary"
-                                sx={{ mt: 1 }}
-                              >
-                                {parseFloat(
-                                  order.finalPrice.toString()
-                                ).toLocaleString("vi-VN")}{" "}
-                                VNĐ
-                              </Typography>
-                              
-                              {/* Hiển thị Stepper cho các bước */}
-                              {!isCancelled && (
-                                <Box sx={{ mt: 2, mb: 1 }}>
-                                  <Stepper 
-                                    activeStep={isCompleted ? orderSteps.length : currentStep} 
-                                    alternativeLabel
-                                  >
-                                    {orderSteps.map((label, index) => {
-                                      const isStepCompleted = isCompleted || index < currentStep;
-                                      const isStepActive = !isCompleted && index === currentStep;
-                                      
-                                      return (
-                                        <Step key={label} completed={isStepCompleted}>
-                                          <StepLabel
-                                            StepIconProps={{
-                                              sx: {
-                                                "&.Mui-completed": {
-                                                  color: "success.main",
-                                                },
-                                                "&.Mui-active": {
-                                                  color: "primary.main",
-                                                },
-                                              },
-                                            }}
+            {/* Orders Tab */}
+            <TabsContent value="orders" className="mt-4">
+              <div className="space-y-4">
+                {orders.length === 0 ? (
+                  <div className="flex items-center justify-center py-12 text-muted-foreground">
+                    <div className="text-center space-y-2">
+                      <Package className="h-12 w-12 mx-auto opacity-50" />
+                      <p>No orders yet</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {orders.map((order) => {
+                      const currentStep = getOrderStepIndex(order.status);
+                      const isCompleted = order.status === "completed";
+                      const isCancelled = order.status === "cancelled";
+
+                      return (
+                        <Card key={order.id}>
+                          <CardContent className="p-4">
+                            <div className="flex gap-4">
+                              <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
+                                <img
+                                  src={order.product.mainImage}
+                                  alt={order.product.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="flex-1 space-y-3">
+                                <div>
+                                  <h3 className="font-semibold text-lg">
+                                    {order.product.name}
+                                  </h3>
+                                  <p className="text-sm text-muted-foreground">
+                                    Buyer: {order.buyer.fullName}
+                                  </p>
+                                  <p className="text-lg font-semibold text-brand mt-1">
+                                    {Number(order.finalPrice).toLocaleString("vi-VN")}{" "}
+                                    VNĐ
+                                  </p>
+                                </div>
+
+                                {/* Order Steps Progress */}
+                                {!isCancelled && (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                      {orderSteps.map((step, index) => {
+                                        const isStepCompleted =
+                                          isCompleted || index < currentStep;
+                                        const isStepActive =
+                                          !isCompleted && index === currentStep;
+
+                                        return (
+                                          <div
+                                            key={step}
+                                            className="flex items-center flex-1"
                                           >
-                                            <Typography variant="caption">
-                                              {label}
-                                            </Typography>
-                                          </StepLabel>
-                                        </Step>
-                                      );
-                                    })}
-                                  </Stepper>
-                                </Box>
-                              )}
-                              
-                              <Chip
-                                label={
-                                  order.status === "pending_payment"
-                                    ? "Chờ thanh toán"
+                                            <div className="flex items-center gap-2 flex-1">
+                                              <div
+                                                className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
+                                                  isStepCompleted
+                                                    ? "bg-green-500 border-green-500 text-white"
+                                                    : isStepActive
+                                                    ? "border-primary text-primary"
+                                                    : "border-muted-foreground text-muted-foreground"
+                                                }`}
+                                              >
+                                                {isStepCompleted ? (
+                                                  <CheckCircle2 className="h-4 w-4" />
+                                                ) : (
+                                                  <span className="text-xs font-medium">
+                                                    {index + 1}
+                                                  </span>
+                                                )}
+                                              </div>
+                                              {index < orderSteps.length - 1 && (
+                                                <div
+                                                  className={`flex-1 h-0.5 ${
+                                                    isStepCompleted
+                                                      ? "bg-green-500"
+                                                      : "bg-muted"
+                                                  }`}
+                                                />
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs">
+                                      {orderSteps.map((step, index) => (
+                                        <div key={step} className="flex-1 text-center">
+                                          <span
+                                            className={
+                                              index <= currentStep
+                                                ? "text-foreground font-medium"
+                                                : "text-muted-foreground"
+                                            }
+                                          >
+                                            {step}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                <Badge
+                                  variant={
+                                    isCompleted
+                                      ? "default"
+                                      : isCancelled
+                                      ? "destructive"
+                                      : "secondary"
+                                  }
+                                  className="text-xs"
+                                >
+                                  {order.status === "pending_payment"
+                                    ? "Pending Payment"
                                     : order.status === "pending_address"
-                                    ? "Chờ địa chỉ"
+                                    ? "Pending Address"
                                     : order.status === "pending_shipping"
-                                    ? "Chờ gửi hàng"
+                                    ? "Pending Shipping"
                                     : order.status === "pending_delivery"
-                                    ? "Chờ nhận hàng"
+                                    ? "Pending Delivery"
                                     : order.status === "completed"
-                                    ? "Hoàn thành"
-                                    : "Đã hủy"
-                                }
-                                color={
-                                  isCompleted
-                                    ? "success"
-                                    : isCancelled
-                                    ? "error"
-                                    : "warning"
-                                }
-                                size="small"
-                                sx={{ mt: 1 }}
-                              />
-                              
-                              {/* Hiển thị thông tin chi tiết về các bước đã hoàn thành dựa trên status */}
-                              {currentStep > 0 && (
-                                <Typography variant="caption" color="success.main" display="block" sx={{ mt: 0.5 }}>
-                                  ✓ Đã thanh toán
-                                </Typography>
-                              )}
-                              {currentStep > 1 && (
-                                <Typography variant="caption" color="success.main" display="block" sx={{ mt: 0.5 }}>
-                                  ✓ Đã gửi địa chỉ
-                                </Typography>
-                              )}
-                              {currentStep > 2 && (
-                                <Typography variant="caption" color="success.main" display="block" sx={{ mt: 0.5 }}>
-                                  ✓ Đã gửi hàng
-                                </Typography>
-                              )}
-                              {isCompleted && (
-                                <Typography variant="caption" color="success.main" display="block" sx={{ mt: 0.5 }}>
-                                  ✓ Đã nhận hàng
-                                </Typography>
-                              )}
-                            </Box>
-                          </Box>
-                        </CardContent>
-                        <CardActions>
-                          <Button
-                            size="small"
-                            onClick={() => navigate(`/orders/${order.id}`)}
-                          >
-                            Xem đơn hàng
-                          </Button>
-                        </CardActions>
-                      </Card>
-                    </Grid>
-                  );
-                })}
-              </Grid>
-            )}
-          </Box>
-        )}
-      </Paper>
+                                    ? "Completed"
+                                    : "Cancelled"}
+                                </Badge>
+
+                                {/* Completed steps info */}
+                                {!isCancelled && (
+                                  <div className="space-y-1 text-xs text-green-600">
+                                    {currentStep > 0 && (
+                                      <p className="flex items-center gap-1">
+                                        <CheckCircle2 className="h-3 w-3" />
+                                        Payment completed
+                                      </p>
+                                    )}
+                                    {currentStep > 1 && (
+                                      <p className="flex items-center gap-1">
+                                        <CheckCircle2 className="h-3 w-3" />
+                                        Address received
+                                      </p>
+                                    )}
+                                    {currentStep > 2 && (
+                                      <p className="flex items-center gap-1">
+                                        <CheckCircle2 className="h-3 w-3" />
+                                        Shipped
+                                      </p>
+                                    )}
+                                    {isCompleted && (
+                                      <p className="flex items-center gap-1">
+                                        <CheckCircle2 className="h-3 w-3" />
+                                        Delivered
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="mt-4">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => navigate(`/orders/${order.id}`)}
+                                className="w-full"
+                              >
+                                View Order Details
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
 
       {/* Create Product Dialog */}
-      <Dialog
-        open={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <form onSubmit={formik.handleSubmit}>
-          <DialogTitle>Đăng sản phẩm mới</DialogTitle>
-          <DialogContent>
-            <TextField
-              fullWidth
-              label="Tên sản phẩm"
-              name="name"
-              value={formik.values.name}
-              onChange={formik.handleChange}
-              error={formik.touched.name && Boolean(formik.errors.name)}
-              helperText={formik.touched.name && formik.errors.name}
-              margin="normal"
-              required
-            />
-
-            <FormControl fullWidth margin="normal" required>
-              <InputLabel>Danh mục</InputLabel>
-              <Select
-                name="categoryId"
-                value={formik.values.categoryId}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Product</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={formik.handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Product Name *</Label>
+              <Input
+                id="name"
+                name="name"
+                value={formik.values.name}
                 onChange={formik.handleChange}
-                label="Danh mục"
+                onBlur={formik.handleBlur}
+                placeholder="Enter product name"
+              />
+              {formik.touched.name && formik.errors.name && (
+                <p className="text-xs text-destructive">
+                  {formik.errors.name}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="categoryId">Category *</Label>
+              <Select
+                value={formik.values.categoryId}
+                onValueChange={(value) =>
+                  formik.setFieldValue("categoryId", value)
+                }
               >
-                {categories
-                  .filter((c) => !c.parentId)
-                  .map((category) => (
-                    <MenuItem key={category.id} value={category.id}>
-                      {category.name}
-                    </MenuItem>
-                  ))}
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories
+                    .filter((c) => !c.parentId)
+                    .map((category) => (
+                      <SelectItem key={category.id} value={category.id.toString()}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
               </Select>
-            </FormControl>
+              {formik.touched.categoryId && formik.errors.categoryId && (
+                <p className="text-xs text-destructive">
+                  {formik.errors.categoryId}
+                </p>
+              )}
+            </div>
 
-            <TextField
-              fullWidth
-              label="Mô tả sản phẩm"
-              name="description"
-              multiline
-              rows={6}
-              value={formik.values.description}
-              onChange={formik.handleChange}
-              error={
-                formik.touched.description && Boolean(formik.errors.description)
-              }
-              helperText={
-                formik.touched.description && formik.errors.description
-              }
-              margin="normal"
-              required
-            />
+            <div className="space-y-2">
+              <Label htmlFor="description">Description *</Label>
+              <Textarea
+                id="description"
+                name="description"
+                rows={6}
+                value={formik.values.description}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                placeholder="Enter product description"
+              />
+              {formik.touched.description && formik.errors.description && (
+                <p className="text-xs text-destructive">
+                  {formik.errors.description}
+                </p>
+              )}
+            </div>
 
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Giá khởi điểm (VNĐ)"
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="startingPrice">Starting Price (VNĐ) *</Label>
+                <Input
+                  id="startingPrice"
                   name="startingPrice"
                   type="number"
                   value={formik.values.startingPrice}
                   onChange={formik.handleChange}
-                  error={
-                    formik.touched.startingPrice &&
-                    Boolean(formik.errors.startingPrice)
-                  }
-                  helperText={
-                    formik.touched.startingPrice && formik.errors.startingPrice
-                  }
-                  required
+                  onBlur={formik.handleBlur}
+                  placeholder="0"
                 />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Bước giá (VNĐ)"
+                {formik.touched.startingPrice &&
+                  formik.errors.startingPrice && (
+                    <p className="text-xs text-destructive">
+                      {formik.errors.startingPrice}
+                    </p>
+                  )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="bidStep">Bid Step (VNĐ) *</Label>
+                <Input
+                  id="bidStep"
                   name="bidStep"
                   type="number"
                   value={formik.values.bidStep}
                   onChange={formik.handleChange}
-                  error={
-                    formik.touched.bidStep && Boolean(formik.errors.bidStep)
-                  }
-                  helperText={formik.touched.bidStep && formik.errors.bidStep}
-                  required
+                  onBlur={formik.handleBlur}
+                  placeholder="0"
                 />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Giá mua ngay (VNĐ) - Tùy chọn"
+                {formik.touched.bidStep && formik.errors.bidStep && (
+                  <p className="text-xs text-destructive">
+                    {formik.errors.bidStep}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="buyNowPrice">Buy Now Price (VNĐ) - Optional</Label>
+                <Input
+                  id="buyNowPrice"
                   name="buyNowPrice"
                   type="number"
                   value={formik.values.buyNowPrice}
                   onChange={formik.handleChange}
-                  error={
-                    formik.touched.buyNowPrice &&
-                    Boolean(formik.errors.buyNowPrice)
-                  }
-                  helperText={
-                    formik.touched.buyNowPrice && formik.errors.buyNowPrice
-                  }
+                  onBlur={formik.handleBlur}
+                  placeholder="0"
                 />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Ngày kết thúc"
+                {formik.touched.buyNowPrice && formik.errors.buyNowPrice && (
+                  <p className="text-xs text-destructive">
+                    {formik.errors.buyNowPrice}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="endDate">End Date *</Label>
+                <Input
+                  id="endDate"
                   name="endDate"
                   type="datetime-local"
                   value={formik.values.endDate}
                   onChange={formik.handleChange}
-                  error={
-                    formik.touched.endDate && Boolean(formik.errors.endDate)
-                  }
-                  helperText={formik.touched.endDate && formik.errors.endDate}
-                  InputLabelProps={{ shrink: true }}
-                  required
+                  onBlur={formik.handleBlur}
                 />
-              </Grid>
-            </Grid>
+                {formik.touched.endDate && formik.errors.endDate && (
+                  <p className="text-xs text-destructive">
+                    {formik.errors.endDate}
+                  </p>
+                )}
+              </div>
+            </div>
 
-            <Box sx={{ mt: 2 }}>
+            <Separator />
+
+            <div className="space-y-2">
+              <Label>Images * (Minimum 3 images)</Label>
               <input
                 accept="image/*"
                 style={{ display: "none" }}
@@ -825,94 +900,91 @@ export default function SellerDashboardPage() {
                 onChange={handleImageSelect}
               />
               <label htmlFor="image-upload">
-                <Button
-                  variant="outlined"
-                  component="span"
-                  startIcon={<ImageIcon />}
-                >
-                  Upload ảnh (tối thiểu 3 ảnh)
+                <Button variant="outline" type="button" asChild>
+                  <span>
+                    <ImageIcon className="h-4 w-4 mr-2" />
+                    Upload Images
+                  </span>
                 </Button>
               </label>
               {imagePreviews.length > 0 && (
-                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 2 }}>
+                <div className="flex gap-2 flex-wrap mt-2">
                   {imagePreviews.map((preview, index) => (
-                    <Box key={index} sx={{ position: "relative" }}>
+                    <div key={index} className="relative">
                       <img
                         src={preview}
                         alt={`Preview ${index + 1}`}
-                        style={{
-                          width: 100,
-                          height: 100,
-                          objectFit: "cover",
-                          borderRadius: 4,
-                        }}
+                        className="w-24 h-24 object-cover rounded-md border"
                       />
-                      <IconButton
-                        size="small"
-                        sx={{
-                          position: "absolute",
-                          top: 0,
-                          right: 0,
-                          bgcolor: "white",
-                        }}
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
                         onClick={() => handleRemoveImage(index)}
                       >
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    </Box>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
                   ))}
-                </Box>
+                </div>
               )}
               {selectedImages.length < 3 && (
-                <Typography
-                  variant="caption"
-                  color="error"
-                  display="block"
-                  sx={{ mt: 1 }}
-                >
-                  Cần ít nhất 3 ảnh (đã chọn: {selectedImages.length})
-                </Typography>
+                <p className="text-xs text-destructive">
+                  Need at least 3 images (selected: {selectedImages.length})
+                </p>
               )}
-            </Box>
+            </div>
 
-            <Box sx={{ mt: 2 }}>
-              <input
-                type="checkbox"
-                id="autoExtend"
-                checked={formik.values.autoExtend}
-                onChange={(e) => formik.setFieldValue("autoExtend", e.target.checked)}
-                name="autoExtend"
-              />
-              <label htmlFor="autoExtend" style={{ marginLeft: 8 }}>
-                Tự động gia hạn nếu có đấu giá trong 3 phút cuối
-              </label>
-            </Box>
+            <Separator />
 
-            <Box sx={{ mt: 1 }}>
-              <input
-                type="checkbox"
-                id="allowUnratedBidders"
-                checked={formik.values.allowUnratedBidders}
-                onChange={(e) => formik.setFieldValue("allowUnratedBidders", e.target.checked)}
-                name="allowUnratedBidders"
-              />
-              <label htmlFor="allowUnratedBidders" style={{ marginLeft: 8 }}>
-                Cho phép người chưa từng được đánh giá tham gia đấu giá
-              </label>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setCreateDialogOpen(false)}>Hủy</Button>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={selectedImages.length < 3}
-            >
-              Đăng sản phẩm
-            </Button>
-          </DialogActions>
-        </form>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="autoExtend"
+                  checked={formik.values.autoExtend}
+                  onChange={(e) =>
+                    formik.setFieldValue("autoExtend", e.target.checked)
+                  }
+                  className="h-4 w-4 rounded border border-input"
+                />
+                <Label htmlFor="autoExtend" className="text-sm font-normal cursor-pointer">
+                  Auto-extend if there are bids in the last 3 minutes
+                </Label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="allowUnratedBidders"
+                  checked={formik.values.allowUnratedBidders}
+                  onChange={(e) =>
+                    formik.setFieldValue("allowUnratedBidders", e.target.checked)
+                  }
+                  className="h-4 w-4 rounded border border-input"
+                />
+                <Label htmlFor="allowUnratedBidders" className="text-sm font-normal cursor-pointer">
+                  Allow unrated bidders to participate
+                </Label>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCreateDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={selectedImages.length < 3}>
+                Create Product
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
       </Dialog>
-    </Box>
+    </div>
   );
 }
