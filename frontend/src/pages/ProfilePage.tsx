@@ -106,22 +106,22 @@ interface WonProduct {
 }
 
 const profileSchema = yup.object({
-  fullName: yup.string().required("Họ tên là bắt buộc"),
-  email: yup.string().email("Email không hợp lệ").required("Email là bắt buộc"),
+  fullName: yup.string().required("Full name is required"),
+  email: yup.string().email("Invalid email").required("Email is required"),
   dateOfBirth: yup.string().optional(),
   address: yup.string().optional(),
 });
 
 const passwordSchema = yup.object({
-  oldPassword: yup.string().required("Mật khẩu cũ là bắt buộc"),
+  oldPassword: yup.string().required("Old password is required"),
   newPassword: yup
     .string()
-    .min(6, "Mật khẩu phải có ít nhất 6 ký tự")
-    .required("Mật khẩu mới là bắt buộc"),
+    .min(6, "Password must be at least 6 characters")
+    .required("New password is required"),
   confirmPassword: yup
     .string()
-    .oneOf([yup.ref("newPassword")], "Mật khẩu xác nhận không khớp")
-    .required("Xác nhận mật khẩu là bắt buộc"),
+    .oneOf([yup.ref("newPassword")], "Passwords do not match")
+    .required("Password confirmation is required"),
 });
 
 export default function ProfilePage() {
@@ -163,7 +163,7 @@ export default function ProfilePage() {
       setWonProducts(wonRes.data.data || []);
     } catch (error) {
       console.error("Error fetching profile:", error);
-      toast.error("Không thể tải thông tin");
+      toast.error("Unable to load information");
     } finally {
       setLoading(false);
     }
@@ -183,11 +183,11 @@ export default function ProfilePage() {
     onSubmit: async (values) => {
       try {
         await apiClient.put("/users/profile", values);
-        toast.success("Cập nhật thông tin thành công");
+        toast.success("Profile updated successfully");
         fetchData();
       } catch (error: any) {
         toast.error(
-          error.response?.data?.error?.message || "Cập nhật thất bại"
+          error.response?.data?.error?.message || "Failed to update"
         );
       }
     },
@@ -206,12 +206,12 @@ export default function ProfilePage() {
           oldPassword: values.oldPassword,
           newPassword: values.newPassword,
         });
-        toast.success("Đổi mật khẩu thành công");
+        toast.success("Password changed successfully");
         setPasswordDialogOpen(false);
         passwordFormik.resetForm();
       } catch (error: any) {
         toast.error(
-          error.response?.data?.error?.message || "Đổi mật khẩu thất bại"
+          error.response?.data?.error?.message || "Failed to change password"
         );
       }
     },
@@ -231,7 +231,7 @@ export default function ProfilePage() {
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="flex items-center gap-2 text-muted-foreground">
           <AlertCircle className="h-5 w-5" />
-          <span>Không tìm thấy thông tin người dùng</span>
+          <span>User information not found</span>
         </div>
       </div>
     );
@@ -244,14 +244,14 @@ export default function ProfilePage() {
     {
       id: -1,
       rating: 1,
-      comment: "Giao dịch nhanh chóng, hàng đúng mô tả.",
+      comment: "Fast transaction, item matches description.",
       reviewer: { id: -1, fullName: "Nguyễn Văn A" },
       createdAt: new Date().toISOString(),
     },
     {
       id: -2,
       rating: -1,
-      comment: "Giao hàng chậm hơn dự kiến, nhưng người bán vẫn hỗ trợ.",
+      comment: "Delivery was slower than expected, but seller still provided support.",
       reviewer: { id: -2, fullName: "Trần Thị B" },
       createdAt: new Date(Date.now() - 86400000).toISOString(),
     },
@@ -261,7 +261,7 @@ export default function ProfilePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white mb-2">
-          Trang cá nhân
+          Profile
         </h1>
       </div>
 
@@ -272,19 +272,19 @@ export default function ProfilePage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="h-5 w-5" />
-                Thông tin cá nhân
+                Personal Information
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <form onSubmit={profileFormik.handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Họ tên</label>
+                  <label className="text-sm font-medium">Full Name</label>
                   <Input
                     name="fullName"
                     value={profileFormik.values.fullName}
                     onChange={profileFormik.handleChange}
                     onBlur={profileFormik.handleBlur}
-                    placeholder="Nhập họ tên"
+                    placeholder="Enter full name"
                   />
                   {profileFormik.touched.fullName &&
                     profileFormik.errors.fullName && (
@@ -302,7 +302,7 @@ export default function ProfilePage() {
                     value={profileFormik.values.email}
                     onChange={profileFormik.handleChange}
                     onBlur={profileFormik.handleBlur}
-                    placeholder="Nhập email"
+                    placeholder="Enter email"
                   />
                   {profileFormik.touched.email &&
                     profileFormik.errors.email && (
@@ -313,7 +313,7 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Ngày sinh</label>
+                  <label className="text-sm font-medium">Date of Birth</label>
                   <Input
                     name="dateOfBirth"
                     type="date"
@@ -330,14 +330,14 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Địa chỉ</label>
+                  <label className="text-sm font-medium">Address</label>
                   <Textarea
                     name="address"
                     rows={3}
                     value={profileFormik.values.address}
                     onChange={profileFormik.handleChange}
                     onBlur={profileFormik.handleBlur}
-                    placeholder="Nhập địa chỉ"
+                    placeholder="Enter address"
                   />
                   {profileFormik.touched.address &&
                     profileFormik.errors.address && (
@@ -349,7 +349,7 @@ export default function ProfilePage() {
 
                 <Button type="submit" className="w-full">
                   <Edit className="h-4 w-4 mr-2" />
-                  Cập nhật thông tin
+                  Update Information
                 </Button>
               </form>
 
@@ -361,7 +361,7 @@ export default function ProfilePage() {
                 onClick={() => setPasswordDialogOpen(true)}
               >
                 <Lock className="h-4 w-4 mr-2" />
-                Đổi mật khẩu
+                Change Password
               </Button>
 
               <Separator />
@@ -369,14 +369,14 @@ export default function ProfilePage() {
               <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-                  <h3 className="text-sm font-semibold">Điểm đánh giá</h3>
+                  <h3 className="text-sm font-semibold">Rating</h3>
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-brand">
                     {ratingPercentage.toFixed(1)}%
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Tổng: {user.totalRatings} lượt đánh giá
+                    Total: {user.totalRatings} ratings
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
@@ -384,13 +384,13 @@ export default function ProfilePage() {
                     <span className="text-green-600 font-medium">
                       + {positiveCount}
                     </span>{" "}
-                    <span className="text-muted-foreground">tích cực</span>
+                    <span className="text-muted-foreground">positive</span>
                   </div>
                   <div>
                     <span className="text-red-600 font-medium">
                       - {negativeCount}
                     </span>{" "}
-                    <span className="text-muted-foreground">tiêu cực</span>
+                    <span className="text-muted-foreground">negative</span>
                   </div>
                 </div>
               </div>
@@ -407,24 +407,24 @@ export default function ProfilePage() {
                   className="w-full justify-center py-2"
                 >
                   {user.role === "admin"
-                    ? "Quản trị viên"
+                    ? "Admin"
                     : user.role === "seller"
-                    ? "Người bán"
-                    : "Người đấu giá"}
+                    ? "Seller"
+                    : "Bidder"}
                 </Badge>
 
                 {user.role === "bidder" && (
                   <Card className="bg-muted/50">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm">
-                        Nâng cấp thành người bán
+                        Upgrade to Seller
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {user.upgradeRequestStatus === "pending" && (
                         <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
                           <AlertCircle className="h-4 w-4 mt-0.5" />
-                          <p>Yêu cầu nâng cấp đang được xét duyệt.</p>
+                          <p>Upgrade request is pending approval.</p>
                         </div>
                       )}
                       {user.upgradeRequestStatus === "approved" &&
@@ -432,7 +432,7 @@ export default function ProfilePage() {
                           <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-900">
                             <AlertCircle className="h-4 w-4 mt-0.5" />
                             <p>
-                              Bạn đang có quyền bán đến{" "}
+                              You have seller privileges until{" "}
                               {format(
                                 new Date(user.upgradeExpireAt),
                                 "dd/MM/yyyy HH:mm"
@@ -445,8 +445,8 @@ export default function ProfilePage() {
                         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                           <AlertCircle className="h-4 w-4 mt-0.5" />
                           <p>
-                            Yêu cầu nâng cấp trước đó đã bị từ chối. Bạn có thể
-                            yêu cầu lại ngay.
+                            Previous upgrade request was rejected. You can
+                            request again now.
                           </p>
                         </div>
                       )}
@@ -455,8 +455,8 @@ export default function ProfilePage() {
                           <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                             <AlertCircle className="h-4 w-4 mt-0.5" />
                             <p>
-                              Quyền seller của bạn đã hết hạn. Bạn có thể yêu
-                              cầu nâng cấp lại ngay.
+                              Your seller privileges have expired. You can
+                              request an upgrade again now.
                             </p>
                           </div>
                         )}
@@ -469,20 +469,20 @@ export default function ProfilePage() {
                           try {
                             await apiClient.post("/users/upgrade-request", {});
                             toast.success(
-                              "Đã gửi yêu cầu nâng cấp. Vui lòng chờ admin xét duyệt."
+                              "Upgrade request submitted. Please wait for admin approval."
                             );
                             fetchData();
                           } catch (error: any) {
                             toast.error(
-                              error.response?.data?.error?.message ||
-                                "Gửi yêu cầu nâng cấp thất bại"
+                                error.response?.data?.error?.message ||
+                                "Failed to submit upgrade request"
                             );
                           }
                         }}
                       >
                         {user.upgradeRequestStatus === "pending"
-                          ? "Đã gửi yêu cầu"
-                          : "Xin nâng cấp thành người bán"}
+                          ? "Request Submitted"
+                          : "Request Seller Upgrade"}
                       </Button>
                     </CardContent>
                   </Card>
@@ -496,7 +496,7 @@ export default function ProfilePage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Hoạt động của tôi</CardTitle>
+              <CardTitle>My Activity</CardTitle>
             </CardHeader>
             <CardContent>
               <Tabs
@@ -507,28 +507,28 @@ export default function ProfilePage() {
                 <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="reviews" className="flex items-center gap-2">
                     <Star className="h-4 w-4" />
-                    <span className="hidden sm:inline">Đánh giá</span>
+                    <span className="hidden sm:inline">Reviews</span>
                     <Badge variant="secondary" className="ml-1">
                       {reviews.length}
                     </Badge>
                   </TabsTrigger>
                   <TabsTrigger value="watchlist" className="flex items-center gap-2">
                     <Heart className="h-4 w-4" />
-                    <span className="hidden sm:inline">Yêu thích</span>
+                    <span className="hidden sm:inline">Watchlist</span>
                     <Badge variant="secondary" className="ml-1">
                       {watchlist.length}
                     </Badge>
                   </TabsTrigger>
                   <TabsTrigger value="bids" className="flex items-center gap-2">
                     <Gavel className="h-4 w-4" />
-                    <span className="hidden sm:inline">Đấu giá</span>
+                    <span className="hidden sm:inline">Bids</span>
                     <Badge variant="secondary" className="ml-1">
                       {bids.length}
                     </Badge>
                   </TabsTrigger>
                   <TabsTrigger value="won" className="flex items-center gap-2">
                     <Trophy className="h-4 w-4" />
-                    <span className="hidden sm:inline">Đã thắng</span>
+                    <span className="hidden sm:inline">Won</span>
                     <Badge variant="secondary" className="ml-1">
                       {wonProducts.length}
                     </Badge>
@@ -541,7 +541,7 @@ export default function ProfilePage() {
                     {reviews.length === 0 && (
                       <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                         <AlertCircle className="h-4 w-4 mt-0.5" />
-                        <p>Chưa có đánh giá nào. Hiển thị dữ liệu mẫu bên dưới.</p>
+                        <p>No reviews yet. Sample data is shown below.</p>
                       </div>
                     )}
                     <div className="space-y-3">
@@ -592,7 +592,7 @@ export default function ProfilePage() {
                       <div className="flex items-center justify-center py-12 text-muted-foreground">
                         <div className="text-center space-y-2">
                           <Heart className="h-12 w-12 mx-auto opacity-50" />
-                          <p>Chưa có sản phẩm yêu thích nào</p>
+                          <p>No watchlist items yet</p>
                         </div>
                       </div>
                     ) : (
@@ -629,8 +629,8 @@ export default function ProfilePage() {
                                 className="text-xs"
                               >
                                 {item.product.status === "active"
-                                  ? "Đang đấu giá"
-                                  : "Đã kết thúc"}
+                                  ? "Active"
+                                  : "Ended"}
                               </Badge>
                             </div>
                           </Link>
@@ -647,7 +647,7 @@ export default function ProfilePage() {
                       <div className="flex items-center justify-center py-12 text-muted-foreground">
                         <div className="text-center space-y-2">
                           <Gavel className="h-12 w-12 mx-auto opacity-50" />
-                          <p>Chưa có lượt đấu giá nào</p>
+                          <p>No bids yet</p>
                         </div>
                       </div>
                     ) : (
@@ -671,7 +671,7 @@ export default function ProfilePage() {
                               </p>
                               <div>
                                 <p className="text-xs text-muted-foreground">
-                                  Giá đấu của bạn
+                                  Your bid amount
                                 </p>
                                 <p className="text-sm font-semibold text-brand">
                                   {Number(bid.amount).toLocaleString("vi-VN")}{" "}
@@ -693,8 +693,8 @@ export default function ProfilePage() {
                                 className="text-xs"
                               >
                                 {bid.product.status === "active"
-                                  ? "Đang đấu giá"
-                                  : "Đã kết thúc"}
+                                  ? "Active"
+                                  : "Ended"}
                               </Badge>
                             </div>
                           </Link>
@@ -711,7 +711,7 @@ export default function ProfilePage() {
                       <div className="flex items-center justify-center py-12 text-muted-foreground">
                         <div className="text-center space-y-2">
                           <Trophy className="h-12 w-12 mx-auto opacity-50" />
-                          <p>Chưa có sản phẩm nào đã thắng</p>
+                          <p>No won products yet</p>
                         </div>
                       </div>
                     ) : (
@@ -735,7 +735,7 @@ export default function ProfilePage() {
                               </p>
                               <div>
                                 <p className="text-xs text-muted-foreground">
-                                  Giá cuối cùng
+                                  Final price
                                 </p>
                                 <p className="text-sm font-semibold text-brand">
                                   {Number(order.finalPrice).toLocaleString(
@@ -755,15 +755,15 @@ export default function ProfilePage() {
                                 className="text-xs"
                               >
                                 {order.status === "pending_payment"
-                                  ? "Chờ thanh toán"
+                                  ? "Pending Payment"
                                   : order.status === "pending_address"
-                                  ? "Chờ địa chỉ"
+                                  ? "Pending Address"
                                   : order.status === "pending_shipping" ||
                                     order.status === "pending_delivery"
-                                  ? "Đang giao hàng"
+                                  ? "Shipping"
                                   : order.status === "completed"
-                                  ? "Hoàn thành"
-                                  : "Đã hủy"}
+                                  ? "Completed"
+                                  : "Cancelled"}
                               </Badge>
                             </div>
                           </Link>
@@ -782,18 +782,18 @@ export default function ProfilePage() {
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Đổi mật khẩu</DialogTitle>
+            <DialogTitle>Change Password</DialogTitle>
           </DialogHeader>
           <form onSubmit={passwordFormik.handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Mật khẩu cũ</label>
+              <label className="text-sm font-medium">Old Password</label>
               <Input
                 name="oldPassword"
                 type="password"
                 value={passwordFormik.values.oldPassword}
                 onChange={passwordFormik.handleChange}
                 onBlur={passwordFormik.handleBlur}
-                placeholder="Nhập mật khẩu cũ"
+                placeholder="Enter old password"
               />
               {passwordFormik.touched.oldPassword &&
                 passwordFormik.errors.oldPassword && (
@@ -803,14 +803,14 @@ export default function ProfilePage() {
                 )}
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Mật khẩu mới</label>
+              <label className="text-sm font-medium">New Password</label>
               <Input
                 name="newPassword"
                 type="password"
                 value={passwordFormik.values.newPassword}
                 onChange={passwordFormik.handleChange}
                 onBlur={passwordFormik.handleBlur}
-                placeholder="Nhập mật khẩu mới"
+                placeholder="Enter new password"
               />
               {passwordFormik.touched.newPassword &&
                 passwordFormik.errors.newPassword && (
@@ -820,14 +820,14 @@ export default function ProfilePage() {
                 )}
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Xác nhận mật khẩu</label>
+              <label className="text-sm font-medium">Confirm Password</label>
               <Input
                 name="confirmPassword"
                 type="password"
                 value={passwordFormik.values.confirmPassword}
                 onChange={passwordFormik.handleChange}
                 onBlur={passwordFormik.handleBlur}
-                placeholder="Xác nhận mật khẩu mới"
+                placeholder="Confirm new password"
               />
               {passwordFormik.touched.confirmPassword &&
                 passwordFormik.errors.confirmPassword && (
@@ -842,9 +842,9 @@ export default function ProfilePage() {
                 variant="outline"
                 onClick={() => setPasswordDialogOpen(false)}
               >
-                Hủy
+                Cancel
               </Button>
-              <Button type="submit">Đổi mật khẩu</Button>
+              <Button type="submit">Change Password</Button>
             </DialogFooter>
           </form>
         </DialogContent>

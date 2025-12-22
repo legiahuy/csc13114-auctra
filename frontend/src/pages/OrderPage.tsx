@@ -94,7 +94,7 @@ export default function OrderPage() {
   const [reviewRating, setReviewRating] = useState<1 | -1>(1);
   const [reviewComment, setReviewComment] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<number | null>(null);
   const isInitialLoadRef = useRef(true);
   const lastSavedRef = useRef<{
     paymentMethod?: string;
