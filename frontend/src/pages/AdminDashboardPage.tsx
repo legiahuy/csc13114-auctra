@@ -21,6 +21,7 @@ import toast from "react-hot-toast";
 import Loading from "@/components/Loading";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import DashboardCharts from "@/components/DashboardCharts";
+import UserDetailsModal from "@/components/UserDetailsModal";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -156,6 +157,12 @@ export default function AdminDashboardPage() {
 
   // Time period filter
   const [period, setPeriod] = useState<'today' | 'week' | 'month' | 'year'>('week');
+
+  // User details modal
+  const [userDetailsModal, setUserDetailsModal] = useState<{
+    open: boolean;
+    userId: number | null;
+  }>({ open: false, userId: null });
 
   useEffect(() => {
     if (!user || user.role !== "admin") {
@@ -928,7 +935,7 @@ export default function AdminDashboardPage() {
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0"
-                            onClick={() => navigate(`/profile?userId=${user.id}`)}
+                            onClick={() => setUserDetailsModal({ open: true, userId: user.id })}
                           >
                             <Eye className="h-3 w-3" />
                           </Button>
@@ -1098,6 +1105,14 @@ export default function AdminDashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* User Details Modal */}
+      <UserDetailsModal
+        userId={userDetailsModal.userId}
+        open={userDetailsModal.open}
+        onClose={() => setUserDetailsModal({ open: false, userId: null })}
+        onRoleUpdated={fetchData}
+      />
     </div>
   );
 }

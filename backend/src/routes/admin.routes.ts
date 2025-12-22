@@ -7,6 +7,7 @@ import {
   getAllUsers,
   getUserById,
   updateUser,
+  updateUserRole,
   deleteUser,
   getAllProducts,
   getRevenueChart,
@@ -31,6 +32,7 @@ router.put('/upgrade-requests/:userId/reject', rejectUpgrade);
 router.get('/users', getAllUsers);
 router.get('/users/:id', getUserById);
 router.put('/users/:id', updateUser);
+router.put('/users/:id/role', updateUserRole);
 router.delete('/users/:id', deleteUser);
 
 router.get('/products', getAllProducts);
