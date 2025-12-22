@@ -13,12 +13,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Circle,
+  Eye,
 } from "lucide-react";
 import apiClient from "../api/client";
 import { useAuthStore } from "../store/authStore";
 import toast from "react-hot-toast";
 import Loading from "@/components/Loading";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import DashboardCharts from "@/components/DashboardCharts";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -152,18 +154,21 @@ export default function AdminDashboardPage() {
   }>({ open: false, userId: null });
   const [rejectReason, setRejectReason] = useState("");
 
+  // Time period filter
+  const [period, setPeriod] = useState<'today' | 'week' | 'month' | 'year'>('week');
+
   useEffect(() => {
     if (!user || user.role !== "admin") {
       navigate("/");
       return;
     }
     fetchData();
-  }, [user, navigate]);
+  }, [user, navigate, period]);
 
   const fetchData = async () => {
     try {
       const [dashboardRes, categoriesRes] = await Promise.all([
-        apiClient.get("/admin/dashboard"),
+        apiClient.get("/admin/dashboard", { params: { period } }),
         apiClient.get("/categories"),
       ]);
 
@@ -396,13 +401,26 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
-          Admin Dashboard
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage categories, products, and users
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-neutral-900 dark:text-white">
+            Admin Dashboard
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage categories, products, and users
+          </p>
+        </div>
+        <Select value={period} onValueChange={(value: any) => setPeriod(value)}>
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="today">Today</SelectItem>
+            <SelectItem value="week">This Week</SelectItem>
+            <SelectItem value="month">This Month</SelectItem>
+            <SelectItem value="year">This Year</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Stats Cards - Compact Grid */}
@@ -449,6 +467,9 @@ export default function AdminDashboardPage() {
           </div>
         </Card>
       </div>
+
+      {/* Charts */}
+      <DashboardCharts period={period} />
 
       {/* Two Column Layout for Management */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -676,7 +697,7 @@ export default function AdminDashboardPage() {
                   <TableHead className="w-24">Category</TableHead>
                   <TableHead className="w-24">Seller</TableHead>
                   <TableHead className="w-20 text-center">Status</TableHead>
-                  <TableHead className="w-16 text-center">Action</TableHead>
+                  <TableHead className="w-24 text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -721,14 +742,24 @@ export default function AdminDashboardPage() {
                         </TooltipProvider>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                          onClick={() => handleDeleteProduct(product.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                        <div className="flex gap-1 justify-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => navigate(`/products/${product.id}`)}
+                          >
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                            onClick={() => handleDeleteProduct(product.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -824,7 +855,7 @@ export default function AdminDashboardPage() {
                   <TableHead className="w-20">Name</TableHead>
                   <TableHead className="w-16">Role</TableHead>
                   <TableHead className="w-24">Upgrade</TableHead>
-                  <TableHead className="w-16 text-center">Action</TableHead>
+                  <TableHead className="w-24 text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -892,14 +923,24 @@ export default function AdminDashboardPage() {
                         })()}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                          onClick={() => handleDeleteUser(user.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                        <div className="flex gap-1 justify-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => navigate(`/profile?userId=${user.id}`)}
+                          >
+                            <Eye className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                            onClick={() => handleDeleteUser(user.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

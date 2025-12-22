@@ -11,14 +11,32 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       return next(new AppError('Admin access required', 403));
     }
 
+    const { period = 'week' } = req.query;
     const now = new Date();
-    const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    let startDate: Date;
+
+    // Calculate date range based on period
+    switch (period) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        break;
+      default:
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
 
     // New auctions
     const newAuctions = await Product.count({
       where: {
-        createdAt: { [Op.gte]: last30Days },
+        createdAt: { [Op.gte]: startDate },
       },
     });
 
@@ -26,28 +44,28 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     const revenue = await Order.sum('finalPrice', {
       where: {
         status: 'completed',
-        createdAt: { [Op.gte]: last30Days },
+        createdAt: { [Op.gte]: startDate },
       },
     }) || 0;
 
     // New users
     const newUsers = await User.count({
       where: {
-        createdAt: { [Op.gte]: last30Days },
+        createdAt: { [Op.gte]: startDate },
       },
     });
 
-    // Upgrade requests
+    // Upgrade requests (pending)
     const upgradeRequests = await User.count({
       where: {
         upgradeRequestStatus: 'pending',
       },
     });
 
-    // New upgrade requests (last 7 days)
+    // New upgrade requests in period
     const newUpgradeRequests = await User.count({
       where: {
-        upgradeRequestDate: { [Op.gte]: last7Days },
+        upgradeRequestDate: { [Op.gte]: startDate },
         upgradeRequestStatus: 'pending',
       },
     });
@@ -387,3 +405,207 @@ export const testEmail = async (req: AuthRequest, res: Response, next: NextFunct
   }
 };
 
+
+// Chart endpoints
+export const getRevenueChart = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Admin access required', 403));
+    }
+
+    const { period = 'week' } = req.query;
+    const now = new Date();
+    let startDate: Date;
+
+    switch (period) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        break;
+      default:
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
+
+    const orders = await Order.findAll({
+      where: {
+        status: 'completed',
+        createdAt: { [Op.gte]: startDate },
+      },
+      attributes: [
+        [sequelize.fn('DATE', sequelize.col('createdAt')), 'date'],
+        [sequelize.fn('SUM', sequelize.col('finalPrice')), 'revenue'],
+      ],
+      group: [sequelize.fn('DATE', sequelize.col('createdAt'))],
+      order: [[sequelize.fn('DATE', sequelize.col('createdAt')), 'ASC']],
+      raw: true,
+    });
+
+    res.json({
+      success: true,
+      data: orders.map((o: any) => ({
+        date: o.date,
+        revenue: parseFloat(o.revenue || 0),
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAuctionsChart = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Admin access required', 403));
+    }
+
+    const { period = 'week' } = req.query;
+    const now = new Date();
+    let startDate: Date;
+
+    switch (period) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        break;
+      default:
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
+
+    const products = await Product.findAll({
+      where: {
+        createdAt: { [Op.gte]: startDate },
+      },
+      attributes: [
+        [sequelize.fn('DATE', sequelize.col('createdAt')), 'date'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+      ],
+      group: [sequelize.fn('DATE', sequelize.col('createdAt'))],
+      order: [[sequelize.fn('DATE', sequelize.col('createdAt')), 'ASC']],
+      raw: true,
+    });
+
+    res.json({
+      success: true,
+      data: products.map((p: any) => ({
+        date: p.date,
+        count: parseInt(p.count || 0),
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUserDistribution = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Admin access required', 403));
+    }
+
+    const distribution = await User.findAll({
+      attributes: [
+        'role',
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
+      ],
+      group: ['role'],
+      raw: true,
+    });
+
+    res.json({
+      success: true,
+      data: distribution.map((d: any) => ({
+        role: d.role,
+        count: parseInt(d.count || 0),
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUserDetails = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Admin access required', 403));
+    }
+
+    const { id } = req.params;
+
+    const user = await User.findByPk(id, {
+      attributes: { exclude: ['password'] },
+    });
+
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+
+    // Get user's products
+    const products = await Product.findAll({
+      where: { sellerId: id },
+      include: [
+        { model: Category, as: 'category', attributes: ['name'] },
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: 10,
+    });
+
+    // Get user's bids
+    const { Bid } = require('../models');
+    const bids = await Bid.findAll({
+      where: { bidderId: id },
+      include: [
+        {
+          model: Product,
+          as: 'product',
+          attributes: ['id', 'name', 'status', 'currentPrice'],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: 10,
+    });
+
+    // Get user's orders
+    const orders = await Order.findAll({
+      where: {
+        [Op.or]: [{ buyerId: id }, { sellerId: id }],
+      },
+      include: [
+        {
+          model: Product,
+          as: 'product',
+          attributes: ['id', 'name'],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: 10,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        user,
+        products,
+        bids,
+        orders,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
