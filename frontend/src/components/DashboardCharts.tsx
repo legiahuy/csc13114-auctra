@@ -89,12 +89,20 @@ export default function DashboardCharts({ period }: DashboardChartsProps) {
               />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip
-                formatter={(value: any) =>
-                  `${parseFloat(value).toLocaleString("vi-VN")} VNĐ`
-                }
+                contentStyle={{
+                  backgroundColor: "rgba(0, 0, 0, 0.8)",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "8px 12px",
+                  color: "#fff",
+                }}
+                formatter={(value: any) => [
+                  `${parseFloat(value).toLocaleString("vi-VN")} VNĐ`,
+                  "Revenue"
+                ]}
                 labelFormatter={(label) => {
                   const date = new Date(label);
-                  return date.toLocaleDateString("vi-VN");
+                  return `Date: ${date.toLocaleDateString("vi-VN")}`;
                 }}
               />
               <Line
@@ -128,9 +136,20 @@ export default function DashboardCharts({ period }: DashboardChartsProps) {
               />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip
+                contentStyle={{
+                  backgroundColor: "rgba(0, 0, 0, 0.8)",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "8px 12px",
+                  color: "#fff",
+                }}
+                formatter={(value: any) => [
+                  `${value} auction${value !== 1 ? 's' : ''}`,
+                  "New Auctions"
+                ]}
                 labelFormatter={(label) => {
                   const date = new Date(label);
-                  return date.toLocaleDateString("vi-VN");
+                  return `Date: ${date.toLocaleDateString("vi-VN")}`;
                 }}
               />
               <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
@@ -166,7 +185,24 @@ export default function DashboardCharts({ period }: DashboardChartsProps) {
                   />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "rgba(0, 0, 0, 0.8)",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "8px 12px",
+                }}
+                labelStyle={{ color: "#fff" }}
+                itemStyle={{ color: "#fff" }}
+                formatter={(value: any, _name: any, props: any) => {
+                  const total = userDistribution.reduce((sum: number, item: any) => sum + item.count, 0);
+                  const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                  return [
+                    `${value} users (${percentage}%)`,
+                    props.payload.role.charAt(0).toUpperCase() + props.payload.role.slice(1)
+                  ];
+                }}
+              />
             </PieChart>
           </ResponsiveContainer>
         </CardContent>

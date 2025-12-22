@@ -317,7 +317,52 @@ export const deleteUser = async (req: AuthRequest, res: Response, next: NextFunc
 
     res.json({
       success: true,
-      message: 'User deleted successfully',
+      message: 'User updated successfully',
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateUserRole = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Admin access required', 403));
+    }
+
+    const { id } = req.params;
+    const { role } = req.body;
+
+    if (!['bidder', 'seller', 'admin'].includes(role)) {
+      return next(new AppError('Invalid role', 400));
+    }
+
+    const user = await User.findByPk(id);
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+
+    // Update role
+    user.role = role;
+    
+    // If changing to seller, clear any pending upgrade requests
+    if (role === 'seller') {
+      user.upgradeRequestStatus = undefined;
+      user.upgradeRequestDate = undefined;
+      user.upgradeExpireAt = undefined;
+      user.upgradeRejectionReason = undefined;
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'User role updated successfully',
+      data: {
+        id: user.id,
+        role: user.role,
+      },
     });
   } catch (error) {
     next(error);
@@ -576,8 +621,16 @@ export const getUserDetails = async (req: AuthRequest, res: Response, next: Next
           attributes: ['id', 'name', 'status', 'currentPrice'],
         },
       ],
+      attributes: [
+        'id',
+        'amount',
+        'createdAt',
+        [sequelize.fn('MAX', sequelize.col('Bid.id')), 'latestBidId']
+      ],
+      group: ['Bid.productId', 'Bid.id', 'product.id'],
       order: [['createdAt', 'DESC']],
       limit: 10,
+      subQuery: false,
     });
 
     // Get user's orders
