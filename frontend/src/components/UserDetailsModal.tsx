@@ -55,7 +55,7 @@ export default function UserDetailsModal({
 
   const fetchUserDetails = async () => {
     if (!userId) return;
-    
+
     try {
       setLoading(true);
       const res = await apiClient.get(`/admin/users/${userId}/details`);
@@ -176,7 +176,7 @@ export default function UserDetailsModal({
                 <TrendingUp className="h-4 w-4" />
                 Recent Activity
               </h4>
-              
+
               {details.products.length > 0 ? (
                 <div className="border rounded-lg p-3">
                   <div className="text-sm font-medium mb-2">Recent Products</div>
@@ -184,7 +184,11 @@ export default function UserDetailsModal({
                     {details.products.slice(0, 3).map((product: any) => (
                       <div key={product.id} className="text-xs flex justify-between">
                         <span className="truncate">{product.name}</span>
-                        <Badge variant="outline" className="text-xs ml-2">
+                        <Badge
+                          variant={product.status === 'active' ? 'default' : product.status === 'ended' ? 'secondary' : 'destructive'}
+                          className={`text-xs ml-2 capitalize ${product.status === 'active' ? 'bg-green-500 hover:bg-green-600' : ''
+                            }`}
+                        >
                           {product.status}
                         </Badge>
                       </div>

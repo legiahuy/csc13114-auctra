@@ -55,14 +55,29 @@ export default function DashboardCharts({ period }: DashboardChartsProps) {
   if (loading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="p-6">
-          <Loading />
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Revenue Trend</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[200px] flex items-center justify-center">
+            <Loading />
+          </CardContent>
         </Card>
-        <Card className="p-6">
-          <Loading />
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">New Auctions</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[200px] flex items-center justify-center">
+            <Loading />
+          </CardContent>
         </Card>
-        <Card className="p-6">
-          <Loading />
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">User Distribution</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[200px] flex items-center justify-center">
+            <Loading />
+          </CardContent>
         </Card>
       </div>
     );
@@ -172,7 +187,7 @@ export default function DashboardCharts({ period }: DashboardChartsProps) {
                 cy="50%"
                 labelLine={false}
                 label={({ role, percent }: any) =>
-                  `${role}: ${((percent || 0) * 100).toFixed(0)}%`
+                  `${role.charAt(0).toUpperCase() + role.slice(1)}: ${((percent || 0) * 100).toFixed(0)}%`
                 }
                 outerRadius={60}
                 fill="#8884d8"
