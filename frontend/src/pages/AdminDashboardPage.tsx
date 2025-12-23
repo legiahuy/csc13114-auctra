@@ -149,12 +149,12 @@ export default function AdminDashboardPage() {
   const handleUpdateAutoExtendSettings = async () => {
     try {
       await apiClient.put("/admin/settings/auto-extend", autoExtendSettings);
-      toast.success("Cấu hình tự động gia hạn đã được cập nhật");
+      toast.success("Auto-extend settings updated successfully");
       setSettingsDialogOpen(false);
       fetchData();
     } catch (error: any) {
       toast.error(
-        error.response?.data?.error?.message || "Không thể cập nhật cấu hình"
+        error.response?.data?.error?.message || "Unable to update settings"
       );
     }
   };
@@ -273,7 +273,7 @@ export default function AdminDashboardPage() {
           onClick={() => setSettingsDialogOpen(true)}
         >
           <Edit className="h-4 w-4 mr-2" />
-          Cấu hình tự động gia hạn
+          Configure Auto-Extend
         </Button>
       </div>
 
@@ -742,12 +742,12 @@ export default function AdminDashboardPage() {
       <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cấu hình tự động gia hạn</DialogTitle>
+            <DialogTitle>Configure Auto-Extend Settings</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                Số phút trước khi kết thúc để kích hoạt (phút)
+                Minutes before end to trigger (minutes)
               </label>
               <Input
                 type="number"
@@ -762,12 +762,12 @@ export default function AdminDashboardPage() {
                 placeholder="5"
               />
               <p className="text-xs text-muted-foreground">
-                Khi có lượt đấu giá mới trong khoảng thời gian này trước khi kết thúc, sản phẩm sẽ tự động gia hạn
+                When there is a new bid within this time period before the end, the product will automatically extend
               </p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                Số phút gia hạn thêm (phút)
+                Extension duration (minutes)
               </label>
               <Input
                 type="number"
@@ -782,7 +782,7 @@ export default function AdminDashboardPage() {
                 placeholder="10"
               />
               <p className="text-xs text-muted-foreground">
-                Số phút sẽ được thêm vào thời gian kết thúc khi có lượt đấu giá mới
+                Number of minutes to add to the end time when there is a new bid
               </p>
             </div>
           </div>
@@ -791,10 +791,10 @@ export default function AdminDashboardPage() {
               variant="outline"
               onClick={() => setSettingsDialogOpen(false)}
             >
-              Hủy
+              Cancel
             </Button>
             <Button onClick={handleUpdateAutoExtendSettings}>
-              Lưu cấu hình
+              Save Settings
             </Button>
           </DialogFooter>
         </DialogContent>

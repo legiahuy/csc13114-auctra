@@ -161,6 +161,9 @@ export default function SellerDashboardPage() {
     thresholdMinutes: 5,
     durationMinutes: 10,
   });
+  const [appendDescriptionDialogOpen, setAppendDescriptionDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [additionalDescription, setAdditionalDescription] = useState("");
 
   useEffect(() => {
     if (user?.role !== "seller") {
@@ -331,7 +334,7 @@ export default function SellerDashboardPage() {
     validationSchema,
     onSubmit: async (values) => {
       if (selectedImages.length < 3) {
-        toast.error("Vui lòng tải lên tối thiểu 3 ảnh");
+        toast.error("Please upload at least 3 images");
         return;
       }
 
@@ -484,42 +487,59 @@ export default function SellerDashboardPage() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {activeProducts.map((product) => (
-                      <Link
+                      <div
                         key={product.id}
-                        to={`/products/${product.id}`}
                         className="group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow"
                       >
-                        <div className="aspect-video overflow-hidden">
-                          <img
-                            src={product.mainImage}
-                            alt={product.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        </div>
-                        <div className="p-4 space-y-2">
-                          <h3 className="font-semibold line-clamp-2">
-                            {product.name}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {product.category.name}
-                          </p>
-                          <p className="text-lg font-semibold text-brand">
-                            {Number(product.currentPrice).toLocaleString("vi-VN")}{" "}
-                            VNĐ
-                          </p>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span>{product.bidCount} bids</span>
-                            <span>
-                              Ends: {format(new Date(product.endDate), "dd/MM/yyyy HH:mm")}
-                            </span>
+                        <Link to={`/products/${product.id}`}>
+                          <div className="aspect-video overflow-hidden">
+                            <img
+                              src={product.mainImage}
+                              alt={product.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
                           </div>
-                          {product.bids && product.bids[0] && (
-                            <p className="text-xs text-muted-foreground">
-                              Highest bidder: {product.bids[0].bidder.fullName}
+                          <div className="p-4 space-y-2">
+                            <h3 className="font-semibold line-clamp-2">
+                              {product.name}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {product.category.name}
                             </p>
-                          )}
+                            <p className="text-lg font-semibold text-brand">
+                              {Number(product.currentPrice).toLocaleString("vi-VN")}{" "}
+                              VNĐ
+                            </p>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <span>{product.bidCount} bids</span>
+                              <span>
+                                Ends: {format(new Date(product.endDate), "dd/MM/yyyy HH:mm")}
+                              </span>
+                            </div>
+                            {product.bids && product.bids[0] && (
+                              <p className="text-xs text-muted-foreground">
+                                Highest bidder: {product.bids[0].bidder.fullName}
+                              </p>
+                            )}
+                          </div>
+                        </Link>
+                        <div className="p-4 pt-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setSelectedProduct(product);
+                              setAdditionalDescription("");
+                              setAppendDescriptionDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Append Description
+                          </Button>
                         </div>
-                      </Link>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -821,11 +841,11 @@ export default function SellerDashboardPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Mô tả sản phẩm *</Label>
+              <Label htmlFor="description">Product Description *</Label>
               <RichTextEditor
                 value={formik.values.description}
                 onChange={(value) => formik.setFieldValue("description", value)}
-                placeholder="Nhập mô tả sản phẩm..."
+                placeholder="Enter product description..."
                 className="bg-background"
               />
               {formik.touched.description && formik.errors.description && (
@@ -912,7 +932,7 @@ export default function SellerDashboardPage() {
             <Separator />
 
             <div className="space-y-2">
-              <Label>Ảnh sản phẩm * (Tối thiểu 3 ảnh)</Label>
+              <Label>Product Images * (Minimum 3 images)</Label>
               <input
                 accept="image/*"
                 style={{ display: "none" }}
@@ -953,12 +973,12 @@ export default function SellerDashboardPage() {
               )}
               {selectedImages.length < 3 && (
                 <p className="text-xs text-destructive">
-                  Cần tối thiểu 3 ảnh (đã chọn: {selectedImages.length}/3)
+                  Need at least 3 images (selected: {selectedImages.length}/3)
                 </p>
               )}
               {selectedImages.length >= 3 && (
                 <p className="text-xs text-green-600">
-                  ✓ Đã chọn đủ {selectedImages.length} ảnh
+                  ✓ Selected {selectedImages.length} images
                 </p>
               )}
             </div>
@@ -977,7 +997,7 @@ export default function SellerDashboardPage() {
                   className="h-4 w-4 rounded border border-input"
                 />
                 <Label htmlFor="autoExtend" className="text-sm font-normal cursor-pointer">
-                  Tự động gia hạn: Khi có lượt đấu giá mới trước khi kết thúc {autoExtendConfig.thresholdMinutes} phút, sản phẩm tự động gia hạn thêm {autoExtendConfig.durationMinutes} phút
+                  Auto-extend: When there is a new bid within {autoExtendConfig.thresholdMinutes} minutes before the end, the product will automatically extend by {autoExtendConfig.durationMinutes} minutes
                 </Label>
               </div>
 
@@ -1010,6 +1030,74 @@ export default function SellerDashboardPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Append Description Dialog */}
+      <Dialog open={appendDescriptionDialogOpen} onOpenChange={setAppendDescriptionDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Append Product Description</DialogTitle>
+          </DialogHeader>
+          {selectedProduct && (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium mb-1">Product:</p>
+                <p className="text-sm text-muted-foreground">{selectedProduct.name}</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="additionalDescription">
+                  Additional Information (will be appended to current description)
+                </Label>
+                <RichTextEditor
+                  value={additionalDescription}
+                  onChange={setAdditionalDescription}
+                  placeholder="Enter additional information..."
+                  className="bg-background"
+                />
+                <p className="text-xs text-muted-foreground">
+                  New information will be appended to the existing description with automatic timestamp
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAppendDescriptionDialogOpen(false);
+                setSelectedProduct(null);
+                setAdditionalDescription("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!selectedProduct || !additionalDescription.trim()) {
+                  toast.error("Please enter additional information");
+                  return;
+                }
+
+                try {
+                  await apiClient.put(`/products/${selectedProduct.id}/description`, {
+                    additionalDescription: additionalDescription.trim(),
+                  });
+                  toast.success("Description appended successfully");
+                  setAppendDescriptionDialogOpen(false);
+                  setSelectedProduct(null);
+                  setAdditionalDescription("");
+                  fetchData();
+                } catch (error: any) {
+                  toast.error(
+                    error.response?.data?.error?.message || "Failed to append description"
+                  );
+                }
+              }}
+            >
+              Save
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
