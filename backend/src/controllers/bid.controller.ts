@@ -93,7 +93,7 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
           isRejected: false,
         },
         include: [{ model: User, as: 'bidder' }],
-        order: [['maxAmount', 'DESC']],
+        order: [['maxAmount', 'DESC'], ['createdAt', 'ASC']], // First-come-first-served for equal max bids
       });
 
       if (highestAutoBid) {
