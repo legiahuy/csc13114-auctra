@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { Bid, Product, User } from '../models';
+import { Bid, Product, User, Settings } from '../models';
 import { AppError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { sendBidNotificationEmail, sendBidRejectedEmail } from '../utils/email.util';
@@ -72,8 +72,19 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
     // Check auto-extend
     const now = new Date();
     const timeUntilEnd = product.endDate.getTime() - now.getTime();
-    const thresholdMinutes = parseInt(process.env.AUTO_EXTEND_THRESHOLD_MINUTES || '5');
-    const extendMinutes = parseInt(process.env.AUTO_EXTEND_DURATION_MINUTES || '10');
+    
+    // Get settings from database, fallback to environment variables
+    const [thresholdSetting, durationSetting] = await Promise.all([
+      Settings.findOne({ where: { key: 'AUTO_EXTEND_THRESHOLD_MINUTES' } }),
+      Settings.findOne({ where: { key: 'AUTO_EXTEND_DURATION_MINUTES' } }),
+    ]);
+    
+    const thresholdMinutes = thresholdSetting
+      ? parseInt(thresholdSetting.value)
+      : parseInt(process.env.AUTO_EXTEND_THRESHOLD_MINUTES || '5');
+    const extendMinutes = durationSetting
+      ? parseInt(durationSetting.value)
+      : parseInt(process.env.AUTO_EXTEND_DURATION_MINUTES || '10');
 
     if (product.autoExtend && timeUntilEnd <= thresholdMinutes * 60 * 1000) {
       product.endDate = new Date(now.getTime() + extendMinutes * 60 * 1000);

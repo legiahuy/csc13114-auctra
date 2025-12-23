@@ -106,6 +106,11 @@ export default function AdminDashboardPage() {
   const [categoryName, setCategoryName] = useState("");
   const [parentCategoryId, setParentCategoryId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [autoExtendSettings, setAutoExtendSettings] = useState({
+    thresholdMinutes: 5,
+    durationMinutes: 10,
+  });
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!user || user.role !== "admin") {
@@ -117,23 +122,40 @@ export default function AdminDashboardPage() {
 
   const fetchData = async () => {
     try {
-      const [dashboardRes, categoriesRes, usersRes, productsRes] =
+      const [dashboardRes, categoriesRes, usersRes, productsRes, settingsRes] =
         await Promise.all([
           apiClient.get("/admin/dashboard"),
           apiClient.get("/categories"),
           apiClient.get("/admin/users"),
           apiClient.get("/admin/products"),
+          apiClient.get("/admin/settings/auto-extend").catch(() => null),
         ]);
 
       setStats(dashboardRes.data.data);
       setCategories(categoriesRes.data.data);
       setUsers(usersRes.data.data.users || []);
       setProducts(productsRes.data.data.products || []);
+      if (settingsRes?.data?.data) {
+        setAutoExtendSettings(settingsRes.data.data);
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Unable to load data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateAutoExtendSettings = async () => {
+    try {
+      await apiClient.put("/admin/settings/auto-extend", autoExtendSettings);
+      toast.success("Cấu hình tự động gia hạn đã được cập nhật");
+      setSettingsDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      toast.error(
+        error.response?.data?.error?.message || "Không thể cập nhật cấu hình"
+      );
     }
   };
 
@@ -242,10 +264,17 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex items-center justify-between">
         <h1 className="text-2xl md:text-3xl font-bold text-neutral-900 dark:text-white mb-2">
           Admin Dashboard
         </h1>
+        <Button
+          variant="outline"
+          onClick={() => setSettingsDialogOpen(true)}
+        >
+          <Edit className="h-4 w-4 mr-2" />
+          Cấu hình tự động gia hạn
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -704,6 +733,68 @@ export default function AdminDashboardPage() {
               }
             >
               {selectedCategory ? "Update" : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Auto-Extend Settings Dialog */}
+      <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cấu hình tự động gia hạn</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Số phút trước khi kết thúc để kích hoạt (phút)
+              </label>
+              <Input
+                type="number"
+                min="1"
+                value={autoExtendSettings.thresholdMinutes}
+                onChange={(e) =>
+                  setAutoExtendSettings({
+                    ...autoExtendSettings,
+                    thresholdMinutes: parseInt(e.target.value) || 5,
+                  })
+                }
+                placeholder="5"
+              />
+              <p className="text-xs text-muted-foreground">
+                Khi có lượt đấu giá mới trong khoảng thời gian này trước khi kết thúc, sản phẩm sẽ tự động gia hạn
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Số phút gia hạn thêm (phút)
+              </label>
+              <Input
+                type="number"
+                min="1"
+                value={autoExtendSettings.durationMinutes}
+                onChange={(e) =>
+                  setAutoExtendSettings({
+                    ...autoExtendSettings,
+                    durationMinutes: parseInt(e.target.value) || 10,
+                  })
+                }
+                placeholder="10"
+              />
+              <p className="text-xs text-muted-foreground">
+                Số phút sẽ được thêm vào thời gian kết thúc khi có lượt đấu giá mới
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSettingsDialogOpen(false)}
+            >
+              Hủy
+            </Button>
+            <Button onClick={handleUpdateAutoExtendSettings}>
+              Lưu cấu hình
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -595,10 +595,11 @@ export default function ProductDetailPage() {
 
               {/* Description */}
               <div className="space-y-2">
-                <h2 className="text-base font-semibold">Product description</h2>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                  {product.description}
-                </p>
+                <h2 className="text-base font-semibold">Mô tả sản phẩm</h2>
+                <div
+                  className="text-sm leading-relaxed text-muted-foreground prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: product.description }}
+                />
               </div>
 
               {/* Questions & answers */}

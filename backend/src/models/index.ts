@@ -7,6 +7,7 @@ import { Question } from './Question.model';
 import { Review } from './Review.model';
 import { Order } from './Order.model';
 import { ChatMessage } from './ChatMessage.model';
+import { Settings } from './Settings.model';
 
 // Define relationships
 User.hasMany(Product, { foreignKey: 'sellerId', as: 'products' });
@@ -65,4 +66,5 @@ export {
   Review,
   Order,
   ChatMessage,
+  Settings,
 };

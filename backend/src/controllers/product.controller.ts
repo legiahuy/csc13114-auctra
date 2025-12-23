@@ -394,10 +394,14 @@ export const createProduct = async (
       allowUnratedBidders,
     } = req.body;
 
-    // Validate images
+    // Validate images - need at least 3 images total (mainImage + at least 2 more)
+    if (!mainImage) {
+      return next(new AppError("Main image is required", 400));
+    }
     const imageArray = images || [];
-    if (imageArray.length < 3) {
-      return next(new AppError("At least 3 images are required", 400));
+    // Need at least 2 additional images (mainImage + 2 images = 3 total)
+    if (imageArray.length < 2) {
+      return next(new AppError("At least 3 images are required (1 main image + 2 additional images)", 400));
     }
 
     // Validate category

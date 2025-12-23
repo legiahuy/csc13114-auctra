@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
+import RichTextEditor from "@/components/RichTextEditor";
 
 interface Category {
   id: number;
@@ -156,6 +157,10 @@ export default function SellerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [expired, setExpired] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [autoExtendConfig, setAutoExtendConfig] = useState({
+    thresholdMinutes: 5,
+    durationMinutes: 10,
+  });
 
   useEffect(() => {
     if (user?.role !== "seller") {
@@ -211,15 +216,19 @@ export default function SellerDashboardPage() {
 
   const fetchData = async () => {
     try {
-      const [categoriesRes, productsRes, ordersRes] = await Promise.all([
+      const [categoriesRes, productsRes, ordersRes, settingsRes] = await Promise.all([
         apiClient.get("/categories"),
         apiClient.get("/products/seller/my-products"),
         apiClient.get("/products/seller/orders"),
+        apiClient.get("/admin/settings/auto-extend/public").catch(() => null),
       ]);
 
       setCategories(categoriesRes.data.data);
       setProducts(productsRes.data.data);
       setOrders(ordersRes.data.data);
+      if (settingsRes?.data?.data) {
+        setAutoExtendConfig(settingsRes.data.data);
+      }
     } catch (error: any) {
       console.error("Error fetching data:", error);
       if (
@@ -241,6 +250,22 @@ export default function SellerDashboardPage() {
       setLoading(false);
     }
   };
+
+  // Fetch auto-extend config when dialog opens
+  useEffect(() => {
+    if (createDialogOpen) {
+      apiClient
+        .get("/admin/settings/auto-extend/public")
+        .then((res) => {
+          if (res.data?.data) {
+            setAutoExtendConfig(res.data.data);
+          }
+        })
+        .catch((error) => {
+          console.error("Error fetching auto-extend config:", error);
+        });
+    }
+  }, [createDialogOpen]);
 
   // Setup Socket.IO để nhận cập nhật real-time
   useEffect(() => {
@@ -306,7 +331,7 @@ export default function SellerDashboardPage() {
     validationSchema,
     onSubmit: async (values) => {
       if (selectedImages.length < 3) {
-        toast.error("Please upload at least 3 images");
+        toast.error("Vui lòng tải lên tối thiểu 3 ảnh");
         return;
       }
 
@@ -796,15 +821,12 @@ export default function SellerDashboardPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description *</Label>
-              <Textarea
-                id="description"
-                name="description"
-                rows={6}
+              <Label htmlFor="description">Mô tả sản phẩm *</Label>
+              <RichTextEditor
                 value={formik.values.description}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                placeholder="Enter product description"
+                onChange={(value) => formik.setFieldValue("description", value)}
+                placeholder="Nhập mô tả sản phẩm..."
+                className="bg-background"
               />
               {formik.touched.description && formik.errors.description && (
                 <p className="text-xs text-destructive">
@@ -890,7 +912,7 @@ export default function SellerDashboardPage() {
             <Separator />
 
             <div className="space-y-2">
-              <Label>Images * (Minimum 3 images)</Label>
+              <Label>Ảnh sản phẩm * (Tối thiểu 3 ảnh)</Label>
               <input
                 accept="image/*"
                 style={{ display: "none" }}
@@ -931,7 +953,12 @@ export default function SellerDashboardPage() {
               )}
               {selectedImages.length < 3 && (
                 <p className="text-xs text-destructive">
-                  Need at least 3 images (selected: {selectedImages.length})
+                  Cần tối thiểu 3 ảnh (đã chọn: {selectedImages.length}/3)
+                </p>
+              )}
+              {selectedImages.length >= 3 && (
+                <p className="text-xs text-green-600">
+                  ✓ Đã chọn đủ {selectedImages.length} ảnh
                 </p>
               )}
             </div>
@@ -950,7 +977,7 @@ export default function SellerDashboardPage() {
                   className="h-4 w-4 rounded border border-input"
                 />
                 <Label htmlFor="autoExtend" className="text-sm font-normal cursor-pointer">
-                  Auto-extend if there are bids in the last 3 minutes
+                  Tự động gia hạn: Khi có lượt đấu giá mới trước khi kết thúc {autoExtendConfig.thresholdMinutes} phút, sản phẩm tự động gia hạn thêm {autoExtendConfig.durationMinutes} phút
                 </Label>
               </div>
 
