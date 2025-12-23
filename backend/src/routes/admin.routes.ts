@@ -10,12 +10,18 @@ import {
   deleteUser,
   getAllProducts,
   testEmail,
+  getAutoExtendSettings,
+  updateAutoExtendSettings,
+  getAutoExtendSettingsPublic,
 } from '../controllers/admin.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// All routes require admin authentication
+// Public route for auto-extend settings (for sellers to see in form)
+router.get('/settings/auto-extend/public', getAutoExtendSettingsPublic);
+
+// All routes below require admin authentication
 router.use(authenticate);
 router.use(authorize('admin'));
 
@@ -31,6 +37,9 @@ router.delete('/users/:id', deleteUser);
 
 router.get('/products', getAllProducts);
 router.post('/test-email', testEmail);
+
+router.get('/settings/auto-extend', getAutoExtendSettings);
+router.put('/settings/auto-extend', updateAutoExtendSettings);
 
 export default router;
 

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { User, Product, Category, Order } from '../models';
+import { User, Product, Category, Order, Settings } from '../models';
 import { AppError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { Op } from 'sequelize';
@@ -381,6 +381,128 @@ export const testEmail = async (req: AuthRequest, res: Response, next: NextFunct
       message: `Lỗi khi gửi email: ${error.message}`,
       error: error.message,
     });
+  }
+};
+
+// Public endpoint to get auto-extend settings (for sellers to see in form)
+export const getAutoExtendSettingsPublic = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Get or create default settings
+    const [thresholdSetting, durationSetting] = await Promise.all([
+      Settings.findOrCreate({
+        where: { key: 'AUTO_EXTEND_THRESHOLD_MINUTES' },
+        defaults: {
+          key: 'AUTO_EXTEND_THRESHOLD_MINUTES',
+          value: process.env.AUTO_EXTEND_THRESHOLD_MINUTES || '5',
+          description: 'Số phút trước khi kết thúc để kích hoạt tự động gia hạn',
+        },
+      }),
+      Settings.findOrCreate({
+        where: { key: 'AUTO_EXTEND_DURATION_MINUTES' },
+        defaults: {
+          key: 'AUTO_EXTEND_DURATION_MINUTES',
+          value: process.env.AUTO_EXTEND_DURATION_MINUTES || '10',
+          description: 'Số phút gia hạn thêm khi có lượt đấu giá mới',
+        },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        thresholdMinutes: parseInt(thresholdSetting[0].value),
+        durationMinutes: parseInt(durationSetting[0].value),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAutoExtendSettings = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Admin access required', 403));
+    }
+
+    // Get or create default settings
+    const [thresholdSetting, durationSetting] = await Promise.all([
+      Settings.findOrCreate({
+        where: { key: 'AUTO_EXTEND_THRESHOLD_MINUTES' },
+        defaults: {
+          key: 'AUTO_EXTEND_THRESHOLD_MINUTES',
+          value: process.env.AUTO_EXTEND_THRESHOLD_MINUTES || '5',
+          description: 'Số phút trước khi kết thúc để kích hoạt tự động gia hạn',
+        },
+      }),
+      Settings.findOrCreate({
+        where: { key: 'AUTO_EXTEND_DURATION_MINUTES' },
+        defaults: {
+          key: 'AUTO_EXTEND_DURATION_MINUTES',
+          value: process.env.AUTO_EXTEND_DURATION_MINUTES || '10',
+          description: 'Số phút gia hạn thêm khi có lượt đấu giá mới',
+        },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        thresholdMinutes: parseInt(thresholdSetting[0].value),
+        durationMinutes: parseInt(durationSetting[0].value),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateAutoExtendSettings = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Admin access required', 403));
+    }
+
+    const { thresholdMinutes, durationMinutes } = req.body;
+
+    if (thresholdMinutes === undefined || durationMinutes === undefined) {
+      return next(new AppError('thresholdMinutes and durationMinutes are required', 400));
+    }
+
+    const thresholdNum = parseInt(thresholdMinutes);
+    const durationNum = parseInt(durationMinutes);
+
+    if (isNaN(thresholdNum) || thresholdNum < 1) {
+      return next(new AppError('thresholdMinutes must be a positive number', 400));
+    }
+
+    if (isNaN(durationNum) || durationNum < 1) {
+      return next(new AppError('durationMinutes must be a positive number', 400));
+    }
+
+    await Promise.all([
+      Settings.upsert({
+        key: 'AUTO_EXTEND_THRESHOLD_MINUTES',
+        value: thresholdNum.toString(),
+        description: 'Số phút trước khi kết thúc để kích hoạt tự động gia hạn',
+      }),
+      Settings.upsert({
+        key: 'AUTO_EXTEND_DURATION_MINUTES',
+        value: durationNum.toString(),
+        description: 'Số phút gia hạn thêm khi có lượt đấu giá mới',
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Cấu hình tự động gia hạn đã được cập nhật',
+      data: {
+        thresholdMinutes: thresholdNum,
+        durationMinutes: durationNum,
+      },
+    });
+  } catch (error) {
+    next(error);
   }
 };
 
