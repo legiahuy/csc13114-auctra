@@ -13,6 +13,7 @@ import {
   Package,
   Gavel,
   X,
+  Star,
 } from "lucide-react";
 import { useFormik } from "formik";
 import * as yup from "yup";
@@ -164,6 +165,10 @@ export default function SellerDashboardPage() {
   const [appendDescriptionDialogOpen, setAppendDescriptionDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [additionalDescription, setAdditionalDescription] = useState("");
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [reviewRating, setReviewRating] = useState<1 | -1>(1);
+  const [reviewComment, setReviewComment] = useState("");
 
   useEffect(() => {
     if (user?.role !== "seller") {
@@ -400,6 +405,58 @@ export default function SellerDashboardPage() {
     const newPreviews = imagePreviews.filter((_, i) => i !== index);
     setSelectedImages(newImages);
     setImagePreviews(newPreviews);
+  };
+
+  const handleCancelOrder = async (orderId: number) => {
+    if (
+      !window.confirm(
+        "Bạn có chắc chắn muốn hủy giao dịch này? Người thắng sẽ tự động nhận đánh giá -1 với nhận xét 'Người thắng không thanh toán'."
+      )
+    )
+      return;
+
+    try {
+      await apiClient.put(`/orders/${orderId}`, {
+        status: "cancelled",
+      });
+      toast.success("Đã hủy giao dịch");
+      fetchData();
+    } catch (error: any) {
+      toast.error(
+        error.response?.data?.error?.message || "Hủy giao dịch thất bại"
+      );
+    }
+  };
+
+  const handleOpenReviewDialog = (order: Order) => {
+    setSelectedOrder(order);
+    setReviewRating(1);
+    setReviewComment("");
+    setReviewDialogOpen(true);
+  };
+
+  const handleSubmitReview = async () => {
+    if (!selectedOrder || !reviewComment.trim()) {
+      toast.error("Vui lòng nhập nhận xét");
+      return;
+    }
+
+    try {
+      await apiClient.post("/users/rate", {
+        orderId: selectedOrder.id,
+        rating: reviewRating,
+        comment: reviewComment,
+      });
+      toast.success("Đánh giá thành công");
+      setReviewDialogOpen(false);
+      setSelectedOrder(null);
+      setReviewComment("");
+      fetchData();
+    } catch (error: any) {
+      toast.error(
+        error.response?.data?.error?.message || "Đánh giá thất bại"
+      );
+    }
   };
 
   const activeProducts = products.filter(
@@ -766,15 +823,37 @@ export default function SellerDashboardPage() {
                                 )}
                               </div>
                             </div>
-                            <div className="mt-4">
+                            <div className="mt-4 flex gap-2">
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => navigate(`/orders/${order.id}`)}
-                                className="w-full"
+                                className="flex-1"
                               >
                                 View Order Details
                               </Button>
+                              {!isCancelled &&
+                                (order.status === "pending_payment" ||
+                                  order.status === "pending_address") && (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => handleCancelOrder(order.id)}
+                                  >
+                                    <X className="h-4 w-4 mr-2" />
+                                    Hủy giao dịch
+                                  </Button>
+                                )}
+                              {isCompleted && (
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => handleOpenReviewDialog(order)}
+                                >
+                                  <Star className="h-4 w-4 mr-2" />
+                                  Đánh giá
+                                </Button>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
@@ -1097,6 +1176,74 @@ export default function SellerDashboardPage() {
             >
               Save
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Review Buyer Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Đánh giá người thắng đấu giá</DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium mb-1">Sản phẩm:</p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedOrder.product.name}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-1">Người mua:</p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedOrder.buyer.fullName}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Đánh giá:</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={reviewRating === 1 ? "default" : "outline"}
+                    className={reviewRating === 1 ? "bg-green-500 hover:bg-green-600" : ""}
+                    onClick={() => setReviewRating(1)}
+                  >
+                    +1 (Tích cực)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={reviewRating === -1 ? "destructive" : "outline"}
+                    onClick={() => setReviewRating(-1)}
+                  >
+                    -1 (Tiêu cực)
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reviewComment">Nhận xét:</Label>
+                <Textarea
+                  id="reviewComment"
+                  rows={4}
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Nhập nhận xét về người mua..."
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setReviewDialogOpen(false);
+                setSelectedOrder(null);
+                setReviewComment("");
+              }}
+            >
+              Hủy
+            </Button>
+            <Button onClick={handleSubmitReview}>Gửi đánh giá</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

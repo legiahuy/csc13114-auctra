@@ -1,30 +1,48 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import {
-  Box,
-  Paper,
-  Typography,
-  Stepper,
-  Step,
-  StepLabel,
-  Button,
-  TextField,
-  Grid,
-  Card,
-  CardMedia,
-  CardContent,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Chip,
-  Alert,
-} from '@mui/material';
 import { io, Socket } from 'socket.io-client';
+import { formatDistanceToNow } from 'date-fns';
+import { AlertCircle, CheckCircle2, XCircle, Send } from 'lucide-react';
+
 import apiClient from '../api/client';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
-import { formatDistanceToNow } from 'date-fns';
+import Loading from '@/components/Loading';
+
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Stepper } from '@/components/ui/stepper';
+
+interface Review {
+  id: number;
+  reviewerId: number;
+  revieweeId: number;
+  rating: 1 | -1;
+  comment: string;
+  reviewer: {
+    id: number;
+    fullName: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface Order {
   id: number;
@@ -56,6 +74,7 @@ interface Order {
     fullName: string;
     email: string;
   };
+  reviews?: Review[];
 }
 
 interface ChatMessage {
@@ -74,6 +93,7 @@ const steps = [
   'Gửi địa chỉ giao hàng',
   'Xác nhận đã gửi hàng',
   'Xác nhận đã nhận hàng',
+  'Đánh giá giao dịch',
 ];
 
 export default function OrderPage() {
@@ -93,6 +113,8 @@ export default function OrderPage() {
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewRating, setReviewRating] = useState<1 | -1>(1);
   const [reviewComment, setReviewComment] = useState('');
+  const [reviewingFor, setReviewingFor] = useState<'seller' | 'buyer' | null>(null);
+  const [myReview, setMyReview] = useState<Review | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<number | null>(null);
   const isInitialLoadRef = useRef(true);
@@ -120,15 +142,12 @@ export default function OrderPage() {
       try {
         await apiClient.put(`/orders/${orderId}`, {
           ...data,
-          // Không gửi status để chỉ lưu draft, không thay đổi trạng thái
         });
-        // Lưu lại giá trị đã save
         lastSavedRef.current = { ...data };
       } catch (error) {
         console.error('Auto-save failed:', error);
-        // Không hiển thị error để không làm phiền user
       }
-    }, 1000); // Debounce 1 giây
+    }, 1000);
   };
 
   useEffect(() => {
@@ -138,25 +157,32 @@ export default function OrderPage() {
         const orderData = response.data.data;
         setOrder(orderData);
         
-        // Set active step based on status
-        // pending_address: bidder đã gửi địa chỉ, seller cần xác nhận gửi hàng (bước 3)
-        // pending_shipping: seller đã gửi hàng, bidder cần xác nhận nhận hàng (bước 4)
         const statusSteps: Record<string, number> = {
           pending_payment: 0,
-          pending_address: 1, // Bidder đã gửi địa chỉ, seller thấy bước 3
-          pending_shipping: 3, // Seller đã gửi hàng, bidder thấy bước 4
-          pending_delivery: 3, // Tương tự pending_shipping
+          pending_address: 1,
+          pending_shipping: 3,
+          pending_delivery: 3,
           completed: 4,
           cancelled: -1,
         };
         setActiveStep(statusSteps[orderData.status] || 0);
+        
+        if (orderData.reviews && user) {
+          const myReviewData = orderData.reviews.find(
+            (r: Review) => r.reviewerId === user.id
+          );
+          if (myReviewData) {
+            setMyReview(myReviewData);
+            setReviewRating(myReviewData.rating);
+            setReviewComment(myReviewData.comment);
+          }
+        }
         setPaymentMethod(orderData.paymentMethod || '');
         setPaymentTransactionId(orderData.paymentTransactionId || '');
         setPaymentProofUrl(orderData.paymentProof || '');
         setShippingAddress(orderData.shippingAddress || '');
         setShippingInvoiceUrl(orderData.shippingInvoice || '');
         
-        // Lưu giá trị ban đầu để so sánh
         lastSavedRef.current = {
           paymentMethod: orderData.paymentMethod || undefined,
           paymentTransactionId: orderData.paymentTransactionId || undefined,
@@ -165,7 +191,6 @@ export default function OrderPage() {
           shippingInvoice: orderData.shippingInvoice || undefined,
         };
         
-        // Đánh dấu đã load xong
         isInitialLoadRef.current = false;
       } catch (error) {
         console.error('Error fetching order:', error);
@@ -176,7 +201,7 @@ export default function OrderPage() {
     };
 
     fetchOrder();
-  }, [orderId]);
+  }, [orderId, user]);
 
   // Socket.IO setup
   useEffect(() => {
@@ -186,7 +211,6 @@ export default function OrderPage() {
 
     newSocket.on('connect', () => {
       newSocket.emit('join-room', `order-${orderId}`);
-      // Join vào user room để nhận order-list-updated
       newSocket.emit('join-room', `user-${user.id}`);
     });
 
@@ -194,29 +218,34 @@ export default function OrderPage() {
       setMessages((prev) => [...prev, message]);
     });
 
-    // Listen cho order-updated event
     newSocket.on('order-updated', (updatedOrder: Order) => {
       setOrder(updatedOrder);
-      // Cập nhật active step
-      // pending_address: bidder đã gửi địa chỉ, seller cần xác nhận gửi hàng (bước 3)
-      // pending_shipping: seller đã gửi hàng, bidder cần xác nhận nhận hàng (bước 4)
       const statusSteps: Record<string, number> = {
         pending_payment: 0,
-        pending_address: 1, // Bidder đã gửi địa chỉ, seller thấy bước 3
-        pending_shipping: 3, // Seller đã gửi hàng, bidder thấy bước 4
-        pending_delivery: 3, // Tương tự pending_shipping
+        pending_address: 1,
+        pending_shipping: 3,
+        pending_delivery: 3,
         completed: 4,
         cancelled: -1,
       };
       setActiveStep(statusSteps[updatedOrder.status] || 0);
-      // Cập nhật các field
+      
+      if (updatedOrder.reviews && user) {
+        const myReviewData = updatedOrder.reviews.find(
+          (r: Review) => r.reviewerId === user.id
+        );
+        if (myReviewData) {
+          setMyReview(myReviewData);
+          setReviewRating(myReviewData.rating);
+          setReviewComment(myReviewData.comment);
+        }
+      }
       setPaymentMethod(updatedOrder.paymentMethod || '');
       setPaymentTransactionId(updatedOrder.paymentTransactionId || '');
       setPaymentProofUrl(updatedOrder.paymentProof || '');
       setShippingAddress(updatedOrder.shippingAddress || '');
       setShippingInvoiceUrl(updatedOrder.shippingInvoice || '');
       
-      // Cập nhật lastSavedRef để tránh auto-save không cần thiết
       lastSavedRef.current = {
         paymentMethod: updatedOrder.paymentMethod || undefined,
         paymentTransactionId: updatedOrder.paymentTransactionId || undefined,
@@ -228,7 +257,6 @@ export default function OrderPage() {
 
     setSocket(newSocket);
 
-    // Load existing messages
     const loadMessages = async () => {
       try {
         const response = await apiClient.get(`/chat/${orderId}`);
@@ -248,15 +276,12 @@ export default function OrderPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Auto-save khi các field thay đổi (chỉ khi order đã được load và user đã thay đổi)
   useEffect(() => {
     if (!order || !orderId || isInitialLoadRef.current) return;
 
-    // Chỉ auto-save nếu user là buyer và đang ở các bước tương ứng
     const isBuyer = user?.id === order.buyerId;
     const isSeller = user?.id === order.sellerId;
     
-    // Kiểm tra xem có thay đổi không
     const hasPaymentChanges = 
       (paymentMethod || '') !== (lastSavedRef.current.paymentMethod || '') ||
       (paymentTransactionId || '') !== (lastSavedRef.current.paymentTransactionId || '') ||
@@ -268,7 +293,6 @@ export default function OrderPage() {
     const hasShippingInvoiceChanges = 
       (shippingInvoiceUrl || '') !== (lastSavedRef.current.shippingInvoice || '');
 
-    // Auto-save payment info (bước 1) - chỉ khi có thay đổi
     if (isBuyer && hasPaymentChanges && (order.status === 'pending_payment' || order.status === 'pending_address')) {
       autoSave({
         paymentMethod: paymentMethod || undefined,
@@ -277,14 +301,12 @@ export default function OrderPage() {
       });
     }
 
-    // Auto-save shipping address (bước 2) - chỉ khi có thay đổi
     if (isBuyer && hasShippingAddressChanges && (order.status === 'pending_address' || order.status === 'pending_shipping')) {
       autoSave({
         shippingAddress: shippingAddress || undefined,
       });
     }
 
-    // Auto-save shipping invoice (bước 3 - seller) - chỉ khi có thay đổi
     if (isSeller && hasShippingInvoiceChanges && shippingInvoiceUrl && (order.status === 'pending_shipping' || order.status === 'pending_delivery')) {
       autoSave({
         shippingInvoice: shippingInvoiceUrl || undefined,
@@ -292,7 +314,6 @@ export default function OrderPage() {
     }
   }, [paymentMethod, paymentTransactionId, paymentProofUrl, shippingAddress, shippingInvoiceUrl, order, orderId, user]);
 
-  // Cleanup timeout khi unmount
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
@@ -316,7 +337,6 @@ export default function OrderPage() {
       const url = response.data.data.url;
       setPaymentProofUrl(url);
       toast.success('Upload ảnh thành công');
-      // Auto-save payment proof
       await autoSave({ paymentProof: url });
     } catch (error) {
       toast.error('Upload ảnh thất bại');
@@ -338,7 +358,6 @@ export default function OrderPage() {
       const url = response.data.data.url;
       setShippingInvoiceUrl(url);
       toast.success('Upload hóa đơn thành công');
-      // Auto-save shipping invoice
       await autoSave({ shippingInvoice: url });
     } catch (error) {
       toast.error('Upload hóa đơn thất bại');
@@ -375,10 +394,8 @@ export default function OrderPage() {
     }
 
     try {
-      // Chỉ lưu địa chỉ, không thay đổi status (vẫn ở pending_address)
       await apiClient.put(`/orders/${orderId}`, {
         shippingAddress,
-        // Không gửi status để giữ nguyên pending_address
       });
       toast.success('Đã gửi địa chỉ. Vui lòng chờ người bán xác nhận và gửi hàng.');
       if (order) {
@@ -396,13 +413,12 @@ export default function OrderPage() {
     }
 
     try {
-      // Seller xác nhận đã gửi hàng, chuyển từ pending_address → pending_shipping
       await apiClient.put(`/orders/${orderId}`, {
         status: 'pending_shipping',
         shippingInvoice: shippingInvoiceUrl,
       });
       toast.success('Xác nhận đã gửi hàng thành công');
-      setActiveStep(2); // Seller đã hoàn thành bước 3
+      setActiveStep(3);
       if (order) {
         setOrder({ ...order, status: 'pending_shipping', shippingInvoice: shippingInvoiceUrl });
       }
@@ -413,7 +429,6 @@ export default function OrderPage() {
 
   const handleStep4 = async () => {
     try {
-      // Bidder xác nhận đã nhận hàng, chuyển từ pending_shipping → completed
       await apiClient.put(`/orders/${orderId}`, {
         status: 'completed',
       });
@@ -422,7 +437,6 @@ export default function OrderPage() {
       if (order) {
         setOrder({ ...order, status: 'completed' });
       }
-      setReviewDialogOpen(true);
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || 'Xác nhận thất bại');
     }
@@ -440,11 +454,35 @@ export default function OrderPage() {
         rating: reviewRating,
         comment: reviewComment,
       });
-      toast.success('Đánh giá thành công');
+      toast.success(myReview ? 'Cập nhật đánh giá thành công' : 'Đánh giá thành công');
       setReviewDialogOpen(false);
+      setReviewingFor(null);
+      const response = await apiClient.get(`/orders/${orderId}`);
+      const orderData = response.data.data;
+      setOrder(orderData);
+      if (orderData.reviews && user) {
+        const myReviewData = orderData.reviews.find(
+          (r: Review) => r.reviewerId === user.id
+        );
+        if (myReviewData) {
+          setMyReview(myReviewData);
+        }
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || 'Đánh giá thất bại');
     }
+  };
+
+  const handleOpenReviewDialog = (forUser: 'seller' | 'buyer') => {
+    setReviewingFor(forUser);
+    if (myReview) {
+      setReviewRating(myReview.rating);
+      setReviewComment(myReview.comment);
+    } else {
+      setReviewRating(1);
+      setReviewComment('');
+    }
+    setReviewDialogOpen(true);
   };
 
   const handleCancelOrder = async () => {
@@ -510,11 +548,18 @@ export default function OrderPage() {
   };
 
   if (loading) {
-    return <Typography>Đang tải...</Typography>;
+    return <Loading />;
   }
 
   if (!order) {
-    return <Typography>Đơn hàng không tồn tại</Typography>;
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <AlertCircle className="h-5 w-5" />
+          <span>Đơn hàng không tồn tại</span>
+        </div>
+      </div>
+    );
   }
 
   const isBuyer = user?.id === order.buyerId;
@@ -525,383 +570,454 @@ export default function OrderPage() {
     order.status !== 'completed' &&
     order.status !== 'cancelled';
 
+  const getStatusBadge = () => {
+    const statusMap: Record<string, { label: string; variant: 'default' | 'destructive' | 'outline' }> = {
+      pending_payment: { label: 'Chờ thanh toán', variant: 'outline' },
+      pending_address: { label: 'Chờ địa chỉ', variant: 'outline' },
+      pending_shipping: { label: 'Chờ gửi hàng', variant: 'outline' },
+      pending_delivery: { label: 'Chờ nhận hàng', variant: 'outline' },
+      completed: { label: 'Hoàn thành', variant: 'default' },
+      cancelled: { label: 'Đã hủy', variant: 'destructive' },
+    };
+    return statusMap[order.status] || { label: order.status, variant: 'outline' };
+  };
+
+  const statusBadge = getStatusBadge();
+
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Hoàn tất đơn hàng
-      </Typography>
+    <div className="space-y-6">
+      <h1 className="text-2xl md:text-3xl font-bold">Hoàn tất đơn hàng</h1>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Card sx={{ display: 'flex', mb: 3 }}>
-              <CardMedia
-                component="img"
-                sx={{ width: 200 }}
-                image={order.product.mainImage}
-                alt={order.product.name}
-              />
-              <CardContent>
-                <Typography variant="h6">{order.product.name}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {order.product.category.name}
-                </Typography>
-                <Typography variant="h5" color="primary" sx={{ mt: 2 }}>
-                  {parseFloat(order.finalPrice.toString()).toLocaleString('vi-VN')} VNĐ
-                </Typography>
-              </CardContent>
-            </Card>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        {/* Left column */}
+        <div className="space-y-6">
+          {/* Product info */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex gap-4">
+                <img
+                  src={order.product.mainImage}
+                  alt={order.product.name}
+                  className="w-48 h-48 object-cover rounded-lg"
+                />
+                <div className="flex-1">
+                  <h2 className="text-xl font-semibold mb-2">{order.product.name}</h2>
+                  <p className="text-sm text-muted-foreground mb-2">{order.product.category.name}</p>
+                  <p className="text-2xl font-bold text-brand">
+                    {parseFloat(order.finalPrice.toString()).toLocaleString('vi-VN')} VNĐ
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-            <Stepper activeStep={activeStep} alternativeLabel>
-              {steps.map((label) => (
-                <Step key={label}>
-                  <StepLabel>{label}</StepLabel>
-                </Step>
-              ))}
-            </Stepper>
+          {/* Stepper */}
+          <Card>
+            <CardContent className="p-6">
+              <Stepper activeStep={activeStep} steps={steps} />
+            </CardContent>
+          </Card>
 
-            {order.status === 'cancelled' && (
-              <Alert severity="error" sx={{ mt: 3 }}>
-                Đơn hàng đã bị hủy
-              </Alert>
-            )}
+          {/* Main content */}
+          <Card>
+            <CardContent className="p-6">
+              {order.status === 'cancelled' && (
+                <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive mb-4">
+                  <XCircle className="h-4 w-4 mt-0.5" />
+                  <p>Đơn hàng đã bị hủy</p>
+                </div>
+              )}
 
-            {order.status !== 'cancelled' && (
-              <Box sx={{ mt: 4 }}>
-                {/* Step 1: Payment */}
-                {activeStep === 0 && isBuyer && (
-                  <Box>
-                    <Typography variant="h6" gutterBottom>
-                      Bước 1: Xác nhận thanh toán
-                    </Typography>
-                    <TextField
-                      label="Phương thức thanh toán"
-                      fullWidth
-                      margin="normal"
-                      value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      placeholder="VD: MoMo, ZaloPay, VNPay, Chuyển khoản..."
-                    />
-                    <TextField
-                      label="Mã giao dịch (nếu có)"
-                      fullWidth
-                      margin="normal"
-                      value={paymentTransactionId}
-                      onChange={(e) => setPaymentTransactionId(e.target.value)}
-                    />
-                    <Box sx={{ mt: 2 }}>
-                      <input
-                        accept="image/*"
-                        style={{ display: 'none' }}
-                        id="payment-proof-upload"
-                        type="file"
-                        onChange={handlePaymentProofUpload}
-                      />
-                      <label htmlFor="payment-proof-upload">
-                        <Button variant="outlined" component="span">
-                          Upload ảnh chứng từ thanh toán
-                        </Button>
-                      </label>
-                      {paymentProofUrl && (
-                        <Box sx={{ mt: 2 }}>
-                          <img
-                            src={`http://localhost:3000${paymentProofUrl}`}
-                            alt="Payment proof"
-                            style={{ maxWidth: '100%', maxHeight: 300 }}
+              {order.status !== 'cancelled' && (
+                <div className="space-y-6">
+                  {/* Step 1: Payment */}
+                  {activeStep === 0 && isBuyer && (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Bước 1: Xác nhận thanh toán</h3>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-sm font-medium mb-1.5 block">Phương thức thanh toán</label>
+                          <Input
+                            value={paymentMethod}
+                            onChange={(e) => setPaymentMethod(e.target.value)}
+                            placeholder="VD: MoMo, ZaloPay, VNPay, Chuyển khoản..."
                           />
-                        </Box>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-1.5 block">Mã giao dịch (nếu có)</label>
+                          <Input
+                            value={paymentTransactionId}
+                            onChange={(e) => setPaymentTransactionId(e.target.value)}
+                            placeholder="Nhập mã giao dịch..."
+                          />
+                        </div>
+                        <div>
+                          <input
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            id="payment-proof-upload"
+                            type="file"
+                            onChange={handlePaymentProofUpload}
+                          />
+                          <label htmlFor="payment-proof-upload">
+                            <Button variant="outline" asChild>
+                              <span>Upload ảnh chứng từ thanh toán</span>
+                            </Button>
+                          </label>
+                          {paymentProofUrl && (
+                            <div className="mt-3">
+                              <img
+                                src={`http://localhost:3000${paymentProofUrl}`}
+                                alt="Payment proof"
+                                className="max-w-full max-h-[300px] rounded-lg border"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        onClick={handleStep1}
+                        disabled={!paymentProofUrl && !paymentTransactionId}
+                      >
+                        Xác nhận thanh toán
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Step 2: Shipping Address */}
+                  {activeStep === 1 && isBuyer && (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Bước 2: Gửi địa chỉ giao hàng</h3>
+                      <div>
+                        <label className="text-sm font-medium mb-1.5 block">Địa chỉ giao hàng</label>
+                        <Textarea
+                          rows={4}
+                          value={shippingAddress}
+                          onChange={(e) => setShippingAddress(e.target.value)}
+                          placeholder="Nhập địa chỉ giao hàng đầy đủ..."
+                        />
+                      </div>
+                      <Button
+                        onClick={handleStep2}
+                        disabled={!shippingAddress.trim()}
+                      >
+                        Xác nhận địa chỉ
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Buyer waiting for seller to ship */}
+                  {activeStep === 1 && order?.status === 'pending_address' && order?.shippingAddress && isBuyer && (
+                    <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                      <AlertCircle className="h-4 w-4 mt-0.5" />
+                      <p>Bạn đã gửi địa chỉ. Vui lòng chờ người bán xác nhận và gửi hàng.</p>
+                    </div>
+                  )}
+
+                  {/* Step 3: Seller confirms shipping */}
+                  {order?.status === 'pending_address' && order?.shippingAddress && isSeller && (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Bước 3: Xác nhận đã nhận tiền và gửi hàng</h3>
+                      {order.shippingAddress && (
+                        <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                          <AlertCircle className="h-4 w-4 mt-0.5" />
+                          <div>
+                            <p className="font-medium mb-1">Địa chỉ giao hàng:</p>
+                            <p>{order.shippingAddress}</p>
+                          </div>
+                        </div>
                       )}
-                    </Box>
-                    <Button
-                      variant="contained"
-                      onClick={handleStep1}
-                      sx={{ mt: 3 }}
-                      disabled={!paymentProofUrl && !paymentTransactionId}
-                    >
-                      Xác nhận thanh toán
-                    </Button>
-                  </Box>
-                )}
+                      <div>
+                        <input
+                          accept="image/*,.pdf"
+                          style={{ display: 'none' }}
+                          id="shipping-invoice-upload"
+                          type="file"
+                          onChange={handleShippingInvoiceUpload}
+                        />
+                        <label htmlFor="shipping-invoice-upload">
+                          <Button variant="outline" asChild>
+                            <span>Upload hóa đơn vận chuyển</span>
+                          </Button>
+                        </label>
+                        {shippingInvoiceUrl && (
+                          <div className="mt-3">
+                            <img
+                              src={`http://localhost:3000${shippingInvoiceUrl}`}
+                              alt="Shipping invoice"
+                              className="max-w-full max-h-[300px] rounded-lg border"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        onClick={handleStep3}
+                        disabled={!shippingInvoiceUrl}
+                      >
+                        Xác nhận đã gửi hàng
+                      </Button>
+                    </div>
+                  )}
 
-                {/* Step 2: Shipping Address */}
-                {activeStep === 1 && isBuyer && (
-                  <Box>
-                    <Typography variant="h6" gutterBottom>
-                      Bước 2: Gửi địa chỉ giao hàng
-                    </Typography>
-                    <TextField
-                      label="Địa chỉ giao hàng"
-                      fullWidth
-                      multiline
-                      rows={4}
-                      margin="normal"
-                      value={shippingAddress}
-                      onChange={(e) => {
-                        setShippingAddress(e.target.value);
-                        // Auto-save sẽ được trigger bởi useEffect
-                      }}
-                      required
-                    />
-                    <Button
-                      variant="contained"
-                      onClick={handleStep2}
-                      sx={{ mt: 3 }}
-                      disabled={!shippingAddress.trim()}
-                    >
-                      Xác nhận địa chỉ
-                    </Button>
-                  </Box>
-                )}
+                  {/* Step 4: Buyer confirms delivery */}
+                  {order?.status === 'pending_shipping' && isBuyer && (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Bước 4: Xác nhận đã nhận hàng</h3>
+                      <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                        <AlertCircle className="h-4 w-4 mt-0.5" />
+                        <p>Vui lòng kiểm tra hàng hóa trước khi xác nhận</p>
+                      </div>
+                      <Button onClick={handleStep4}>
+                        Xác nhận đã nhận hàng
+                      </Button>
+                    </div>
+                  )}
 
-                {/* Buyer waiting for seller to ship */}
-                {activeStep === 1 && order?.status === 'pending_address' && order?.shippingAddress && isBuyer && (
-                  <Alert severity="info" sx={{ mt: 2 }}>
-                    Bạn đã gửi địa chỉ. Vui lòng chờ người bán xác nhận và gửi hàng.
-                  </Alert>
-                )}
+                  {/* Completed */}
+                  {order.status === 'completed' && (
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
+                        <CheckCircle2 className="h-4 w-4 mt-0.5" />
+                        <p>Đơn hàng đã hoàn tất thành công!</p>
+                      </div>
+                      
+                      {/* Step 5: Review */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">Bước 5: Đánh giá giao dịch</h3>
+                        
+                        {/* Hiển thị đánh giá hiện tại nếu có */}
+                        {order.reviews && order.reviews.length > 0 && (
+                          <div className="space-y-3">
+                            <p className="text-sm font-medium">Đánh giá hiện tại:</p>
+                            {order.reviews.map((review) => (
+                              <Card key={review.id}>
+                                <CardContent className="p-4">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <p className="text-sm font-semibold">
+                                      {review.reviewer.fullName} đánh giá{' '}
+                                      {review.reviewerId === order.sellerId ? order.buyer.fullName : order.seller.fullName}
+                                    </p>
+                                    <Badge variant={review.rating === 1 ? 'default' : 'destructive'}>
+                                      {review.rating === 1 ? '+1 (Tích cực)' : '-1 (Tiêu cực)'}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mb-2">{review.comment}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatDistanceToNow(new Date(review.updatedAt || review.createdAt), { addSuffix: true })}
+                                  </p>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Form đánh giá cho user hiện tại */}
+                        {user && (
+                          <div className="space-y-3">
+                            {myReview ? (
+                              <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                                <AlertCircle className="h-4 w-4 mt-0.5" />
+                                <p>Bạn đã đánh giá. Bạn có thể thay đổi đánh giá của mình bất kỳ lúc nào.</p>
+                              </div>
+                            ) : (
+                              <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                                <AlertCircle className="h-4 w-4 mt-0.5" />
+                                <p>Vui lòng đánh giá {isBuyer ? 'người bán' : 'người mua'} để hoàn tất giao dịch.</p>
+                              </div>
+                            )}
+                            
+                            <Button
+                              variant={myReview ? 'outline' : 'default'}
+                              onClick={() => handleOpenReviewDialog(isBuyer ? 'seller' : 'buyer')}
+                            >
+                              {myReview ? 'Thay đổi đánh giá' : 'Đánh giá'}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
-                {/* Step 3: Seller confirms shipping - hiển thị khi status là pending_address và đã có shippingAddress */}
-                {order?.status === 'pending_address' && order?.shippingAddress && isSeller && (
-                  <Box>
-                    <Typography variant="h6" gutterBottom>
-                      Bước 3: Xác nhận đã nhận tiền và gửi hàng
-                    </Typography>
-                    {order.shippingAddress && (
-                      <Alert severity="info" sx={{ mb: 2 }}>
-                        Địa chỉ giao hàng: {order.shippingAddress}
-                      </Alert>
+                  {/* Actions for order */}
+                  <div className="flex gap-2 flex-wrap pt-4 border-t">
+                    {canCancel && (
+                      <Button
+                        variant="outline"
+                        onClick={handleCancelOrder}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        Hủy đơn hàng
+                      </Button>
                     )}
-                    <Box sx={{ mt: 2 }}>
-                      <input
-                        accept="image/*,.pdf"
-                        style={{ display: 'none' }}
-                        id="shipping-invoice-upload"
-                        type="file"
-                        onChange={handleShippingInvoiceUpload}
-                      />
-                      <label htmlFor="shipping-invoice-upload">
-                        <Button variant="outlined" component="span">
-                          Upload hóa đơn vận chuyển
-                        </Button>
-                      </label>
-                      {shippingInvoiceUrl && (
-                        <Box sx={{ mt: 2 }}>
-                          <img
-                            src={`http://localhost:3000${shippingInvoiceUrl}`}
-                            alt="Shipping invoice"
-                            style={{ maxWidth: '100%', maxHeight: 300 }}
-                          />
-                        </Box>
-                      )}
-                    </Box>
-                    <Button
-                      variant="contained"
-                      onClick={handleStep3}
-                      sx={{ mt: 3 }}
-                      disabled={!shippingInvoiceUrl}
-                    >
-                      Xác nhận đã gửi hàng
-                    </Button>
-                  </Box>
-                )}
-
-                {/* Step 4: Buyer confirms delivery - hiển thị khi status là pending_shipping */}
-                {order?.status === 'pending_shipping' && isBuyer && (
-                  <Box>
-                    <Typography variant="h6" gutterBottom>
-                      Bước 4: Xác nhận đã nhận hàng
-                    </Typography>
-                    <Alert severity="info" sx={{ mb: 2 }}>
-                      Vui lòng kiểm tra hàng hóa trước khi xác nhận
-                    </Alert>
-                    <Button variant="contained" onClick={handleStep4} sx={{ mt: 3 }}>
-                      Xác nhận đã nhận hàng
-                    </Button>
-                  </Box>
-                )}
-
-                {/* Completed */}
-                {activeStep === 4 && (
-                  <Alert severity="success">
-                    Đơn hàng đã hoàn tất thành công!
-                  </Alert>
-                )}
-
-                {/* Actions for order */}
-                <Box sx={{ display: 'flex', gap: 2, mt: 3, flexWrap: 'wrap' }}>
-                  {canCancel && (
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      onClick={handleCancelOrder}
-                    >
-                      Hủy đơn hàng
-                    </Button>
-                  )}
-                  {canReset && (
-                    <Button
-                      variant="outlined"
-                      color="secondary"
-                      onClick={handleResetOrder}
-                    >
-                      Nhập lại từ đầu
-                    </Button>
-                  )}
-                </Box>
-              </Box>
-            )}
-          </Paper>
+                    {canReset && (
+                      <Button
+                        variant="outline"
+                        onClick={handleResetOrder}
+                      >
+                        Nhập lại từ đầu
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Chat Section */}
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Tin nhắn
-            </Typography>
-            <Box
-              sx={{
-                height: 400,
-                overflowY: 'auto',
-                border: '1px solid #e0e0e0',
-                borderRadius: 1,
-                p: 2,
-                mb: 2,
-              }}
-            >
-              {messages.map((msg) => (
-                <Box
-                  key={msg.id}
-                  sx={{
-                    mb: 2,
-                    display: 'flex',
-                    justifyContent: msg.senderId === user?.id ? 'flex-end' : 'flex-start',
-                  }}
-                >
-                  <Paper
-                    sx={{
-                      p: 2,
-                      maxWidth: '70%',
-                      bgcolor: msg.senderId === user?.id ? 'primary.light' : 'grey.200',
-                    }}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Tin nhắn</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="h-[400px] overflow-y-auto border rounded-lg p-4 space-y-3">
+                {messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex ${msg.senderId === user?.id ? 'justify-end' : 'justify-start'}`}
                   >
-                    <Typography variant="caption" display="block" gutterBottom>
-                      {msg.sender.fullName}
-                    </Typography>
-                    <Typography>{msg.message}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
-                    </Typography>
-                  </Paper>
-                </Box>
-              ))}
-              <div ref={messagesEndRef} />
-            </Box>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <TextField
-                fullWidth
-                size="small"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                placeholder="Nhập tin nhắn..."
-              />
-              <Button variant="contained" onClick={handleSendMessage}>
-                Gửi
-              </Button>
-            </Box>
-          </Paper>
-        </Grid>
+                    <div
+                      className={`max-w-[70%] rounded-lg p-3 ${
+                        msg.senderId === user?.id
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Avatar className="h-6 w-6">
+                          <AvatarFallback className="text-xs">
+                            {msg.sender.fullName.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-xs font-medium">{msg.sender.fullName}</span>
+                      </div>
+                      <p className="text-sm">{msg.message}</p>
+                      <p className={`text-xs mt-1 ${msg.senderId === user?.id ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                        {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder="Nhập tin nhắn..."
+                />
+                <Button onClick={handleSendMessage} size="icon">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Thông tin đơn hàng
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Mã đơn: #{order.id}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Trạng thái:{' '}
-              <Chip
-                label={
-                  order.status === 'pending_payment'
-                    ? 'Chờ thanh toán'
-                    : order.status === 'pending_address'
-                    ? 'Chờ địa chỉ'
-                    : order.status === 'pending_shipping'
-                    ? 'Chờ gửi hàng'
-                    : order.status === 'pending_delivery'
-                    ? 'Chờ nhận hàng'
-                    : order.status === 'completed'
-                    ? 'Hoàn thành'
-                    : 'Đã hủy'
-                }
-                color={
-                  order.status === 'completed'
-                    ? 'success'
-                    : order.status === 'cancelled'
-                    ? 'error'
-                    : 'warning'
-                }
-                size="small"
-              />
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Người bán: {order.seller.fullName}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Người mua: {order.buyer.fullName}
-            </Typography>
-            <Typography variant="h6" sx={{ mt: 2 }}>
-              Tổng tiền: {parseFloat(order.finalPrice.toString()).toLocaleString('vi-VN')} VNĐ
-            </Typography>
-          </Paper>
-        </Grid>
-      </Grid>
+        {/* Right column - Order info */}
+        <div className="space-y-4 lg:sticky lg:top-20 lg:h-fit">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Thông tin đơn hàng</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Mã đơn</p>
+                <p className="text-sm font-medium">#{order.id}</p>
+              </div>
+              <Separator />
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Trạng thái</p>
+                <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
+              </div>
+              <Separator />
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Người bán</p>
+                <p className="text-sm font-medium">{order.seller.fullName}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Người mua</p>
+                <p className="text-sm font-medium">{order.buyer.fullName}</p>
+              </div>
+              <Separator />
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Tổng tiền</p>
+                <p className="text-xl font-bold text-brand">
+                  {parseFloat(order.finalPrice.toString()).toLocaleString('vi-VN')} VNĐ
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* Review Dialog */}
-      <Dialog open={reviewDialogOpen} onClose={() => setReviewDialogOpen(false)}>
-        <DialogTitle>Đánh giá giao dịch</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <Typography gutterBottom>Đánh giá:</Typography>
-            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-              <Button
-                variant={reviewRating === 1 ? 'contained' : 'outlined'}
-                color="success"
-                onClick={() => setReviewRating(1)}
-              >
-                +1 (Tích cực)
-              </Button>
-              <Button
-                variant={reviewRating === -1 ? 'contained' : 'outlined'}
-                color="error"
-                onClick={() => setReviewRating(-1)}
-              >
-                -1 (Tiêu cực)
-              </Button>
-            </Box>
-            <TextField
-              fullWidth
-              multiline
-              rows={4}
-              label="Nhận xét"
-              value={reviewComment}
-              onChange={(e) => setReviewComment(e.target.value)}
-            />
-          </Box>
+      <Dialog open={reviewDialogOpen} onOpenChange={(open) => {
+        setReviewDialogOpen(open);
+        if (!open) setReviewingFor(null);
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {myReview ? 'Thay đổi đánh giá' : 'Đánh giá giao dịch'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {reviewingFor && order && (
+              <p className="text-sm text-muted-foreground">
+                Bạn đang đánh giá: {reviewingFor === 'seller' ? order.seller.fullName : order.buyer.fullName}
+              </p>
+            )}
+            <div>
+              <p className="text-sm font-medium mb-2">Đánh giá:</p>
+              <div className="flex gap-2">
+                <Button
+                  variant={reviewRating === 1 ? 'default' : 'outline'}
+                  onClick={() => setReviewRating(1)}
+                  className="flex-1"
+                >
+                  +1 (Tích cực)
+                </Button>
+                <Button
+                  variant={reviewRating === -1 ? 'destructive' : 'outline'}
+                  onClick={() => setReviewRating(-1)}
+                  className="flex-1"
+                >
+                  -1 (Tiêu cực)
+                </Button>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Nhận xét</label>
+              <Textarea
+                rows={4}
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                placeholder="Nhập nhận xét của bạn về giao dịch này..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setReviewDialogOpen(false);
+                setReviewingFor(null);
+              }}
+            >
+              Hủy
+            </Button>
+            <Button onClick={handleSubmitReview}>
+              {myReview ? 'Cập nhật đánh giá' : 'Gửi đánh giá'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setReviewDialogOpen(false)}>Bỏ qua</Button>
-          <Button onClick={handleSubmitReview} variant="contained">
-            Gửi đánh giá
-          </Button>
-        </DialogActions>
       </Dialog>
-    </Box>
+    </div>
   );
 }

@@ -189,7 +189,15 @@ export default function ProductDetailPage() {
                 o.productId === Number(id) &&
                 (o.sellerId === user.id || o.buyerId === user.id)
             );
-            if (productOrder) setOrder(productOrder);
+            if (productOrder) {
+              setOrder(productOrder);
+              // Tự động redirect đến OrderPage nếu auction đã kết thúc và user là seller/buyer
+              const isEnded = productData.status === "ended" || new Date(productData.endDate) <= new Date();
+              if (isEnded && productOrder) {
+                navigate(`/orders/${productOrder.id}`, { replace: true });
+                return;
+              }
+            }
           } catch {
             // ignore
           }
@@ -203,7 +211,7 @@ export default function ProductDetailPage() {
     };
 
     fetchData();
-  }, [id, user]);
+  }, [id, user, navigate]);
 
   const handlePlaceBid = () => {
     if (!user) {
@@ -386,12 +394,6 @@ export default function ProductDetailPage() {
     );
   }
 
-  const shouldShowOrderLink =
-    product.status === "ended" &&
-    order &&
-    user &&
-    (user.id === order.sellerId || user.id === order.buyerId);
-
   const isSeller = user?.id === product.sellerId;
   const isEnded =
     product.status === "ended" || new Date(product.endDate) <= new Date();
@@ -418,25 +420,11 @@ export default function ProductDetailPage() {
 
   return (
     <div className="space-y-6">
-      {shouldShowOrderLink && (
-        <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-          <AlertCircle className="h-4 w-4 mt-0.5" />
-          <div className="space-y-1">
-            <p>The auction for this product has ended.</p>
-            <Link
-              to={`/orders/${order.id}`}
-              className="font-medium text-blue-700 hover:underline"
-            >
-              View order details
-            </Link>
-          </div>
-        </div>
-      )}
 
       {product.status === "ended" && !order && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <AlertCircle className="h-4 w-4 mt-0.5" />
-          <p>This auction has ended.</p>
+          <p>Sản phẩm đã kết thúc</p>
         </div>
       )}
 
@@ -749,19 +737,20 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Right column – bidding panel */}
-        <div className="space-y-4 lg:sticky lg:top-20 lg:h-fit">
-          <Card className="bg-transparent border-none shadow-none">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">
-                Place a bid
-              </CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">
-                Submit a bid for this product
-              </CardDescription>
-            </CardHeader>
+        {(!isEnded || (isEnded && (isSeller || (order && (user?.id === order.sellerId || user?.id === order.buyerId))))) && (
+          <div className="space-y-4 lg:sticky lg:top-20 lg:h-fit">
+            <Card className="bg-transparent border-none shadow-none">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold">
+                  Place a bid
+                </CardTitle>
+                <CardDescription className="text-sm text-muted-foreground">
+                  Submit a bid for this product
+                </CardDescription>
+              </CardHeader>
 
-            <CardContent className="space-y-4">
-              {!isEnded ? (
+              <CardContent className="space-y-4">
+                {!isEnded ? (
                 <>
                   {user ? (
                     <>
@@ -860,14 +849,15 @@ export default function ProductDetailPage() {
                   )}
                 </>
               ) : (
-                <div className="flex items-center gap-2 text-sm text-amber-900 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>The auction has ended</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                  <div className="flex items-center gap-2 text-sm text-amber-900 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>The auction has ended</span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
 
       {/* Confirm bid dialog */}
