@@ -94,6 +94,13 @@ export const getOrder = async (req: AuthRequest, res: Response, next: NextFuncti
         },
         { model: User, as: 'seller', attributes: ['id', 'fullName', 'email'] },
         { model: User, as: 'buyer', attributes: ['id', 'fullName', 'email'] },
+        {
+          model: Review,
+          as: 'reviews',
+          include: [
+            { model: User, as: 'reviewer', attributes: ['id', 'fullName'] },
+          ],
+        },
       ],
     });
 
