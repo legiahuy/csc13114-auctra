@@ -189,15 +189,27 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
   }
 };
 
-export const getBidHistory = async (req: Request, res: Response, next: NextFunction) => {
+export const getBidHistory = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { productId } = req.params;
 
+    // Check if user is seller
+    let isSeller = false;
+    if (req.user) {
+      const product = await Product.findByPk(productId);
+      if (product && product.sellerId === req.user.id) {
+        isSeller = true;
+      }
+    }
+
+    // If seller, show all bids (including rejected), otherwise only non-rejected
+    const whereClause: any = { productId };
+    if (!isSeller) {
+      whereClause.isRejected = false;
+    }
+
     const bids = await Bid.findAll({
-      where: {
-        productId,
-        isRejected: false,
-      },
+      where: whereClause,
       include: [
         {
           model: User,
@@ -208,24 +220,37 @@ export const getBidHistory = async (req: Request, res: Response, next: NextFunct
       order: [['amount', 'DESC'], ['createdAt', 'DESC']],
     });
 
-    // Mask bidder names
-    const maskedBids = bids.map((bid) => {
-      const fullName = bid.bidder.fullName;
-      const maskedName = fullName.length > 4
-        ? '****' + fullName.slice(-4)
-        : '****' + fullName;
-      return {
-        ...bid.toJSON(),
-        bidder: {
-          ...bid.bidder.toJSON(),
-          fullName: maskedName,
-        },
-      };
+    // Mask bidder names for non-sellers, show full names for seller
+    const processedBids = bids.map((bid) => {
+      const bidData = bid.toJSON();
+      if (isSeller) {
+        // Seller sees full names and rejected status
+        return {
+          ...bidData,
+          bidder: {
+            ...bidData.bidder,
+            fullName: bidData.bidder.fullName,
+          },
+        };
+      } else {
+        // Others see masked names
+        const fullName = bid.bidder.fullName;
+        const maskedName = fullName.length > 4
+          ? '****' + fullName.slice(-4)
+          : '****' + fullName;
+        return {
+          ...bidData,
+          bidder: {
+            ...bidData.bidder,
+            fullName: maskedName,
+          },
+        };
+      }
     });
 
     res.json({
       success: true,
-      data: maskedBids,
+      data: processedBids,
     });
   } catch (error) {
     next(error);
@@ -259,20 +284,24 @@ export const rejectBid = async (req: AuthRequest, res: Response, next: NextFunct
     await bid.save();
 
     // If this was the highest bid, find the next highest
+    // Check if the rejected bid amount matches current price (meaning it was the highest)
     if (parseFloat(bid.product.currentPrice.toString()) === parseFloat(bid.amount.toString())) {
+      // This was the highest bid, find the next highest non-rejected bid
       const nextHighestBid = await Bid.findOne({
         where: {
           productId: bid.productId,
           isRejected: false,
           id: { [Op.ne]: bidId },
         },
-        order: [['amount', 'DESC']],
+        order: [['amount', 'DESC'], ['createdAt', 'ASC']],
       });
 
       if (nextHighestBid) {
+        // Update to the next highest bid amount
         bid.product.currentPrice = nextHighestBid.amount;
         await bid.product.save();
       } else {
+        // No other bids, reset to starting price
         bid.product.currentPrice = bid.product.startingPrice;
         await bid.product.save();
       }

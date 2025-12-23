@@ -14,6 +14,7 @@ interface Bid {
   id: number;
   amount: number;
   createdAt: string;
+  isRejected?: boolean;
   product: {
     id: number;
     name: string;
@@ -152,12 +153,22 @@ export default function MyBidsPage() {
                       </div>
 
                       <div className="flex items-center justify-between pt-2">
-                        <Badge
-                          variant="default"
-                          className="bg-emerald-500 hover:bg-emerald-600 text-white"
-                        >
-                          Active
-                        </Badge>
+                        <div className="flex gap-2">
+                          <Badge
+                            variant="default"
+                            className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                          >
+                            Active
+                          </Badge>
+                          {bid.isRejected && (
+                            <Badge
+                              variant="destructive"
+                              className="bg-red-500 hover:bg-red-600 text-white"
+                            >
+                              Rejected
+                            </Badge>
+                          )}
+                        </div>
                         <Button variant="outline" size="sm" asChild>
                           <Link to={`/products/${bid.product.id}`}>
                             View details
@@ -230,7 +241,17 @@ export default function MyBidsPage() {
                       </div>
 
                       <div className="flex items-center justify-between pt-2">
-                        <Badge variant="outline">Ended</Badge>
+                        <div className="flex gap-2">
+                          <Badge variant="outline">Ended</Badge>
+                          {bid.isRejected && (
+                            <Badge
+                              variant="destructive"
+                              className="bg-red-500 hover:bg-red-600 text-white"
+                            >
+                              Rejected
+                            </Badge>
+                          )}
+                        </div>
                         <Button variant="outline" size="sm" asChild>
                           <Link to={`/products/${bid.product.id}`}>
                             View details
