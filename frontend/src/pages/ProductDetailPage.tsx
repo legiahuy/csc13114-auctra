@@ -191,7 +191,7 @@ export default function ProductDetailPage() {
             );
             if (productOrder) {
               setOrder(productOrder);
-              // Tự động redirect đến OrderPage nếu auction đã kết thúc và user là seller/buyer
+              // Auto redirect to OrderPage if auction has ended and user is seller/buyer
               const isEnded = productData.status === "ended" || new Date(productData.endDate) <= new Date();
               if (isEnded && productOrder) {
                 navigate(`/orders/${productOrder.id}`, { replace: true });
@@ -424,7 +424,7 @@ export default function ProductDetailPage() {
       {product.status === "ended" && !order && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <AlertCircle className="h-4 w-4 mt-0.5" />
-          <p>Sản phẩm đã kết thúc</p>
+          <p>Product has ended</p>
         </div>
       )}
 
@@ -945,9 +945,9 @@ export default function ProductDetailPage() {
                     {isSeller && (
                       <TableCell>
                         {bid.isRejected ? (
-                          <Badge variant="destructive">Đã từ chối</Badge>
+                          <Badge variant="destructive">Rejected</Badge>
                         ) : (
-                          <Badge variant="default">Hoạt động</Badge>
+                          <Badge variant="default">Active</Badge>
                         )}
                       </TableCell>
                     )}
@@ -959,7 +959,7 @@ export default function ProductDetailPage() {
                           onClick={() => handleRejectBid(bid.id)}
                           disabled={bid.isRejected}
                         >
-                          {bid.isRejected ? "Đã từ chối" : "Từ chối"}
+                          {bid.isRejected ? "Rejected" : "Reject"}
                         </Button>
                       </TableCell>
                     )}
