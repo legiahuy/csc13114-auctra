@@ -567,9 +567,34 @@ export const updateProductDescription = async (
     }
 
     // Append new description with timestamp
-    const timestampStr = timestamp || new Date().toLocaleDateString("vi-VN");
-    const newDescription = `\n\n✏️ ${timestampStr}\n\n${additionalDescription}`;
-    product.description = product.description + newDescription;
+    // Format: 
+    // [Nội dung ban đầu]
+    // 
+    // ✏️ [ngày]
+    // 
+    // [Nội dung mới]
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    const timestampStr = timestamp || `${day}/${month}/${year}`;
+    
+    // Đảm bảo có dòng trống rõ ràng giữa nội dung cũ và mới
+    // Loại bỏ khoảng trắng và xuống dòng thừa ở cuối mô tả cũ
+    let currentDescription = product.description.trimEnd();
+    
+    // Đảm bảo luôn có 1 dòng trống trước timestamp
+    // Nếu mô tả cũ không kết thúc bằng xuống dòng, thêm 1 dòng trống
+    if (!currentDescription.endsWith('\n')) {
+      currentDescription = currentDescription + '\n';
+    }
+    
+    // Format: 1 dòng trống + timestamp + 1 dòng trống + nội dung mới
+    const newDescription = `\n✏️ ${timestampStr}\n${additionalDescription.trim()}`;
+    product.description = currentDescription + newDescription;
+    
+    // Update descriptionNoDiacritics for search
+    product.descriptionNoDiacritics = removeVietnameseDiacritics(product.description);
     await product.save();
 
     res.json({

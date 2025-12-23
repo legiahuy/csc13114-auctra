@@ -12,7 +12,7 @@ interface RichTextEditorProps {
 export default function RichTextEditor({
   value,
   onChange,
-  placeholder = "Nhập mô tả sản phẩm...",
+  placeholder = "Enter product description...",
   className = "",
 }: RichTextEditorProps) {
   const modules = useMemo(
