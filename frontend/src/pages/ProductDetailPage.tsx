@@ -42,6 +42,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface Product {
   id: number;
@@ -306,6 +307,7 @@ export default function ProductDetailPage() {
       toast.success("Answer submitted");
       setAnswer("");
       setAnswerDialogOpen(false);
+      setSelectedQuestionId(null);
 
       const response = await apiClient.get(`/products/${id}`);
       setProduct(response.data.data.product);
@@ -621,42 +623,84 @@ export default function ProductDetailPage() {
                 </div>
 
                 {product.questions && product.questions.length > 0 ? (
-                  <div className="space-y-3">
-                    {product.questions.map((q) => (
-                      <div
-                        key={q.id}
-                        className="rounded-lg border bg-card p-3 space-y-2"
-                      >
-                        <p className="text-sm font-medium">
-                          {q.user.fullName} asked:
-                        </p>
-                        <p className="text-sm text-foreground">{q.question}</p>
+                  <div className="space-y-4">
+                    {product.questions.map((q, index) => {
+                      const getInitials = (name: string) => {
+                        return name.charAt(0).toUpperCase();
+                      };
 
-                        {q.answer ? (
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold text-primary">
-                              Seller answered:
-                            </p>
-                            <p className="text-sm text-foreground">{q.answer}</p>
+                      const previousQuestion = index > 0 ? product.questions[index - 1] : null;
+                      const isDifferentBidder = previousQuestion && previousQuestion.user.id !== q.user.id;
+                      const showSeparator = isDifferentBidder;
+
+                      return (
+                        <div key={q.id} className="space-y-3">
+                          {/* Separator between different bidders */}
+                          {showSeparator && (
+                            <Separator className="my-4" />
+                          )}
+
+                          {/* Question */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback>
+                                  {getInitials(q.user.fullName)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-sm font-semibold">
+                                {q.user.fullName}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {format(new Date(q.createdAt), "dd/MM/yyyy HH:mm")}
+                              </span>
+                            </div>
+                            <p className="text-sm text-foreground ml-[40px]">{q.question}</p>
                           </div>
-                        ) : isSeller ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedQuestionId(q.id);
-                              setAnswerDialogOpen(true);
-                            }}
-                          >
-                            Answer
-                          </Button>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            No answer yet
-                          </p>
-                        )}
-                      </div>
-                    ))}
+
+                          {/* Answer */}
+                          {q.answer ? (
+                            <div className="ml-[44px] space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarFallback>
+                                    {getInitials(product.seller.fullName)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm font-semibold">
+                                  {product.seller.fullName}
+                                </span>
+                                {q.answeredAt && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {format(new Date(q.answeredAt), "dd/MM/yyyy HH:mm")}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-foreground leading-relaxed ml-[40px]">{q.answer}</p>
+                            </div>
+                          ) : isSeller ? (
+                            <div className="ml-[44px]">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedQuestionId(q.id);
+                                  setAnswerDialogOpen(true);
+                                }}
+                              >
+                                Answer
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="ml-[44px]">
+                              <p className="text-xs text-muted-foreground">
+                                No answer yet
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">
@@ -979,18 +1023,36 @@ export default function ProductDetailPage() {
           </DialogHeader>
 
           <div className="space-y-3">
-            <Textarea
-              rows={4}
-              placeholder="Type your answer..."
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-            />
+            {selectedQuestionId && product && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold">Question:</p>
+                <div className="rounded-lg border bg-muted p-3">
+                  <p className="text-sm text-foreground">
+                    {product.questions.find((q) => q.id === selectedQuestionId)
+                      ?.question || ""}
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Your answer:</p>
+              <Textarea
+                rows={4}
+                placeholder="Type your answer..."
+                value={answer}
+                onChange={(e) => setAnswer(e.target.value)}
+              />
+            </div>
           </div>
 
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setAnswerDialogOpen(false)}
+              onClick={() => {
+                setAnswerDialogOpen(false);
+                setAnswer("");
+                setSelectedQuestionId(null);
+              }}
             >
               Cancel
             </Button>
