@@ -102,6 +102,7 @@ interface BidHistory {
   id: number;
   amount: number;
   createdAt: string;
+  isRejected?: boolean;
   bidder: {
     fullName: string;
   };
@@ -893,6 +894,7 @@ export default function ProductDetailPage() {
                   <TableHead>Time</TableHead>
                   <TableHead>Bidder</TableHead>
                   <TableHead>Amount</TableHead>
+                  {isSeller && <TableHead>Status</TableHead>}
                   {isSeller && <TableHead>Actions</TableHead>}
                 </TableRow>
               </TableHeader>
@@ -908,12 +910,22 @@ export default function ProductDetailPage() {
                     </TableCell>
                     {isSeller && (
                       <TableCell>
+                        {bid.isRejected ? (
+                          <Badge variant="destructive">Đã từ chối</Badge>
+                        ) : (
+                          <Badge variant="default">Hoạt động</Badge>
+                        )}
+                      </TableCell>
+                    )}
+                    {isSeller && (
+                      <TableCell>
                         <Button
                           size="sm"
                           variant="destructive"
                           onClick={() => handleRejectBid(bid.id)}
+                          disabled={bid.isRejected}
                         >
-                          Reject
+                          {bid.isRejected ? "Đã từ chối" : "Từ chối"}
                         </Button>
                       </TableCell>
                     )}
