@@ -595,7 +595,7 @@ export default function AdminDashboardPage() {
                             Approved
                           </Badge>
                         ) : user.upgradeRequestStatus === "rejected" ? (
-                          <Badge variant="destructive" className="text-xs">Đã từ chối</Badge>
+                          <Badge variant="destructive" className="text-xs">Rejected</Badge>
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}

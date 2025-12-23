@@ -89,11 +89,11 @@ interface ChatMessage {
 }
 
 const steps = [
-  'Thanh toán',
-  'Gửi địa chỉ giao hàng',
-  'Xác nhận đã gửi hàng',
-  'Xác nhận đã nhận hàng',
-  'Đánh giá giao dịch',
+  'Payment',
+  'Shipping Address',
+  'Confirm Shipping',
+  'Confirm Delivery',
+  'Review Transaction',
 ];
 
 export default function OrderPage() {
@@ -116,6 +116,7 @@ export default function OrderPage() {
   const [reviewingFor, setReviewingFor] = useState<'seller' | 'buyer' | null>(null);
   const [myReview, setMyReview] = useState<Review | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const saveTimeoutRef = useRef<number | null>(null);
   const isInitialLoadRef = useRef(true);
   const lastSavedRef = useRef<{
@@ -194,7 +195,7 @@ export default function OrderPage() {
         isInitialLoadRef.current = false;
       } catch (error) {
         console.error('Error fetching order:', error);
-        toast.error('Không thể tải thông tin đơn hàng');
+        toast.error('Failed to load order information');
       } finally {
         setLoading(false);
       }
@@ -276,6 +277,14 @@ export default function OrderPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+    }
+  }, [newMessage]);
+
   useEffect(() => {
     if (!order || !orderId || isInitialLoadRef.current) return;
 
@@ -336,10 +345,10 @@ export default function OrderPage() {
       });
       const url = response.data.data.url;
       setPaymentProofUrl(url);
-      toast.success('Upload ảnh thành công');
+      toast.success('Image uploaded successfully');
       await autoSave({ paymentProof: url });
     } catch (error) {
-      toast.error('Upload ảnh thất bại');
+      toast.error('Failed to upload image');
     }
   };
 
@@ -357,16 +366,16 @@ export default function OrderPage() {
       });
       const url = response.data.data.url;
       setShippingInvoiceUrl(url);
-      toast.success('Upload hóa đơn thành công');
+      toast.success('Invoice uploaded successfully');
       await autoSave({ shippingInvoice: url });
     } catch (error) {
-      toast.error('Upload hóa đơn thất bại');
+      toast.error('Failed to upload invoice');
     }
   };
 
   const handleStep1 = async () => {
     if (!paymentProofUrl && !paymentTransactionId) {
-      toast.error('Vui lòng upload ảnh thanh toán hoặc nhập mã giao dịch');
+      toast.error('Please upload payment proof or enter transaction ID');
       return;
     }
 
@@ -377,19 +386,19 @@ export default function OrderPage() {
         paymentTransactionId: paymentTransactionId || undefined,
         paymentProof: paymentProofUrl || undefined,
       });
-      toast.success('Xác nhận thanh toán thành công');
+      toast.success('Payment confirmed successfully');
       setActiveStep(1);
       if (order) {
         setOrder({ ...order, status: 'pending_address' });
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Xác nhận thanh toán thất bại');
+      toast.error(error.response?.data?.error?.message || 'Failed to confirm payment');
     }
   };
 
   const handleStep2 = async () => {
     if (!shippingAddress.trim()) {
-      toast.error('Vui lòng nhập địa chỉ giao hàng');
+      toast.error('Please enter shipping address');
       return;
     }
 
@@ -397,18 +406,18 @@ export default function OrderPage() {
       await apiClient.put(`/orders/${orderId}`, {
         shippingAddress,
       });
-      toast.success('Đã gửi địa chỉ. Vui lòng chờ người bán xác nhận và gửi hàng.');
+      toast.success('Address sent. Please wait for the seller to confirm and ship.');
       if (order) {
         setOrder({ ...order, shippingAddress });
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Gửi địa chỉ thất bại');
+      toast.error(error.response?.data?.error?.message || 'Failed to send address');
     }
   };
 
   const handleStep3 = async () => {
     if (!shippingInvoiceUrl) {
-      toast.error('Vui lòng upload hóa đơn vận chuyển');
+      toast.error('Please upload shipping invoice');
       return;
     }
 
@@ -417,13 +426,13 @@ export default function OrderPage() {
         status: 'pending_shipping',
         shippingInvoice: shippingInvoiceUrl,
       });
-      toast.success('Xác nhận đã gửi hàng thành công');
+      toast.success('Shipping confirmed successfully');
       setActiveStep(3);
       if (order) {
         setOrder({ ...order, status: 'pending_shipping', shippingInvoice: shippingInvoiceUrl });
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Xác nhận thất bại');
+      toast.error(error.response?.data?.error?.message || 'Confirmation failed');
     }
   };
 
@@ -432,19 +441,19 @@ export default function OrderPage() {
       await apiClient.put(`/orders/${orderId}`, {
         status: 'completed',
       });
-      toast.success('Xác nhận đã nhận hàng thành công');
+      toast.success('Delivery confirmed successfully');
       setActiveStep(4);
       if (order) {
         setOrder({ ...order, status: 'completed' });
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Xác nhận thất bại');
+      toast.error(error.response?.data?.error?.message || 'Confirmation failed');
     }
   };
 
   const handleSubmitReview = async () => {
     if (!reviewComment.trim()) {
-      toast.error('Vui lòng nhập nhận xét');
+      toast.error('Please enter a comment');
       return;
     }
 
@@ -454,7 +463,7 @@ export default function OrderPage() {
         rating: reviewRating,
         comment: reviewComment,
       });
-      toast.success(myReview ? 'Cập nhật đánh giá thành công' : 'Đánh giá thành công');
+      toast.success(myReview ? 'Review updated successfully' : 'Review submitted successfully');
       setReviewDialogOpen(false);
       setReviewingFor(null);
       const response = await apiClient.get(`/orders/${orderId}`);
@@ -469,7 +478,7 @@ export default function OrderPage() {
         }
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Đánh giá thất bại');
+      toast.error(error.response?.data?.error?.message || 'Failed to submit review');
     }
   };
 
@@ -486,18 +495,18 @@ export default function OrderPage() {
   };
 
   const handleCancelOrder = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này?')) return;
+    if (!window.confirm('Are you sure you want to cancel this order?')) return;
 
     try {
       await apiClient.put(`/orders/${orderId}`, {
         status: 'cancelled',
       });
-      toast.success('Đã hủy đơn hàng');
+      toast.success('Order cancelled');
       if (order) {
         setOrder({ ...order, status: 'cancelled' });
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Hủy đơn hàng thất bại');
+      toast.error(error.response?.data?.error?.message || 'Failed to cancel order');
     }
   };
 
@@ -508,12 +517,12 @@ export default function OrderPage() {
       await apiClient.post(`/chat/${orderId}`, { message: newMessage });
       setNewMessage('');
     } catch (error) {
-      toast.error('Gửi tin nhắn thất bại');
+      toast.error('Failed to send message');
     }
   };
 
   const handleResetOrder = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn nhập lại toàn bộ thông tin đơn hàng từ đầu?')) return;
+    if (!window.confirm('Are you sure you want to reset all order information from the beginning?')) return;
 
     try {
       await apiClient.put(`/orders/${orderId}`, {
@@ -524,7 +533,7 @@ export default function OrderPage() {
         shippingAddress: '',
         shippingInvoice: '',
       });
-      toast.success('Đã reset quy trình đơn hàng, vui lòng nhập lại từ bước 1');
+      toast.success('Order process reset. Please start from step 1');
       setActiveStep(0);
       if (order) {
         setOrder({
@@ -543,7 +552,7 @@ export default function OrderPage() {
       setShippingAddress('');
       setShippingInvoiceUrl('');
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Không thể reset đơn hàng');
+      toast.error(error.response?.data?.error?.message || 'Failed to reset order');
     }
   };
 
@@ -556,7 +565,7 @@ export default function OrderPage() {
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="flex items-center gap-2 text-muted-foreground">
           <AlertCircle className="h-5 w-5" />
-          <span>Đơn hàng không tồn tại</span>
+          <span>Order not found</span>
         </div>
       </div>
     );
@@ -572,12 +581,12 @@ export default function OrderPage() {
 
   const getStatusBadge = () => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'destructive' | 'outline' }> = {
-      pending_payment: { label: 'Chờ thanh toán', variant: 'outline' },
-      pending_address: { label: 'Chờ địa chỉ', variant: 'outline' },
-      pending_shipping: { label: 'Chờ gửi hàng', variant: 'outline' },
-      pending_delivery: { label: 'Chờ nhận hàng', variant: 'outline' },
-      completed: { label: 'Hoàn thành', variant: 'default' },
-      cancelled: { label: 'Đã hủy', variant: 'destructive' },
+      pending_payment: { label: 'Pending Payment', variant: 'outline' },
+      pending_address: { label: 'Pending Address', variant: 'outline' },
+      pending_shipping: { label: 'Pending Shipping', variant: 'outline' },
+      pending_delivery: { label: 'Pending Delivery', variant: 'outline' },
+      completed: { label: 'Completed', variant: 'default' },
+      cancelled: { label: 'Cancelled', variant: 'destructive' },
     };
     return statusMap[order.status] || { label: order.status, variant: 'outline' };
   };
@@ -586,7 +595,7 @@ export default function OrderPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl md:text-3xl font-bold">Hoàn tất đơn hàng</h1>
+      <h1 className="text-2xl md:text-3xl font-bold">Complete Order</h1>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {/* Left column */}
@@ -624,7 +633,7 @@ export default function OrderPage() {
               {order.status === 'cancelled' && (
                 <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive mb-4">
                   <XCircle className="h-4 w-4 mt-0.5" />
-                  <p>Đơn hàng đã bị hủy</p>
+                  <p>Order has been cancelled</p>
                 </div>
               )}
 
@@ -633,22 +642,22 @@ export default function OrderPage() {
                   {/* Step 1: Payment */}
                   {activeStep === 0 && isBuyer && (
                     <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Bước 1: Xác nhận thanh toán</h3>
+                      <h3 className="text-lg font-semibold">Step 1: Confirm Payment</h3>
                       <div className="space-y-3">
                         <div>
-                          <label className="text-sm font-medium mb-1.5 block">Phương thức thanh toán</label>
+                          <label className="text-sm font-medium mb-1.5 block">Payment Method</label>
                           <Input
                             value={paymentMethod}
                             onChange={(e) => setPaymentMethod(e.target.value)}
-                            placeholder="VD: MoMo, ZaloPay, VNPay, Chuyển khoản..."
+                            placeholder="e.g., MoMo, ZaloPay, VNPay, Bank Transfer..."
                           />
                         </div>
                         <div>
-                          <label className="text-sm font-medium mb-1.5 block">Mã giao dịch (nếu có)</label>
+                          <label className="text-sm font-medium mb-1.5 block">Transaction ID (if any)</label>
                           <Input
                             value={paymentTransactionId}
                             onChange={(e) => setPaymentTransactionId(e.target.value)}
-                            placeholder="Nhập mã giao dịch..."
+                            placeholder="Enter transaction ID..."
                           />
                         </div>
                         <div>
@@ -661,7 +670,7 @@ export default function OrderPage() {
                           />
                           <label htmlFor="payment-proof-upload">
                             <Button variant="outline" asChild>
-                              <span>Upload ảnh chứng từ thanh toán</span>
+                              <span>Upload Payment Proof</span>
                             </Button>
                           </label>
                           {paymentProofUrl && (
@@ -679,7 +688,7 @@ export default function OrderPage() {
                         onClick={handleStep1}
                         disabled={!paymentProofUrl && !paymentTransactionId}
                       >
-                        Xác nhận thanh toán
+                        Confirm Payment
                       </Button>
                     </div>
                   )}
@@ -687,21 +696,21 @@ export default function OrderPage() {
                   {/* Step 2: Shipping Address */}
                   {activeStep === 1 && isBuyer && (
                     <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Bước 2: Gửi địa chỉ giao hàng</h3>
+                      <h3 className="text-lg font-semibold">Step 2: Send Shipping Address</h3>
                       <div>
-                        <label className="text-sm font-medium mb-1.5 block">Địa chỉ giao hàng</label>
+                        <label className="text-sm font-medium mb-1.5 block">Shipping Address</label>
                         <Textarea
                           rows={4}
                           value={shippingAddress}
                           onChange={(e) => setShippingAddress(e.target.value)}
-                          placeholder="Nhập địa chỉ giao hàng đầy đủ..."
+                          placeholder="Enter full shipping address..."
                         />
                       </div>
                       <Button
                         onClick={handleStep2}
                         disabled={!shippingAddress.trim()}
                       >
-                        Xác nhận địa chỉ
+                        Confirm Address
                       </Button>
                     </div>
                   )}
@@ -710,19 +719,19 @@ export default function OrderPage() {
                   {activeStep === 1 && order?.status === 'pending_address' && order?.shippingAddress && isBuyer && (
                     <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                       <AlertCircle className="h-4 w-4 mt-0.5" />
-                      <p>Bạn đã gửi địa chỉ. Vui lòng chờ người bán xác nhận và gửi hàng.</p>
+                      <p>You have sent the address. Please wait for the seller to confirm and ship.</p>
                     </div>
                   )}
 
                   {/* Step 3: Seller confirms shipping */}
                   {order?.status === 'pending_address' && order?.shippingAddress && isSeller && (
                     <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Bước 3: Xác nhận đã nhận tiền và gửi hàng</h3>
+                      <h3 className="text-lg font-semibold">Step 3: Confirm Payment Received and Ship</h3>
                       {order.shippingAddress && (
                         <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                           <AlertCircle className="h-4 w-4 mt-0.5" />
                           <div>
-                            <p className="font-medium mb-1">Địa chỉ giao hàng:</p>
+                            <p className="font-medium mb-1">Shipping Address:</p>
                             <p>{order.shippingAddress}</p>
                           </div>
                         </div>
@@ -737,7 +746,7 @@ export default function OrderPage() {
                         />
                         <label htmlFor="shipping-invoice-upload">
                           <Button variant="outline" asChild>
-                            <span>Upload hóa đơn vận chuyển</span>
+                            <span>Upload Shipping Invoice</span>
                           </Button>
                         </label>
                         {shippingInvoiceUrl && (
@@ -754,7 +763,7 @@ export default function OrderPage() {
                         onClick={handleStep3}
                         disabled={!shippingInvoiceUrl}
                       >
-                        Xác nhận đã gửi hàng
+                        Confirm Shipped
                       </Button>
                     </div>
                   )}
@@ -762,13 +771,13 @@ export default function OrderPage() {
                   {/* Step 4: Buyer confirms delivery */}
                   {order?.status === 'pending_shipping' && isBuyer && (
                     <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Bước 4: Xác nhận đã nhận hàng</h3>
+                      <h3 className="text-lg font-semibold">Step 4: Confirm Delivery</h3>
                       <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                         <AlertCircle className="h-4 w-4 mt-0.5" />
-                        <p>Vui lòng kiểm tra hàng hóa trước khi xác nhận</p>
+                        <p>Please check the goods before confirming</p>
                       </div>
                       <Button onClick={handleStep4}>
-                        Xác nhận đã nhận hàng
+                        Confirm Delivery
                       </Button>
                     </div>
                   )}
@@ -778,27 +787,27 @@ export default function OrderPage() {
                     <div className="space-y-4">
                       <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
                         <CheckCircle2 className="h-4 w-4 mt-0.5" />
-                        <p>Đơn hàng đã hoàn tất thành công!</p>
+                        <p>Order completed successfully!</p>
                       </div>
                       
                       {/* Step 5: Review */}
                       <div className="space-y-4">
-                        <h3 className="text-lg font-semibold">Bước 5: Đánh giá giao dịch</h3>
+                        <h3 className="text-lg font-semibold">Step 5: Review Transaction</h3>
                         
-                        {/* Hiển thị đánh giá hiện tại nếu có */}
+                        {/* Display current reviews if any */}
                         {order.reviews && order.reviews.length > 0 && (
                           <div className="space-y-3">
-                            <p className="text-sm font-medium">Đánh giá hiện tại:</p>
+                            <p className="text-sm font-medium">Current Reviews:</p>
                             {order.reviews.map((review) => (
                               <Card key={review.id}>
                                 <CardContent className="p-4">
                                   <div className="flex justify-between items-center mb-2">
                                     <p className="text-sm font-semibold">
-                                      {review.reviewer.fullName} đánh giá{' '}
+                                      {review.reviewer.fullName} reviewed{' '}
                                       {review.reviewerId === order.sellerId ? order.buyer.fullName : order.seller.fullName}
                                     </p>
                                     <Badge variant={review.rating === 1 ? 'default' : 'destructive'}>
-                                      {review.rating === 1 ? '+1 (Tích cực)' : '-1 (Tiêu cực)'}
+                                      {review.rating === 1 ? '+1 (Positive)' : '-1 (Negative)'}
                                     </Badge>
                                   </div>
                                   <p className="text-sm text-muted-foreground mb-2">{review.comment}</p>
@@ -811,18 +820,18 @@ export default function OrderPage() {
                           </div>
                         )}
                         
-                        {/* Form đánh giá cho user hiện tại */}
+                        {/* Review form for current user */}
                         {user && (
                           <div className="space-y-3">
                             {myReview ? (
                               <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                                 <AlertCircle className="h-4 w-4 mt-0.5" />
-                                <p>Bạn đã đánh giá. Bạn có thể thay đổi đánh giá của mình bất kỳ lúc nào.</p>
+                                <p>You have already reviewed. You can change your review at any time.</p>
                               </div>
                             ) : (
                               <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                                 <AlertCircle className="h-4 w-4 mt-0.5" />
-                                <p>Vui lòng đánh giá {isBuyer ? 'người bán' : 'người mua'} để hoàn tất giao dịch.</p>
+                                <p>Please review the {isBuyer ? 'seller' : 'buyer'} to complete the transaction.</p>
                               </div>
                             )}
                             
@@ -830,7 +839,7 @@ export default function OrderPage() {
                               variant={myReview ? 'outline' : 'default'}
                               onClick={() => handleOpenReviewDialog(isBuyer ? 'seller' : 'buyer')}
                             >
-                              {myReview ? 'Thay đổi đánh giá' : 'Đánh giá'}
+                              {myReview ? 'Change Review' : 'Review'}
                             </Button>
                           </div>
                         )}
@@ -846,7 +855,7 @@ export default function OrderPage() {
                         onClick={handleCancelOrder}
                         className="text-destructive hover:text-destructive"
                       >
-                        Hủy đơn hàng
+                        Cancel Order
                       </Button>
                     )}
                     {canReset && (
@@ -854,7 +863,7 @@ export default function OrderPage() {
                         variant="outline"
                         onClick={handleResetOrder}
                       >
-                        Nhập lại từ đầu
+                        Reset from Beginning
                       </Button>
                     )}
                   </div>
@@ -864,56 +873,126 @@ export default function OrderPage() {
           </Card>
 
           {/* Chat Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Tin nhắn</CardTitle>
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b pb-3">
+              <CardTitle className="text-base">Messages</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="h-[400px] overflow-y-auto border rounded-lg p-4 space-y-3">
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${msg.senderId === user?.id ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[70%] rounded-lg p-3 ${
-                        msg.senderId === user?.id
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-xs">
-                            {msg.sender.fullName.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-xs font-medium">{msg.sender.fullName}</span>
-                      </div>
-                      <p className="text-sm">{msg.message}</p>
-                      <p className={`text-xs mt-1 ${msg.senderId === user?.id ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                        {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
-                      </p>
-                    </div>
+            <CardContent className="p-0">
+              {/* Chat messages area */}
+              <div className="h-[400px] overflow-y-auto bg-muted/30 p-4 space-y-1">
+                {messages.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                    No messages yet. Start a conversation!
                   </div>
-                ))}
+                ) : (
+                  messages.map((msg, index) => {
+                    const isOwnMessage = msg.senderId === user?.id;
+                    const prevMessage = index > 0 ? messages[index - 1] : null;
+                    const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
+                    
+                    // Check if this is the first message in a group
+                    const isFirstInGroup = 
+                      !prevMessage || 
+                      prevMessage.senderId !== msg.senderId ||
+                      new Date(msg.createdAt).getTime() - new Date(prevMessage.createdAt).getTime() > 300000; // 5 minutes
+                    
+                    // Check if this is the last message in a group
+                    const isLastInGroup = 
+                      !nextMessage || 
+                      nextMessage.senderId !== msg.senderId ||
+                      new Date(nextMessage.createdAt).getTime() - new Date(msg.createdAt).getTime() > 300000;
+                    
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex items-end gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'} ${
+                          isFirstInGroup ? 'mt-2' : 'mt-1'
+                        }`}
+                      >
+                        {/* Avatar for other person's messages */}
+                        {!isOwnMessage && (
+                          <div className="flex-shrink-0 w-8 h-8">
+                            {isLastInGroup ? (
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback className="text-xs bg-primary/10">
+                                  {msg.sender.fullName.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                            ) : (
+                              <div className="w-8" />
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Message bubble */}
+                        <div className={`flex flex-col max-w-[70%] ${isOwnMessage ? 'items-end' : 'items-start'}`}>
+                          {/* Sender name for other person's messages */}
+                          {!isOwnMessage && isFirstInGroup && (
+                            <span className="text-xs text-muted-foreground mb-1.5 px-1.5">
+                              {msg.sender.fullName}
+                            </span>
+                          )}
+                          
+                          {/* Message bubble */}
+                          <div
+                            className={`relative rounded-2xl px-4 py-2.5 flex items-center justify-center min-h-[36px] ${
+                              isOwnMessage
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-200 text-gray-900'
+                            }`}
+                          >
+                            <p className="text-sm whitespace-pre-wrap break-words text-center leading-normal m-0 w-full">{msg.message}</p>
+                          </div>
+                          
+                          {/* Timestamp - only show for the latest message */}
+                          {index === messages.length - 1 && (
+                            <span className={`text-xs text-muted-foreground mt-1 px-1.5 ${
+                              isOwnMessage ? 'text-right' : 'text-left'
+                            }`}>
+                              {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Spacer for own messages */}
+                        {isOwnMessage && (
+                          <div className="flex-shrink-0 w-8" />
+                        )}
+                      </div>
+                    );
+                  })
+                )}
                 <div ref={messagesEndRef} />
               </div>
-              <div className="flex gap-2">
-                <Input
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  placeholder="Nhập tin nhắn..."
-                />
-                <Button onClick={handleSendMessage} size="icon">
-                  <Send className="h-4 w-4" />
-                </Button>
+              
+              {/* Input area */}
+              <div className="border-t p-3 bg-background">
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1 relative">
+                    <Textarea
+                      ref={textareaRef}
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      placeholder="Type a message..."
+                      className="min-h-[44px] max-h-[120px] resize-none pr-12 rounded-2xl"
+                      rows={1}
+                    />
+                  </div>
+                  <Button 
+                    onClick={handleSendMessage} 
+                    size="icon"
+                    className="rounded-full h-11 w-11 flex-shrink-0"
+                    disabled={!newMessage.trim()}
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -923,30 +1002,30 @@ export default function OrderPage() {
         <div className="space-y-4 lg:sticky lg:top-20 lg:h-fit">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Thông tin đơn hàng</CardTitle>
+              <CardTitle className="text-base">Order Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Mã đơn</p>
+                <p className="text-xs text-muted-foreground mb-1">Order ID</p>
                 <p className="text-sm font-medium">#{order.id}</p>
               </div>
               <Separator />
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Trạng thái</p>
+                <p className="text-xs text-muted-foreground mb-1">Status</p>
                 <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
               </div>
               <Separator />
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Người bán</p>
+                <p className="text-xs text-muted-foreground mb-1">Seller</p>
                 <p className="text-sm font-medium">{order.seller.fullName}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Người mua</p>
+                <p className="text-xs text-muted-foreground mb-1">Buyer</p>
                 <p className="text-sm font-medium">{order.buyer.fullName}</p>
               </div>
               <Separator />
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Tổng tiền</p>
+                <p className="text-xs text-muted-foreground mb-1">Total Amount</p>
                 <p className="text-xl font-bold text-brand">
                   {parseFloat(order.finalPrice.toString()).toLocaleString('vi-VN')} VNĐ
                 </p>
@@ -964,41 +1043,41 @@ export default function OrderPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {myReview ? 'Thay đổi đánh giá' : 'Đánh giá giao dịch'}
+              {myReview ? 'Change Review' : 'Review Transaction'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {reviewingFor && order && (
               <p className="text-sm text-muted-foreground">
-                Bạn đang đánh giá: {reviewingFor === 'seller' ? order.seller.fullName : order.buyer.fullName}
+                You are reviewing: {reviewingFor === 'seller' ? order.seller.fullName : order.buyer.fullName}
               </p>
             )}
             <div>
-              <p className="text-sm font-medium mb-2">Đánh giá:</p>
+              <p className="text-sm font-medium mb-2">Rating:</p>
               <div className="flex gap-2">
                 <Button
                   variant={reviewRating === 1 ? 'default' : 'outline'}
                   onClick={() => setReviewRating(1)}
                   className="flex-1"
                 >
-                  +1 (Tích cực)
+                  +1 (Positive)
                 </Button>
                 <Button
                   variant={reviewRating === -1 ? 'destructive' : 'outline'}
                   onClick={() => setReviewRating(-1)}
                   className="flex-1"
                 >
-                  -1 (Tiêu cực)
+                  -1 (Negative)
                 </Button>
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium mb-1.5 block">Nhận xét</label>
+              <label className="text-sm font-medium mb-1.5 block">Comment</label>
               <Textarea
                 rows={4}
                 value={reviewComment}
                 onChange={(e) => setReviewComment(e.target.value)}
-                placeholder="Nhập nhận xét của bạn về giao dịch này..."
+                placeholder="Enter your comment about this transaction..."
               />
             </div>
           </div>
@@ -1010,10 +1089,10 @@ export default function OrderPage() {
                 setReviewingFor(null);
               }}
             >
-              Hủy
+              Cancel
             </Button>
             <Button onClick={handleSubmitReview}>
-              {myReview ? 'Cập nhật đánh giá' : 'Gửi đánh giá'}
+              {myReview ? 'Update Review' : 'Submit Review'}
             </Button>
           </DialogFooter>
         </DialogContent>
