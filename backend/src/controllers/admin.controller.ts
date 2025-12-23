@@ -345,7 +345,7 @@ export const updateUserRole = async (req: AuthRequest, res: Response, next: Next
 
     // Update role
     user.role = role;
-    
+
     // If changing to seller, clear any pending upgrade requests
     if (role === 'seller') {
       user.upgradeRequestStatus = undefined;
@@ -428,7 +428,7 @@ export const testEmail = async (req: AuthRequest, res: Response, next: NextFunct
     }
 
     const { sendQuestionNotificationEmail } = require('../utils/email.util');
-    
+
     await sendQuestionNotificationEmail(
       email,
       'Sản phẩm test',
@@ -612,7 +612,8 @@ export const getUserDetails = async (req: AuthRequest, res: Response, next: Next
 
     // Get user's bids
     const { Bid } = require('../models');
-    const bids = await Bid.findAll({
+    // Get all user's bids ordered by most recent
+    const allBids = await Bid.findAll({
       where: { bidderId: id },
       include: [
         {
@@ -621,17 +622,18 @@ export const getUserDetails = async (req: AuthRequest, res: Response, next: Next
           attributes: ['id', 'name', 'status', 'currentPrice'],
         },
       ],
-      attributes: [
-        'id',
-        'amount',
-        'createdAt',
-        [sequelize.fn('MAX', sequelize.col('Bid.id')), 'latestBidId']
-      ],
-      group: ['Bid.productId', 'Bid.id', 'product.id'],
       order: [['createdAt', 'DESC']],
-      limit: 10,
-      subQuery: false,
     });
+
+    // Deduplicate by productId, keeping only the most recent bid per product
+    const seenProducts = new Set();
+    const bids = allBids.filter((bid: any) => {
+      if (!bid.product || seenProducts.has(bid.product.id)) {
+        return false;
+      }
+      seenProducts.add(bid.product.id);
+      return true;
+    }).slice(0, 10); // Limit to 10 unique products
 
     // Get user's orders
     const orders = await Order.findAll({
