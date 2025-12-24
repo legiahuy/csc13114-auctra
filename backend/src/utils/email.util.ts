@@ -132,24 +132,38 @@ export const sendBidNotificationEmail = async (
   email: string,
   productName: string,
   amount: number,
-  isOutbid: boolean = false
+  isOutbid: boolean = false,
+  productId?: number
 ): Promise<void> => {
-  const html = `
-    <h2>${isOutbid ? "Bạn đã bị vượt giá" : "Ra giá thành công"}</h2>
-    <p>Sản phẩm: <strong>${productName}</strong></p>
-    <p>Giá ${isOutbid ? "mới" : "đặt"}: <strong>${amount.toLocaleString(
-    "vi-VN"
-  )} VNĐ</strong></p>
-    <p><a href="${
-      process.env.FRONTEND_URL
-    }/products/${productName}">Xem chi tiết</a></p>
-  `;
+  const templatePath = path.join(__dirname, "../templates/bid-notification.mjml");
+  
+  const notificationType = isOutbid ? "Outbid Alert" : "Bid Placed Successfully";
+  const message = isOutbid 
+    ? "Your bid has been outbid. The current price has been updated. Place a new bid to stay in the auction!"
+    : "Your bid has been placed successfully. You are currently the highest bidder!";
+  const priceLabel = isOutbid ? "New Current Price" : "Your Bid Amount";
+  
+  const productUrl = productId 
+    ? `${process.env.FRONTEND_URL}/products/${productId}`
+    : `${process.env.FRONTEND_URL}/products`;
+
+  const html = renderMJMLTemplate(templatePath, {
+    notificationType,
+    userName: "", // Will show "Hello ," which is fine for generic emails
+    message,
+    productName,
+    priceLabel,
+    currentPrice: `${amount.toLocaleString("en-US")} VND`,
+    productUrl,
+  });
+
   await sendEmail(
     email,
-    `${isOutbid ? "Bạn đã bị vượt giá" : "Ra giá thành công"} - ${productName}`,
+    `${notificationType} - ${productName}`,
     html
   );
 };
+
 
 export const sendQuestionNotificationEmail = async (
   sellerEmail: string,
@@ -158,141 +172,126 @@ export const sendQuestionNotificationEmail = async (
   productId: number,
   askerName?: string
 ): Promise<void> => {
+  const templatePath = path.join(__dirname, "../templates/qa-notification.mjml");
   const productUrl = `${process.env.FRONTEND_URL}/products/${productId}`;
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <style>
-        body {
-          font-family: Arial, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-        }
-        .container {
-          background-color: #f9f9f9;
-          border-radius: 8px;
-          padding: 30px;
-          border: 1px solid #e0e0e0;
-        }
-        h2 {
-          color: #1976d2;
-          margin-top: 0;
-        }
-        .info-box {
-          background-color: #fff;
-          border-left: 4px solid #1976d2;
-          padding: 15px;
-          margin: 20px 0;
-        }
-        .question-box {
-          background-color: #fff;
-          border: 1px solid #e0e0e0;
-          border-radius: 4px;
-          padding: 15px;
-          margin: 15px 0;
-        }
-        .button {
-          display: inline-block;
-          background-color: #1976d2;
-          color: #ffffff !important;
-          padding: 12px 30px;
-          text-decoration: none;
-          border-radius: 4px;
-          margin: 20px 0;
-          font-weight: bold;
-        }
-        .button:hover {
-          background-color: #1565c0;
-        }
-        .footer {
-          margin-top: 30px;
-          padding-top: 20px;
-          border-top: 1px solid #e0e0e0;
-          font-size: 12px;
-          color: #666;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h2>📧 Có câu hỏi mới về sản phẩm của bạn</h2>
-        
-        <div class="info-box">
-          <p><strong>Sản phẩm:</strong> ${productName}</p>
-          ${askerName ? `<p><strong>Người hỏi:</strong> ${askerName}</p>` : ''}
-        </div>
-        
-        <div class="question-box">
-          <p><strong>Câu hỏi:</strong></p>
-          <p>${question}</p>
-        </div>
-        
-        <p>Vui lòng truy cập vào trang sản phẩm để trả lời câu hỏi này.</p>
-        
-        <a href="${productUrl}" class="button">Xem chi tiết sản phẩm và trả lời</a>
-        
-        <div class="footer">
-          <p>Email này được gửi tự động từ hệ thống Online Auction.</p>
-          <p>Nếu bạn không muốn nhận email này, vui lòng liên hệ với chúng tôi.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-  await sendEmail(sellerEmail, `Câu hỏi mới về ${productName}`, html);
+  
+  const html = renderMJMLTemplate(templatePath, {
+    notificationType: "📧 New Question About Your Product",
+    userName: "", // Generic greeting
+    message: "You have received a new question about one of your products. Please review and respond to help potential buyers.",
+    productName,
+    askerLabel: askerName ? "Asked by" : "",
+    askerName: askerName || "",
+    questionLabel: "Question",
+    question,
+    answerLabel: "",
+    answer: "",
+    actionText: "View Product and Answer",
+    productUrl,
+  });
+
+  await sendEmail(sellerEmail, `New Question About ${productName}`, html);
 };
+
 
 export const sendAnswerNotificationEmail = async (
   email: string,
   productName: string,
   answer: string,
-  productId: number
+  productId: number,
+  question?: string
 ): Promise<void> => {
-  const html = `
-    <h2>Người bán đã trả lời câu hỏi của bạn</h2>
-    <p>Sản phẩm: <strong>${productName}</strong></p>
-    <p>Câu trả lời: ${answer}</p>
-    <p><a href="${process.env.FRONTEND_URL}/products/${productId}">Xem chi tiết</a></p>
-  `;
-  await sendEmail(email, `Trả lời về ${productName}`, html);
+  const templatePath = path.join(__dirname, "../templates/qa-notification.mjml");
+  const productUrl = `${process.env.FRONTEND_URL}/products/${productId}`;
+  
+  const html = renderMJMLTemplate(templatePath, {
+    notificationType: "Answer Received",
+    userName: "", // Generic greeting
+    message: "The seller has answered a question about this product. View the details below.",
+    productName,
+    askerLabel: "",
+    askerName: "",
+    questionLabel: question ? "Question" : "",
+    question: question || "",
+    answerLabel: "Answer",
+    answer,
+    actionText: "View Product Details",
+    productUrl,
+  });
+
+  await sendEmail(email, `Answer About ${productName}`, html);
 };
+
 
 export const sendAuctionEndedEmail = async (
   email: string,
   productName: string,
   isWinner: boolean,
-  finalPrice?: number
+  finalPrice?: number,
+  productId?: number
 ): Promise<void> => {
-  const html = `
-    <h2>Đấu giá đã kết thúc</h2>
-    <p>Sản phẩm: <strong>${productName}</strong></p>
-    ${
-      isWinner
-        ? `<p>Chúc mừng! Bạn đã thắng đấu giá với giá: <strong>${finalPrice?.toLocaleString(
-            "vi-VN"
-          )} VNĐ</strong></p>
-         <p><a href="${
-           process.env.FRONTEND_URL
-         }/orders">Hoàn tất đơn hàng</a></p>`
-        : "<p>Đấu giá đã kết thúc. Sản phẩm này không có người thắng.</p>"
-    }
-  `;
-  await sendEmail(email, `Đấu giá kết thúc - ${productName}`, html);
+  const templatePath = path.join(__dirname, "../templates/auction-ended.mjml");
+  
+  let emailTitle: string;
+  let message: string;
+  let actionText: string;
+  let actionUrl: string;
+  let additionalInfo: string = "";
+  
+  if (isWinner) {
+    emailTitle = "🎉 Congratulations! You Won the Auction";
+    message = "Congratulations! You have won the auction. Please complete your order to finalize the purchase.";
+    actionText = "Complete Your Order";
+    actionUrl = `${process.env.FRONTEND_URL}/orders`;
+    additionalInfo = "Please proceed with payment and shipping details to complete your purchase.";
+  } else {
+    emailTitle = "Auction Ended";
+    message = "The auction for this product has ended.";
+    actionText = "View Product Details";
+    actionUrl = productId 
+      ? `${process.env.FRONTEND_URL}/products/${productId}`
+      : `${process.env.FRONTEND_URL}/products`;
+    additionalInfo = finalPrice 
+      ? "The product was sold to another bidder."
+      : "This auction ended with no bids.";
+  }
+
+  const html = renderMJMLTemplate(templatePath, {
+    emailTitle,
+    userName: "", // Generic greeting
+    message,
+    productName,
+    finalPrice: finalPrice ? `${finalPrice.toLocaleString("en-US")} VND` : "",
+    additionalInfo,
+    actionText,
+    actionUrl,
+  });
+
+  await sendEmail(email, `Auction Ended - ${productName}`, html);
 };
+
 
 export const sendBidRejectedEmail = async (
   email: string,
-  productName: string
+  productName: string,
+  productId?: number
 ): Promise<void> => {
-  const html = `
-    <h2>Lượt ra giá của bạn đã bị từ chối</h2>
-    <p>Sản phẩm: <strong>${productName}</strong></p>
-    <p>Người bán đã từ chối lượt ra giá của bạn. Bạn không thể tiếp tục đấu giá sản phẩm này.</p>
-  `;
-  await sendEmail(email, `Ra giá bị từ chối - ${productName}`, html);
+  const templatePath = path.join(__dirname, "../templates/bid-notification.mjml");
+  
+  const productUrl = productId 
+    ? `${process.env.FRONTEND_URL}/products/${productId}`
+    : `${process.env.FRONTEND_URL}/products`;
+
+  const html = renderMJMLTemplate(templatePath, {
+    notificationType: "Bid Rejected",
+    userName: "", // Generic greeting
+    message: "The seller has rejected your bid. You are no longer able to bid on this product.",
+    productName,
+    priceLabel: "Status",
+    currentPrice: "Rejected",
+    productUrl,
+  });
+
+  await sendEmail(email, `Bid Rejected - ${productName}`, html);
 };
+

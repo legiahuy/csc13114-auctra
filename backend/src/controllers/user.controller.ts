@@ -422,7 +422,8 @@ export const answerQuestion = async (req: AuthRequest, res: Response, next: Next
         questioner.email,
         product.name,
         answer,
-        question.productId
+        question.productId,
+        question.question
       );
     }
 
@@ -454,7 +455,8 @@ export const answerQuestion = async (req: AuthRequest, res: Response, next: Next
         user.email,
         product.name,
         answer,
-        question.productId
+        question.productId,
+        question.question
       );
     }
 
