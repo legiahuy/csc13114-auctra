@@ -243,20 +243,7 @@ export default function ProfilePage() {
   const positiveCount = user.rating;
   const negativeCount = Math.max(user.totalRatings - user.rating, 0);
   const mockReviews: Review[] = [
-    {
-      id: -1,
-      rating: 1,
-      comment: "Fast transaction, item matches description.",
-      reviewer: { id: -1, fullName: "Nguyễn Văn A" },
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: -2,
-      rating: -1,
-      comment: "Delivery was slower than expected, but seller still provided support.",
-      reviewer: { id: -2, fullName: "Trần Thị B" },
-      createdAt: new Date(Date.now() - 86400000).toISOString(),
-    },
+
   ];
 
   return (
