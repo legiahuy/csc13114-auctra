@@ -1,0 +1,118 @@
+<mjml>
+  <mj-head>
+    <mj-title>{{emailTitle}} - Auctra</mj-title>
+    <mj-preview>{{message}}</mj-preview>
+
+    <mj-attributes>
+      <mj-all font-family="Inter, Arial, Helvetica, sans-serif" />
+      <mj-text color="#6b7280" font-size="15px" line-height="1.6" />
+    </mj-attributes>
+
+    <mj-style>
+      .brand-color { background-color: #526ba8 !important; }
+    </mj-style>
+  </mj-head>
+
+  <mj-body background-color="#f9fafb">
+    <!-- Header Section -->
+    <mj-section background-color="#526ba8" padding="20px 40px">
+      <mj-column>
+        <mj-image
+          src="https://iili.io/f0V24LJ.png"
+          width="50px"
+          alt="Auctra"
+          padding="0 0px 0 0"
+        />
+
+        <mj-text
+          font-size="28px"
+          font-weight="700"
+          color="#ffffff"
+          padding="0"
+          align="center"
+        >
+          Auctra
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- Content Section -->
+    <mj-section background-color="#ffffff" padding="48px 40px">
+      <mj-column>
+        <mj-text
+          font-size="22px"
+          font-weight="700"
+          color="#0f172a"
+          padding="0 0 12px 0"
+        >
+          {{emailTitle}}
+        </mj-text>
+
+        <mj-text color="#6b7280" padding="0 0 8px 0">
+          {{greeting}}
+        </mj-text>
+
+        <mj-text color="#6b7280" padding="0 0 24px 0">
+          {{message}}
+        </mj-text>
+
+        <!-- Optional Product Info -->
+        {{#if productName}}
+        <mj-text
+          font-size="14px"
+          font-weight="600"
+          color="#0f172a"
+          padding="0 0 6px 0"
+        >
+          Product
+        </mj-text>
+
+        <mj-text color="#6b7280" padding="0 0 24px 0">
+          {{productName}}
+        </mj-text>
+        {{/if}}
+
+        <!-- Optional Additional Info -->
+        {{#if additionalInfo}}
+        <mj-text color="#6b7280" padding="0 0 24px 0">
+          {{additionalInfo}}
+        </mj-text>
+        {{/if}}
+
+        <!-- Optional Action Button -->
+        {{#if actionText}}
+        <mj-button
+          background-color="#526ba8"
+          color="#ffffff"
+          font-weight="600"
+          border-radius="6px"
+          padding="24px 0"
+          href="{{actionUrl}}"
+        >
+          {{actionText}}
+        </mj-button>
+        {{/if}}
+      </mj-column>
+    </mj-section>
+
+    <!-- Footer Section -->
+    <mj-section background-color="#f9fafb" padding="32px 40px">
+      <mj-column>
+        <mj-text font-size="12px" color="#6b7280" padding="0 0 16px 0">
+          This is an automated message from Auctra. Please do not reply to this
+          email.
+        </mj-text>
+
+        <mj-divider border-color="#e5e7eb" padding="16px 0" />
+
+        <mj-text font-size="12px" color="#6b7280" padding="0 0 4px 0">
+          © 2025 Auctra. All rights reserved.
+        </mj-text>
+
+        <mj-text font-size="12px" color="#6b7280" padding="0">
+          Contact: support@auctra.com
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>
