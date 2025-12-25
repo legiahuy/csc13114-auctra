@@ -132,17 +132,17 @@ export const sendBidNotificationEmail = async (
   email: string,
   productName: string,
   amount: number,
+  productId: number,
   isOutbid: boolean = false
 ): Promise<void> => {
+  const productUrl = `${process.env.FRONTEND_URL}/products/${productId}`;
   const html = `
     <h2>${isOutbid ? "Bạn đã bị vượt giá" : "Ra giá thành công"}</h2>
     <p>Sản phẩm: <strong>${productName}</strong></p>
     <p>Giá ${isOutbid ? "mới" : "đặt"}: <strong>${amount.toLocaleString(
     "vi-VN"
   )} VNĐ</strong></p>
-    <p><a href="${
-      process.env.FRONTEND_URL
-    }/products/${productName}">Xem chi tiết</a></p>
+    <p><a href="${productUrl}">Xem chi tiết sản phẩm</a></p>
   `;
   await sendEmail(
     email,
@@ -265,9 +265,11 @@ export const sendAnswerNotificationEmail = async (
 export const sendAuctionEndedEmail = async (
   email: string,
   productName: string,
+  productId: number,
   isWinner: boolean,
   finalPrice?: number
 ): Promise<void> => {
+  const productUrl = `${process.env.FRONTEND_URL}/products/${productId}`;
   const html = `
     <h2>Đấu giá đã kết thúc</h2>
     <p>Sản phẩm: <strong>${productName}</strong></p>
@@ -276,10 +278,12 @@ export const sendAuctionEndedEmail = async (
         ? `<p>Chúc mừng! Bạn đã thắng đấu giá với giá: <strong>${finalPrice?.toLocaleString(
             "vi-VN"
           )} VNĐ</strong></p>
+         <p><a href="${productUrl}">Xem chi tiết sản phẩm</a></p>
          <p><a href="${
            process.env.FRONTEND_URL
          }/orders">Hoàn tất đơn hàng</a></p>`
-        : "<p>Đấu giá đã kết thúc. Sản phẩm này không có người thắng.</p>"
+        : `<p>Đấu giá đã kết thúc. Sản phẩm này không có người thắng.</p>
+         <p><a href="${productUrl}">Xem chi tiết sản phẩm</a></p>`
     }
   `;
   await sendEmail(email, `Đấu giá kết thúc - ${productName}`, html);
@@ -287,12 +291,15 @@ export const sendAuctionEndedEmail = async (
 
 export const sendBidRejectedEmail = async (
   email: string,
-  productName: string
+  productName: string,
+  productId: number
 ): Promise<void> => {
+  const productUrl = `${process.env.FRONTEND_URL}/products/${productId}`;
   const html = `
     <h2>Lượt ra giá của bạn đã bị từ chối</h2>
     <p>Sản phẩm: <strong>${productName}</strong></p>
     <p>Người bán đã từ chối lượt ra giá của bạn. Bạn không thể tiếp tục đấu giá sản phẩm này.</p>
+    <p><a href="${productUrl}">Xem chi tiết sản phẩm</a></p>
   `;
   await sendEmail(email, `Ra giá bị từ chối - ${productName}`, html);
 };

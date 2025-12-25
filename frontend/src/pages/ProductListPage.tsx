@@ -287,38 +287,40 @@ export default function ProductListPage() {
                 {getCategoryNameById(categoryId) || "All categories"}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuContent align="start" className="w-[180px]">
               <DropdownMenuItem onSelect={() => setCategoryId("")}>
                 All categories
               </DropdownMenuItem>
               <Separator />
               {categories.map((category) =>
                 category.children && category.children.length > 0 ? (
-                  <DropdownMenuSub key={category.id}>
-                    <DropdownMenuSubTrigger
-                      onSelect={(e) => {
-                        e.preventDefault();
-                      }}
+                  <div key={category.id}>
+                    <DropdownMenuItem
+                      onSelect={() => setCategoryId(category.id.toString())}
                     >
                       {category.name}
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuItem
-                        onSelect={() => setCategoryId(category.id.toString())}
+                    </DropdownMenuItem>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger
+                        onSelect={(e) => {
+                          e.preventDefault();
+                        }}
+                        className="pl-2 text-muted-foreground"
                       >
-                        {category.name}
-                      </DropdownMenuItem>
-                      <Separator />
-                      {category.children.map((child) => (
-                        <DropdownMenuItem
-                          key={child.id}
-                          onSelect={() => setCategoryId(child.id.toString())}
-                        >
-                          {child.name}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
+                        Subcategories →
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="w-[180px]">
+                        {category.children.map((child) => (
+                          <DropdownMenuItem
+                            key={child.id}
+                            onSelect={() => setCategoryId(child.id.toString())}
+                          >
+                            {child.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  </div>
                 ) : (
                   <DropdownMenuItem
                     key={category.id}
