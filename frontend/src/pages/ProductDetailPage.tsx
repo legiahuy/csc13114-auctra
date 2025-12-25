@@ -116,9 +116,7 @@ export default function ProductDetailPage() {
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [bidHistory, setBidHistory] = useState<BidHistory[]>([]);
 
-  const [bidAmount, setBidAmount] = useState("");
   const [maxAmount, setMaxAmount] = useState("");
-  const [isAutoBid, setIsAutoBid] = useState(false);
 
   const [isInWatchlist, setIsInWatchlist] = useState(false);
 
@@ -159,13 +157,13 @@ export default function ProductDetailPage() {
         setRelatedProducts(productRes.data.data.relatedProducts || []);
         setBidHistory(bidHistoryRes.data.data || []);
 
-        // Suggested bid
+        // Suggested max amount (auto-bidding only)
         if (productData.bids && productData.bids[0]) {
-          const suggestedBid =
-            Number(productData.currentPrice) + Number(productData.bidStep);
-          setBidAmount(String(suggestedBid));
+          const suggestedMax =
+            Number(productData.currentPrice) + Number(productData.bidStep) * 2;
+          setMaxAmount(String(suggestedMax));
         } else {
-          setBidAmount(String(productData.startingPrice));
+          setMaxAmount(String(productData.startingPrice));
         }
 
         // Watchlist + order info (only if logged in)
@@ -210,12 +208,7 @@ export default function ProductDetailPage() {
       return;
     }
 
-    if (!isAutoBid && !bidAmount) {
-      toast.error("Please enter a bid amount");
-      return;
-    }
-
-    if (isAutoBid && !maxAmount) {
+    if (!maxAmount) {
       toast.error("Please enter a maximum amount");
       return;
     }
@@ -227,9 +220,9 @@ export default function ProductDetailPage() {
     try {
       await apiClient.post("/bids", {
         productId: id,
-        amount: bidAmount,
-        maxAmount: isAutoBid ? maxAmount : undefined,
-        isAutoBid,
+        amount: maxAmount, // System will calculate actual bid
+        maxAmount: maxAmount,
+        isAutoBid: true, // Always auto-bid
       });
 
       toast.success("Bid placed successfully");
@@ -360,11 +353,6 @@ export default function ProductDetailPage() {
 
   const parseCurrencyValue = (value: string): string => value.replace(/\D/g, "");
 
-  const handleBidAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const rawValue = parseCurrencyValue(e.target.value);
-    setBidAmount(rawValue);
-  };
-
   const handleMaxAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
     const rawValue = parseCurrencyValue(e.target.value);
     setMaxAmount(rawValue);
@@ -391,7 +379,9 @@ export default function ProductDetailPage() {
 
   const isSeller = user?.id === product.sellerId;
   const isEnded =
-    product.status === "ended" || new Date(product.endDate) <= new Date();
+    product.status === "ended" ||
+    product.status === "cancelled" ||
+    new Date(product.endDate) <= new Date();
 
   const sellerRating = getRatingPercentage(
     product.seller.rating,
@@ -403,15 +393,12 @@ export default function ProductDetailPage() {
   const highestBidderRating =
     highestBidder && highestBidder.bidder.totalRatings > 0
       ? getRatingPercentage(
-          highestBidder.bidder.rating,
-          highestBidder.bidder.totalRatings
-        )
+        highestBidder.bidder.rating,
+        highestBidder.bidder.totalRatings
+      )
       : 0;
 
   const allImages = [product.mainImage, ...(product.images || [])];
-
-  const suggestedNextBid =
-    Number(product.currentPrice) + Number(product.bidStep);
 
   return (
     <div className="space-y-6">
@@ -427,6 +414,13 @@ export default function ProductDetailPage() {
               View order details
             </Link>
           </div>
+        </div>
+      )}
+
+      {product.status === "cancelled" && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <AlertCircle className="h-4 w-4 mt-0.5" />
+          <p className="font-medium my-0">This product has been cancelled by the administrator.</p>
         </div>
       )}
 
@@ -464,11 +458,10 @@ export default function ProductDetailPage() {
                     key={idx}
                     type="button"
                     onClick={() => setSelectedImage(idx)}
-                    className={`h-16 w-16 rounded-md overflow-hidden border ${
-                      selectedImage === idx
-                        ? "border-primary ring-2 ring-primary/40"
-                        : "border-border"
-                    }`}
+                    className={`h-16 w-16 rounded-md overflow-hidden border ${selectedImage === idx
+                      ? "border-primary ring-2 ring-primary/40"
+                      : "border-border"
+                      }`}
                   >
                     <img
                       src={img}
@@ -500,21 +493,22 @@ export default function ProductDetailPage() {
                     className="h-8 w-8"
                   >
                     <Heart
-                      className={`h-5 w-5 transition-colors ${
-                        isInWatchlist
-                          ? "text-red-500 fill-red-500"
-                          : ""
-                      }`}
+                      className={`h-5 w-5 transition-colors ${isInWatchlist
+                        ? "text-red-500 fill-red-500"
+                        : ""
+                        }`}
                     />
                   </Button>
                 </div>
               </CardTitle>
 
               <CardDescription className="flex flex-wrap gap-2">
-                <Badge className="flex items-center gap-1 border-brand/30 text-brand font-semibold transition-colors">
-                  <Clock className="h-3.5 w-3.5" />
-                  <span>Ends: {formatRelativeTime(product.endDate)}</span>
-                </Badge>
+                {product.status !== "cancelled" && (
+                  <Badge className="flex items-center gap-1 border-brand/30 text-brand font-semibold transition-colors">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>Ends: {formatRelativeTime(product.endDate)}</span>
+                  </Badge>
+                )}
                 <Badge variant="outline" className="flex items-center gap-1">
                   <Gavel className="h-3.5 w-3.5" />
                   <span>{product.bidCount} bids</span>
@@ -721,76 +715,35 @@ export default function ProductDetailPage() {
                     <>
                       {!isSeller ? (
                         <div className="space-y-4">
-                          <div className="flex items-center gap-2 text-sm">
-                            <input
-                              id="auto-bid"
-                              type="checkbox"
-                              checked={isAutoBid}
-                              onChange={(e) => setIsAutoBid(e.target.checked)}
-                              className="h-4 w-4 rounded border border-input text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                            />
-                            <label
-                              htmlFor="auto-bid"
-                              className="text-sm text-foreground"
-                            >
-                              Automatic bidding
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">
+                              Maximum amount
                             </label>
+                            <div className="relative">
+                              <Input
+                                className="bg-background pr-12"
+                                type="text"
+                                inputMode="numeric"
+                                value={formatCurrencyDisplay(maxAmount)}
+                                onChange={handleMaxAmountChange}
+                                placeholder="0"
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                                VNĐ
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              The system will automatically bid up to this
+                              maximum amount to help you win at the lowest possible price.
+                            </p>
                           </div>
-
-                          {!isAutoBid ? (
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">
-                                Bid amount
-                              </label>
-                              <div className="relative">
-                                <Input
-                                  className="bg-background pr-12"
-                                  type="text"
-                                  inputMode="numeric"
-                                  value={formatCurrencyDisplay(bidAmount)}
-                                  onChange={handleBidAmountChange}
-                                  placeholder="0"
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
-                                  VNĐ
-                                </span>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                Suggested next bid:{" "}
-                                {suggestedNextBid.toLocaleString("vi-VN")} VNĐ
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">
-                                Maximum amount
-                              </label>
-                              <div className="relative">
-                                <Input
-                                  className="bg-background pr-12"
-                                  type="text"
-                                  inputMode="numeric"
-                                  value={formatCurrencyDisplay(maxAmount)}
-                                  onChange={handleMaxAmountChange}
-                                  placeholder="0"
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
-                                  VNĐ
-                                </span>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                The system will automatically bid up to this
-                                maximum amount.
-                              </p>
-                            </div>
-                          )}
 
                           <Button
                             className="w-full"
                             onClick={handlePlaceBid}
-                            disabled={!isAutoBid && !bidAmount}
+                            disabled={!maxAmount}
                           >
-                            {isAutoBid ? "Place automatic bid" : "Place bid"}
+                            Place automatic bid
                           </Button>
                         </div>
                       ) : (
@@ -832,25 +785,15 @@ export default function ProductDetailPage() {
           </DialogHeader>
 
           <div className="space-y-3 text-sm">
-            {!isAutoBid ? (
-              <>
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">You will bid</span>
-                  <span className="font-semibold">
-                    {Number(bidAmount || "0").toLocaleString("vi-VN")} VNĐ
-                  </span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Auto-bid max</span>
-                  <span className="font-semibold">
-                    {Number(maxAmount || "0").toLocaleString("vi-VN")} VNĐ
-                  </span>
-                </div>
-              </>
-            )}
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Maximum bid amount</span>
+              <span className="font-semibold">
+                {Number(maxAmount || "0").toLocaleString("vi-VN")} VNĐ
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The system will automatically place bids on your behalf up to this maximum amount.
+            </p>
 
             <Separator />
 

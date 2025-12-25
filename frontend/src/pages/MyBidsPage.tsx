@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import apiClient from "../api/client";
 import { useAuthStore } from "../store/authStore";
@@ -9,6 +9,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { LoaderIcon } from "lucide-react";
+import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
+import { usePagination } from "@/hooks/usePagination";
+import { useState } from "react";
 
 interface Bid {
   id: number;
@@ -32,19 +45,39 @@ export default function MyBidsPage() {
   const { user } = useAuthStore();
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("");
+
+  const { searchInput, debouncedSearch, setSearchInput, handleClear, isSearching } =
+    useDebouncedSearch();
+  const { pagination, setPagination, handlePageChange } = usePagination();
 
   useEffect(() => {
     if (!user) {
       navigate("/login");
       return;
     }
-    fetchBids();
   }, [user, navigate]);
 
+  useEffect(() => {
+    if (!user) return;
+    fetchBids();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, pagination.page, debouncedSearch, statusFilter]);
+
   const fetchBids = async () => {
+    setLoading(true);
     try {
-      const response = await apiClient.get("/users/bids");
-      setBids(response.data.data || []);
+      const params: any = {
+        page: pagination.page,
+        limit: 12,
+      };
+
+      if (debouncedSearch) params.search = debouncedSearch;
+      if (statusFilter) params.status = statusFilter;
+
+      const response = await apiClient.get("/users/bids", { params });
+      setBids(response.data.data.bids || []);
+      setPagination(response.data.data.pagination);
     } catch (error) {
       console.error("Error fetching bids:", error);
       toast.error("Unable to load bid history");
@@ -53,12 +86,15 @@ export default function MyBidsPage() {
     }
   };
 
-  if (loading) {
+  const handleStatusChange = (value: string) => {
+    const status = value === "all" ? "" : value;
+    setStatusFilter(status);
+    handlePageChange(1);
+  };
+
+  if (loading && bids.length === 0) {
     return <Loading />;
   }
-
-  const activeBids = bids.filter((bid) => bid.product.status === "active");
-  const endedBids = bids.filter((bid) => bid.product.status !== "active");
 
   return (
     <div className="space-y-6">
@@ -67,180 +103,193 @@ export default function MyBidsPage() {
           My Bids
         </h1>
         <p className="text-lg text-neutral-600 dark:text-neutral-400">
-          {bids.length} bid{bids.length !== 1 ? "s" : ""} total
+          {pagination.total} bid{pagination.total !== 1 ? "s" : ""} total
         </p>
       </div>
 
-      {bids.length === 0 ? (
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+        <div className="flex-1 space-y-2">
+          <Label htmlFor="search">Search</Label>
+          <div className="flex gap-2 relative">
+            <Input
+              id="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search by product name..."
+              className="pr-10 bg-background"
+            />
+            {isSearching && (
+              <LoaderIcon
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors animate-spin size-4"
+                role="status"
+                aria-label="Loading"
+              />
+            )}
+            {searchInput && !isSearching && (
+              <button
+                onClick={handleClear}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Clear search"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <Select value={statusFilter || "all"} onValueChange={handleStatusChange}>
+            <SelectTrigger className="w-[180px] bg-background">
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="ended">Ended</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {bids.length === 0 && !loading ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">
-            You have not placed any bids yet.
+            {debouncedSearch || statusFilter
+              ? "No bids found matching your filters."
+              : "You have not placed any bids yet."}
           </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            Start bidding on products you're interested in!
-          </p>
+          {!debouncedSearch && !statusFilter && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Start bidding on products you're interested in!
+            </p>
+          )}
         </div>
       ) : (
         <>
-          {activeBids.length > 0 && (
-            <div className="space-y-6 mb-8">
-              <div>
-                <h2 className="text-2xl font-semibold text-foreground mb-1">
-                  Active Bids
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {activeBids.length} active bid
-                  {activeBids.length !== 1 ? "s" : ""}
-                </p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {activeBids.map((bid) => (
-                  <Card
-                    key={bid.id}
-                    className="h-full flex flex-col hover:shadow-lg transition-shadow"
-                  >
-                    <div className="aspect-video overflow-hidden rounded-t-xl">
-                      <img
-                        src={bid.product.mainImage}
-                        alt={bid.product.name}
-                        className="w-full h-full object-cover"
-                      />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {bids.map((bid) => (
+              <Card
+                key={bid.id}
+                className="h-full flex flex-col hover:shadow-lg transition-shadow"
+              >
+                <div className="aspect-video overflow-hidden rounded-t-xl">
+                  <img
+                    src={bid.product.mainImage}
+                    alt={bid.product.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <CardContent className="p-6 space-y-4 flex-1 flex flex-col">
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold leading-tight line-clamp-2">
+                      {bid.product.name}
+                    </h3>
+                    <Badge variant="secondary" className="text-xs">
+                      {bid.product.category.name}
+                    </Badge>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2 flex-1">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Your bid
+                      </p>
+                      <p className="text-xl font-bold text-brand">
+                        {Number(bid.amount).toLocaleString("vi-VN")} VNĐ
+                      </p>
                     </div>
-                    <CardContent className="p-6 space-y-4 flex-1 flex flex-col">
-                      <div className="space-y-2">
-                        <h3 className="text-lg font-semibold leading-tight line-clamp-2">
-                          {bid.product.name}
-                        </h3>
-                        <Badge variant="secondary" className="text-xs">
-                          {bid.product.category.name}
-                        </Badge>
+                    {bid.product.status === "active" && (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">
+                          Current price
+                        </p>
+                        <p className="text-lg font-semibold text-foreground">
+                          {Number(bid.product.currentPrice).toLocaleString(
+                            "vi-VN"
+                          )}{" "}
+                          VNĐ
+                        </p>
                       </div>
-
-                      <Separator />
-
-                      <div className="space-y-2 flex-1">
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">
-                            Your bid
-                          </p>
-                          <p className="text-xl font-bold text-brand">
-                            {Number(bid.amount).toLocaleString("vi-VN")} VNĐ
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">
-                            Current price
-                          </p>
-                          <p className="text-lg font-semibold text-foreground">
-                            {Number(bid.product.currentPrice).toLocaleString(
-                              "vi-VN"
-                            )}{" "}
-                            VNĐ
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">
-                            Bid placed
-                          </p>
-                          <p className="text-sm text-foreground">
-                            {format(
-                              new Date(bid.createdAt),
-                              "dd/MM/yyyy HH:mm"
-                            )}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2">
-                        <Badge
-                          variant="default"
-                          className="bg-emerald-500 hover:bg-emerald-600 text-white"
-                        >
-                          Active
-                        </Badge>
-                        <Button variant="outline" size="sm" asChild>
-                          <Link to={`/products/${bid.product.id}`}>
-                            View details
-                          </Link>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {endedBids.length > 0 && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-semibold text-foreground mb-1">
-                  Ended Bids
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {endedBids.length} ended bid
-                  {endedBids.length !== 1 ? "s" : ""}
-                </p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {endedBids.map((bid) => (
-                  <Card
-                    key={bid.id}
-                    className="h-full flex flex-col hover:shadow-lg transition-shadow"
-                  >
-                    <div className="aspect-video overflow-hidden rounded-t-xl">
-                      <img
-                        src={bid.product.mainImage}
-                        alt={bid.product.name}
-                        className="w-full h-full object-cover"
-                      />
+                    )}
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Bid placed
+                      </p>
+                      <p className="text-sm text-foreground">
+                        {format(new Date(bid.createdAt), "dd/MM/yyyy HH:mm")}
+                      </p>
                     </div>
-                    <CardContent className="p-6 space-y-4 flex-1 flex flex-col">
-                      <div className="space-y-2">
-                        <h3 className="text-lg font-semibold leading-tight line-clamp-2">
-                          {bid.product.name}
-                        </h3>
-                        <Badge variant="secondary" className="text-xs">
-                          {bid.product.category.name}
-                        </Badge>
-                      </div>
+                  </div>
 
-                      <Separator />
+                  <div className="flex items-center justify-between pt-2">
+                    <Badge
+                      variant={
+                        bid.product.status === "active"
+                          ? "default"
+                          : bid.product.status === "cancelled"
+                          ? "destructive"
+                          : "outline"
+                      }
+                      className={
+                        bid.product.status === "active"
+                          ? "bg-emerald-500 hover:bg-emerald-600 text-white"
+                          : ""
+                      }
+                    >
+                      {bid.product.status === "active"
+                        ? "Active"
+                        : bid.product.status === "cancelled"
+                        ? "Cancelled"
+                        : "Ended"}
+                    </Badge>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to={`/products/${bid.product.id}`}>
+                        View details
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-                      <div className="space-y-2 flex-1">
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">
-                            Your bid
-                          </p>
-                          <p className="text-xl font-bold text-brand">
-                            {Number(bid.amount).toLocaleString("vi-VN")} VNĐ
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">
-                            Bid placed
-                          </p>
-                          <p className="text-sm text-foreground">
-                            {format(
-                              new Date(bid.createdAt),
-                              "dd/MM/yyyy HH:mm"
-                            )}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2">
-                        <Badge variant="outline">Ended</Badge>
-                        <Button variant="outline" size="sm" asChild>
-                          <Link to={`/products/${bid.product.id}`}>
-                            View details
-                          </Link>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+          {/* Pagination */}
+          {pagination.totalPages > 1 && (
+            <div className="flex justify-center items-center gap-2 mt-8">
+              <Button
+                variant="outline"
+                onClick={() => handlePageChange(pagination.page - 1)}
+                disabled={pagination.page === 1}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {pagination.page} / {pagination.totalPages}
+              </span>
+              <Button
+                variant="outline"
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={pagination.page === pagination.totalPages}
+              >
+                Next
+              </Button>
             </div>
           )}
         </>

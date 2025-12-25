@@ -36,6 +36,58 @@ export default function Layout({ children }: LayoutProps) {
     fetchCategories();
   }, []);
 
+  // Periodically check if user's role has changed
+  useEffect(() => {
+    if (!user) return;
+
+    let isActive = true;
+
+    const checkUserRole = async () => {
+      if (!isActive) return;
+      
+      try {
+        const response = await apiClient.get("/users/profile");
+        const updatedUser = response.data.data;
+        
+        // Get the current user from the store at check time
+        const currentUser = useAuthStore.getState().user;
+        if (!currentUser) return;
+        
+        console.log("Role check:", {
+          currentRole: currentUser.role,
+          fetchedRole: updatedUser.role,
+          willUpdate: updatedUser.role !== currentUser.role
+        });
+        
+        // If role or upgrade status has changed, update the auth store
+        if (
+          updatedUser.role !== currentUser.role ||
+          updatedUser.upgradeExpireAt !== currentUser.upgradeExpireAt
+        ) {
+          console.log("Updating user role from", currentUser.role, "to", updatedUser.role);
+          // Call updateUser directly from store to avoid dependency issues
+          useAuthStore.getState().updateUser({
+            role: updatedUser.role,
+            upgradeExpireAt: updatedUser.upgradeExpireAt,
+          });
+        }
+      } catch (error) {
+        console.error("Error checking user role:", error);
+      }
+    };
+
+    // Check immediately on mount
+    checkUserRole();
+
+    // Then check every 10 seconds
+    const interval = setInterval(checkUserRole, 10000);
+
+    return () => {
+      isActive = false;
+      clearInterval(interval);
+    };
+  }, [user?.id]); // Only re-run if user ID changes (login/logout)
+
   const fetchCategories = async () => {
     try {
       const response = await apiClient.get("/categories");
