@@ -294,33 +294,27 @@ export default function ProductListPage() {
               <Separator />
               {categories.map((category) =>
                 category.children && category.children.length > 0 ? (
-                  <div key={category.id}>
-                    <DropdownMenuItem
-                      onSelect={() => setCategoryId(category.id.toString())}
+                  <DropdownMenuSub key={category.id}>
+                    <DropdownMenuSubTrigger
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setCategoryId(category.id.toString());
+                      }}
                     >
                       {category.name}
-                    </DropdownMenuItem>
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger
-                        onSelect={(e) => {
-                          e.preventDefault();
-                        }}
-                        className="pl-2 text-muted-foreground"
-                      >
-                        Subcategories →
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent className="w-[180px]">
-                        {category.children.map((child) => (
-                          <DropdownMenuItem
-                            key={child.id}
-                            onSelect={() => setCategoryId(child.id.toString())}
-                          >
-                            {child.name}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                  </div>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-[180px]">
+                      {category.children.map((child) => (
+                        <DropdownMenuItem
+                          key={child.id}
+                          onSelect={() => setCategoryId(child.id.toString())}
+                        >
+                          {child.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                 ) : (
                   <DropdownMenuItem
                     key={category.id}
