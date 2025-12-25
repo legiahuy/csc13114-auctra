@@ -87,22 +87,15 @@ export default function Layout({ children }: LayoutProps) {
                       category.children && category.children.length > 0 ? (
                         <DropdownMenuSub key={category.id}>
                           <DropdownMenuSubTrigger
-                            onSelect={(e) => {
+                            onClick={(e) => {
                               e.preventDefault();
+                              e.stopPropagation();
+                              handleCategoryClick(category.slug);
                             }}
                           >
                             {category.name}
                           </DropdownMenuSubTrigger>
                           <DropdownMenuSubContent>
-                            <DropdownMenuItem
-                              onSelect={() =>
-                                handleCategoryClick(category.slug)
-                              }
-                              className="focus-visible:outline-none focus-visible:ring-0"
-                            >
-                              {category.name}
-                            </DropdownMenuItem>
-                            <Separator />
                             {category.children.map((child) => (
                               <DropdownMenuItem
                                 key={child.id}

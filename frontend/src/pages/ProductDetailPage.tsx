@@ -143,6 +143,14 @@ export default function ProductDetailPage() {
   // Confirm place bid dialog
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  // Reject bid dialog
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [selectedBidId, setSelectedBidId] = useState<number | null>(null);
+  const [rejectResult, setRejectResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [id]);
@@ -320,12 +328,21 @@ export default function ProductDetailPage() {
     }
   };
 
-  const handleRejectBid = async (bidId: number) => {
-    if (!window.confirm("Are you sure you want to reject this bid?")) return;
+  const handleOpenRejectDialog = (bidId: number) => {
+    setSelectedBidId(bidId);
+    setRejectResult(null);
+    setRejectDialogOpen(true);
+  };
+
+  const handleRejectBid = async () => {
+    if (!selectedBidId) return;
 
     try {
-      await apiClient.put(`/bids/${bidId}/reject`);
-      toast.success("Bid rejected");
+      await apiClient.put(`/bids/${selectedBidId}/reject`);
+      setRejectResult({
+        success: true,
+        message: "Bid has been rejected successfully. The bidder will be notified.",
+      });
 
       const [productRes, bidHistoryRes] = await Promise.all([
         apiClient.get(`/products/${id}`),
@@ -335,7 +352,10 @@ export default function ProductDetailPage() {
       setProduct(productRes.data.data.product);
       setBidHistory(bidHistoryRes.data.data);
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || "Failed to reject bid");
+      setRejectResult({
+        success: false,
+        message: error.response?.data?.error?.message || "Failed to reject bid",
+      });
     }
   };
 
@@ -950,7 +970,7 @@ export default function ProductDetailPage() {
                         <Button
                           size="sm"
                           variant="destructive"
-                          onClick={() => handleRejectBid(bid.id)}
+                          onClick={() => handleOpenRejectDialog(bid.id)}
                           disabled={bid.isRejected}
                         >
                           {bid.isRejected ? "Rejected" : "Reject"}
@@ -1041,6 +1061,68 @@ export default function ProductDetailPage() {
               Cancel
             </Button>
             <Button onClick={handleAnswerQuestion}>Submit</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Bid Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="text-center">
+            <DialogTitle className="text-center">
+              {rejectResult ? "Reject Bid Result" : "Reject Bid"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {!rejectResult ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to reject this bid? This action cannot be undone.
+                The bidder will be notified and will not be able to bid on this product again.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div
+                className={`flex items-start gap-3 p-4 rounded-lg border ${
+                  rejectResult.success
+                    ? "bg-green-50 border-green-200 text-green-900"
+                    : "bg-red-50 border-red-200 text-red-900"
+                }`}
+              >
+                <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                <p className="text-sm">{rejectResult.message}</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="!justify-center sm:!justify-center">
+            {!rejectResult ? (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setRejectDialogOpen(false);
+                    setSelectedBidId(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={handleRejectBid}>
+                  Reject
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={() => {
+                  setRejectDialogOpen(false);
+                  setSelectedBidId(null);
+                  setRejectResult(null);
+                }}
+              >
+                Close
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
