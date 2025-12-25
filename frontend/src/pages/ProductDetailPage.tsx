@@ -151,6 +151,9 @@ export default function ProductDetailPage() {
     message: string;
   } | null>(null);
 
+  // Rejected bidder status
+  const [isRejectedBidder, setIsRejectedBidder] = useState(false);
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [id]);
@@ -168,6 +171,7 @@ export default function ProductDetailPage() {
         setProduct(productData);
         setRelatedProducts(productRes.data.data.relatedProducts || []);
         setBidHistory(bidHistoryRes.data.data || []);
+        setIsRejectedBidder(productRes.data.data.isRejectedBidder || false);
 
         // Suggested bid
         if (productData.bids && productData.bids[0]) {
@@ -254,6 +258,7 @@ export default function ProductDetailPage() {
       ]);
       setProduct(productRes.data.data.product);
       setBidHistory(bidHistoryRes.data.data);
+      setIsRejectedBidder(productRes.data.data.isRejectedBidder || false);
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || "Failed to place bid");
     }
@@ -351,6 +356,7 @@ export default function ProductDetailPage() {
 
       setProduct(productRes.data.data.product);
       setBidHistory(bidHistoryRes.data.data);
+      setIsRejectedBidder(productRes.data.data.isRejectedBidder || false);
     } catch (error: any) {
       setRejectResult({
         success: false,
@@ -769,79 +775,94 @@ export default function ProductDetailPage() {
                   {user ? (
                     <>
                       {!isSeller ? (
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-2 text-sm">
-                            <input
-                              id="auto-bid"
-                              type="checkbox"
-                              checked={isAutoBid}
-                              onChange={(e) => setIsAutoBid(e.target.checked)}
-                              className="h-4 w-4 rounded border border-input text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                            />
-                            <label
-                              htmlFor="auto-bid"
-                              className="text-sm text-foreground"
+                        isRejectedBidder ? (
+                          <div className="space-y-3">
+                            <Button
+                              className="w-full"
+                              disabled
                             >
-                              Automatic bidding
-                            </label>
+                              Place bid
+                            </Button>
+                            <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
+                              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                              <span>You have been rejected from bidding on this product by the seller.</span>
+                            </div>
                           </div>
-
-                          {!isAutoBid ? (
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">
-                                Bid amount
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-2 text-sm">
+                              <input
+                                id="auto-bid"
+                                type="checkbox"
+                                checked={isAutoBid}
+                                onChange={(e) => setIsAutoBid(e.target.checked)}
+                                className="h-4 w-4 rounded border border-input text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                              />
+                              <label
+                                htmlFor="auto-bid"
+                                className="text-sm text-foreground"
+                              >
+                                Automatic bidding
                               </label>
-                              <div className="relative">
-                                <Input
-                                  className="bg-background pr-12"
-                                  type="text"
-                                  inputMode="numeric"
-                                  value={formatCurrencyDisplay(bidAmount)}
-                                  onChange={handleBidAmountChange}
-                                  placeholder="0"
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
-                                  VNĐ
-                                </span>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                Suggested next bid:{" "}
-                                {suggestedNextBid.toLocaleString("vi-VN")} VNĐ
-                              </p>
                             </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">
-                                Maximum amount
-                              </label>
-                              <div className="relative">
-                                <Input
-                                  className="bg-background pr-12"
-                                  type="text"
-                                  inputMode="numeric"
-                                  value={formatCurrencyDisplay(maxAmount)}
-                                  onChange={handleMaxAmountChange}
-                                  placeholder="0"
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
-                                  VNĐ
-                                </span>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                The system will automatically bid up to this
-                                maximum amount.
-                              </p>
-                            </div>
-                          )}
 
-                          <Button
-                            className="w-full"
-                            onClick={handlePlaceBid}
-                            disabled={!isAutoBid && !bidAmount}
-                          >
-                            {isAutoBid ? "Place automatic bid" : "Place bid"}
-                          </Button>
-                        </div>
+                            {!isAutoBid ? (
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                  Bid amount
+                                </label>
+                                <div className="relative">
+                                  <Input
+                                    className="bg-background pr-12"
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={formatCurrencyDisplay(bidAmount)}
+                                    onChange={handleBidAmountChange}
+                                    placeholder="0"
+                                  />
+                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                                    VNĐ
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  Suggested next bid:{" "}
+                                  {suggestedNextBid.toLocaleString("vi-VN")} VNĐ
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                  Maximum amount
+                                </label>
+                                <div className="relative">
+                                  <Input
+                                    className="bg-background pr-12"
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={formatCurrencyDisplay(maxAmount)}
+                                    onChange={handleMaxAmountChange}
+                                    placeholder="0"
+                                  />
+                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                                    VNĐ
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  The system will automatically bid up to this
+                                  maximum amount.
+                                </p>
+                              </div>
+                            )}
+
+                            <Button
+                              className="w-full"
+                              onClick={handlePlaceBid}
+                              disabled={!isAutoBid && !bidAmount}
+                            >
+                              {isAutoBid ? "Place automatic bid" : "Place bid"}
+                            </Button>
+                          </div>
+                        )
                       ) : (
                         <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
                           This is your product; you cannot place a bid.

@@ -271,7 +271,7 @@ export const getProducts = async (
 };
 
 export const getProductById = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ) => {
@@ -332,6 +332,19 @@ export const getProductById = async (
     // Mark isNew
     product.setDataValue("isNew", isProductNew(product));
 
+    // Check if current user is rejected bidder
+    let isRejectedBidder = false;
+    if (req.user) {
+      const rejectedBid = await Bid.findOne({
+        where: {
+          productId: id,
+          bidderId: req.user.id,
+          isRejected: true,
+        },
+      });
+      isRejectedBidder = !!rejectedBid;
+    }
+
     // Increment view count
     product.viewCount += 1;
     await product.save();
@@ -363,6 +376,7 @@ export const getProductById = async (
       data: {
         product,
         relatedProducts,
+        isRejectedBidder,
       },
     });
   } catch (error) {
