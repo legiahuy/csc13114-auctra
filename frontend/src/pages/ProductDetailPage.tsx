@@ -191,12 +191,6 @@ export default function ProductDetailPage() {
             );
             if (productOrder) {
               setOrder(productOrder);
-              // Auto redirect to OrderPage if auction has ended and user is seller/buyer
-              const isEnded = productData.status === "ended" || new Date(productData.endDate) <= new Date();
-              if (isEnded && productOrder) {
-                navigate(`/orders/${productOrder.id}`, { replace: true });
-                return;
-              }
             }
           } catch {
             // ignore

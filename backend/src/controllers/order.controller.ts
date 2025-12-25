@@ -50,6 +50,7 @@ export const processEndedAuctions = async () => {
       await sendAuctionEndedEmail(
         product.seller.email,
         product.name,
+        product.id,
         false,
         undefined
       );
@@ -57,6 +58,7 @@ export const processEndedAuctions = async () => {
       await sendAuctionEndedEmail(
         winningBid.bidder.email,
         product.name,
+        product.id,
         true,
         parseFloat(winningBid.amount.toString())
       );
@@ -65,6 +67,7 @@ export const processEndedAuctions = async () => {
       await sendAuctionEndedEmail(
         product.seller.email,
         product.name,
+        product.id,
         false,
         undefined
       );

@@ -161,6 +161,7 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
       req.user.email,
       product.name,
       finalAmount,
+      productId,
       false
     );
 
@@ -169,6 +170,7 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
         previousHighestBidder.email,
         product.name,
         finalAmount,
+        productId,
         true
       );
     }
@@ -177,6 +179,7 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
       product.seller.email,
       product.name,
       finalAmount,
+      productId,
       false
     );
 
@@ -308,7 +311,7 @@ export const rejectBid = async (req: AuthRequest, res: Response, next: NextFunct
     }
 
     // Send notification
-    await sendBidRejectedEmail(bid.bidder.email, bid.product.name);
+    await sendBidRejectedEmail(bid.bidder.email, bid.product.name, bid.productId);
 
     res.json({
       success: true,

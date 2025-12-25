@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { io, Socket } from "socket.io-client";
 import { format } from "date-fns";
 import {
   Plus,
-  Trash2,
   Edit,
   Image as ImageIcon,
   AlertCircle,
@@ -28,7 +27,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -47,12 +45,14 @@ import {
   TabsContent,
 } from "@/components/ui/tabs";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import RichTextEditor from "@/components/RichTextEditor";
@@ -61,6 +61,7 @@ interface Category {
   id: number;
   name: string;
   parentId?: number;
+  children?: Category[];
 }
 
 interface Product {
@@ -169,6 +170,16 @@ export default function SellerDashboardPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [reviewRating, setReviewRating] = useState<1 | -1>(1);
   const [reviewComment, setReviewComment] = useState("");
+  const categoryTriggerRef = useRef<HTMLButtonElement>(null);
+  const [categoryMenuWidth, setCategoryMenuWidth] = useState<number | undefined>(undefined);
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+
+  // Set category menu width when dialog opens
+  useEffect(() => {
+    if (createDialogOpen && categoryTriggerRef.current) {
+      setCategoryMenuWidth(categoryTriggerRef.current.offsetWidth);
+    }
+  }, [createDialogOpen]);
 
   useEffect(() => {
     if (user?.role !== "seller") {
@@ -893,25 +904,70 @@ export default function SellerDashboardPage() {
 
             <div className="space-y-2">
               <Label htmlFor="categoryId">Category *</Label>
-              <Select
-                value={formik.values.categoryId}
-                onValueChange={(value) =>
-                  formik.setFieldValue("categoryId", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories
-                    .filter((c) => !c.parentId)
-                    .map((category) => (
-                      <SelectItem key={category.id} value={category.id.toString()}>
+              <DropdownMenu open={categoryMenuOpen} onOpenChange={setCategoryMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    ref={categoryTriggerRef}
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    {formik.values.categoryId
+                      ? categories
+                          .flatMap((c) => [
+                            c,
+                            ...(c.children || []),
+                          ])
+                          .find((cat) => cat.id.toString() === formik.values.categoryId)?.name ||
+                        "Select category"
+                      : "Select category"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent 
+                  align="start" 
+                  style={{ width: categoryMenuWidth ? `${categoryMenuWidth}px` : undefined }}
+                  className={!categoryMenuWidth ? "w-full" : ""}
+                >
+                  {categories.map((category) =>
+                    category.children && category.children.length > 0 ? (
+                      <DropdownMenuSub key={category.id}>
+                        <DropdownMenuSubTrigger
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            formik.setFieldValue("categoryId", category.id.toString());
+                            setCategoryMenuOpen(false);
+                          }}
+                        >
+                          {category.name}
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                          {category.children.map((child) => (
+                            <DropdownMenuItem
+                              key={child.id}
+                              onSelect={() => {
+                                formik.setFieldValue("categoryId", child.id.toString());
+                                setCategoryMenuOpen(false);
+                              }}
+                            >
+                              {child.name}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    ) : (
+                      <DropdownMenuItem
+                        key={category.id}
+                        onSelect={() => {
+                          formik.setFieldValue("categoryId", category.id.toString());
+                          setCategoryMenuOpen(false);
+                        }}
+                      >
                         {category.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+                      </DropdownMenuItem>
+                    )
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
               {formik.touched.categoryId && formik.errors.categoryId && (
                 <p className="text-xs text-destructive">
                   {formik.errors.categoryId}
@@ -934,7 +990,7 @@ export default function SellerDashboardPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 -mt-2">
               <div className="space-y-2">
                 <Label htmlFor="startingPrice">Starting Price (VNĐ) *</Label>
                 <Input
@@ -1065,7 +1121,7 @@ export default function SellerDashboardPage() {
             <Separator />
 
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-start gap-2">
                 <input
                   type="checkbox"
                   id="autoExtend"
@@ -1073,14 +1129,14 @@ export default function SellerDashboardPage() {
                   onChange={(e) =>
                     formik.setFieldValue("autoExtend", e.target.checked)
                   }
-                  className="h-4 w-4 rounded border border-input"
+                  className="h-4 w-4 rounded border border-input flex-shrink-0 mt-0.5"
                 />
                 <Label htmlFor="autoExtend" className="text-sm font-normal cursor-pointer">
                   Auto-extend: When there is a new bid within {autoExtendConfig.thresholdMinutes} minutes before the end, the product will automatically extend by {autoExtendConfig.durationMinutes} minutes
                 </Label>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-start gap-2">
                 <input
                   type="checkbox"
                   id="allowUnratedBidders"
@@ -1088,7 +1144,7 @@ export default function SellerDashboardPage() {
                   onChange={(e) =>
                     formik.setFieldValue("allowUnratedBidders", e.target.checked)
                   }
-                  className="h-4 w-4 rounded border border-input"
+                  className="h-4 w-4 rounded border border-input flex-shrink-0 mt-0.5"
                 />
                 <Label htmlFor="allowUnratedBidders" className="text-sm font-normal cursor-pointer">
                   Allow unrated bidders to participate
