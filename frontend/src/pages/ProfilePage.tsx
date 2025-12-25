@@ -131,6 +131,7 @@ export default function ProfilePage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [bids, setBids] = useState<Bid[]>([]);
+  const [bidsPagination, setBidsPagination] = useState({ page: 1, totalPages: 1, total: 0 });
   const [wonProducts, setWonProducts] = useState<WonProduct[]>([]);
   const [activeTab, setActiveTab] = useState("reviews");
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -143,7 +144,7 @@ export default function ProfilePage() {
       return;
     }
     fetchData();
-  }, [authUser, navigate]);
+  }, [authUser, navigate, bidsPagination.page]);
 
   const fetchData = async () => {
     try {
@@ -152,14 +153,15 @@ export default function ProfilePage() {
           apiClient.get("/users/profile"),
           apiClient.get("/users/reviews"),
           apiClient.get("/users/watchlist"),
-          apiClient.get("/users/bids"),
+          apiClient.get("/users/bids", { params: { page: bidsPagination.page, limit: 9 } }),
           apiClient.get("/users/won"),
         ]);
 
       setUser(profileRes.data.data);
       setReviews(reviewsRes.data.data || []);
       setWatchlist(watchlistRes.data.data || []);
-      setBids(bidsRes.data.data || []);
+      setBids(bidsRes.data.data?.bids || bidsRes.data.data || []);
+      setBidsPagination(bidsRes.data.data?.pagination || { page: 1, totalPages: 1, total: 0 });
       setWonProducts(wonRes.data.data || []);
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -241,20 +243,7 @@ export default function ProfilePage() {
   const positiveCount = user.rating;
   const negativeCount = Math.max(user.totalRatings - user.rating, 0);
   const mockReviews: Review[] = [
-    {
-      id: -1,
-      rating: 1,
-      comment: "Fast transaction, item matches description.",
-      reviewer: { id: -1, fullName: "Nguyễn Văn A" },
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: -2,
-      rating: -1,
-      comment: "Delivery was slower than expected, but seller still provided support.",
-      reviewer: { id: -2, fullName: "Trần Thị B" },
-      createdAt: new Date(Date.now() - 86400000).toISOString(),
-    },
+
   ];
 
   return (
@@ -523,7 +512,7 @@ export default function ProfilePage() {
                     <Gavel className="h-4 w-4" />
                     <span className="hidden sm:inline">Bids</span>
                     <Badge variant="secondary" className="ml-1">
-                      {bids.length}
+                      {bidsPagination.total}
                     </Badge>
                   </TabsTrigger>
                   <TabsTrigger value="won" className="flex items-center gap-2">
@@ -651,13 +640,14 @@ export default function ProfilePage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {bids.map((bid) => (
-                          <Link
-                            key={bid.id}
-                            to={`/products/${bid.product.id}`}
-                            className="group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow"
-                          >
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {bids.map((bid) => (
+                            <Link
+                              key={bid.id}
+                              to={`/products/${bid.product.id}`}
+                              className="group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow"
+                            >
                             <div className="aspect-video overflow-hidden">
                               <img
                                 src={bid.product.mainImage}
@@ -688,18 +678,54 @@ export default function ProfilePage() {
                                 variant={
                                   bid.product.status === "active"
                                     ? "default"
-                                    : "secondary"
+                                    : bid.product.status === "cancelled"
+                                    ? "destructive"
+                                    : "outline"
                                 }
-                                className="text-xs"
+                                className={
+                                  bid.product.status === "active"
+                                    ? "text-xs bg-emerald-500 hover:bg-emerald-600 text-white"
+                                    : "text-xs"
+                                }
                               >
                                 {bid.product.status === "active"
                                   ? "Active"
+                                  : bid.product.status === "cancelled"
+                                  ? "Cancelled"
                                   : "Ended"}
                               </Badge>
                             </div>
                           </Link>
                         ))}
                       </div>
+                      {bidsPagination.totalPages > 1 && (
+                        <div className="flex justify-center items-center gap-2 mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setBidsPagination(prev => ({ ...prev, page: prev.page - 1 }));
+                            }}
+                            disabled={bidsPagination.page === 1}
+                          >
+                            Previous
+                          </Button>
+                          <span className="text-sm text-muted-foreground">
+                            Page {bidsPagination.page} / {bidsPagination.totalPages}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setBidsPagination(prev => ({ ...prev, page: prev.page + 1 }));
+                            }}
+                            disabled={bidsPagination.page === bidsPagination.totalPages}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      )}
+                      </>
                     )}
                   </div>
                 </TabsContent>

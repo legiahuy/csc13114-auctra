@@ -93,7 +93,7 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
           isRejected: false,
         },
         include: [{ model: User, as: 'bidder' }],
-        order: [['maxAmount', 'DESC']],
+        order: [['maxAmount', 'DESC'], ['createdAt', 'ASC']], // First-come-first-served for equal max bids
       });
 
       if (highestAutoBid) {
@@ -150,7 +150,8 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
       req.user.email,
       product.name,
       finalAmount,
-      false
+      false,
+      productId
     );
 
     if (previousHighestBidder) {
@@ -158,7 +159,8 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
         previousHighestBidder.email,
         product.name,
         finalAmount,
-        true
+        true,
+        productId
       );
     }
 
@@ -166,7 +168,8 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
       product.seller.email,
       product.name,
       finalAmount,
-      false
+      false,
+      productId
     );
 
     res.status(201).json({
@@ -268,7 +271,7 @@ export const rejectBid = async (req: AuthRequest, res: Response, next: NextFunct
     }
 
     // Send notification
-    await sendBidRejectedEmail(bid.bidder.email, bid.product.name);
+    await sendBidRejectedEmail(bid.bidder.email, bid.product.name, bid.productId);
 
     res.json({
       success: true,
