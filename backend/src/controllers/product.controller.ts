@@ -593,19 +593,17 @@ export const updateProductDescription = async (
     const year = now.getFullYear();
     const timestampStr = timestamp || `${day}/${month}/${year}`;
     
-    // Đảm bảo có dòng trống rõ ràng giữa nội dung cũ và mới
+    // Đảm bảo có separator rõ ràng giữa nội dung cũ và mới
     // Loại bỏ khoảng trắng và xuống dòng thừa ở cuối mô tả cũ
     let currentDescription = product.description.trimEnd();
     
-    // Đảm bảo luôn có 1 dòng trống trước timestamp
-    // Nếu mô tả cũ không kết thúc bằng xuống dòng, thêm 1 dòng trống
-    if (!currentDescription.endsWith('\n')) {
-      currentDescription = currentDescription + '\n';
-    }
+    // Format timestamp dưới dạng HTML để hiển thị đẹp với WYSIWYG content
+    // Thêm class để frontend có thể style dễ dàng
+    const timestampHtml = `<div class="description-timestamp-separator"><p class="description-timestamp-text"><strong>✏️ ${timestampStr}</strong></p></div>`;
     
-    // Format: 1 dòng trống + timestamp + 1 dòng trống + nội dung mới
-    const newDescription = `\n✏️ ${timestampStr}\n${additionalDescription.trim()}`;
-    product.description = currentDescription + newDescription;
+    // Nối nội dung: description cũ + separator + timestamp + nội dung mới
+    // additionalDescription đã là HTML từ RichTextEditor
+    product.description = currentDescription + timestampHtml + additionalDescription.trim();
     
     // Update descriptionNoDiacritics for search
     product.descriptionNoDiacritics = removeVietnameseDiacritics(product.description);

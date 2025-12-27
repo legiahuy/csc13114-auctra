@@ -605,12 +605,14 @@ export default function ProductDetailPage() {
               </div>
 
               {/* Description */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <h2 className="text-base font-semibold">Product Description</h2>
-                <div
-                  className="text-sm leading-relaxed text-muted-foreground prose prose-sm max-w-none whitespace-pre-wrap"
-                  dangerouslySetInnerHTML={{ __html: product.description.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>') }}
-                />
+                <div className="rounded-lg border border-border bg-card p-4 md:p-6">
+                  <div
+                    className="text-sm leading-relaxed text-muted-foreground [&_h1]:text-xl [&_h1]:font-bold [&_h1]:text-foreground [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-foreground [&_h3]:mt-3 [&_h3]:mb-2 [&_p]:my-2 [&_p]:text-muted-foreground [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-foreground [&_em]:italic [&_u]:underline [&_s]:line-through [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:space-y-1 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:space-y-1 [&_ol]:my-3 [&_li]:my-1 [&_a]:text-foreground [&_a]:underline [&_a:hover]:text-foreground/80 [&_img]:max-w-full [&_img]:max-h-96 [&_img]:w-auto [&_img]:h-auto [&_img]:object-contain [&_img]:rounded-md [&_img]:my-4 [&_img]:mx-auto [&_img]:block [&_.ql-align-left]:text-left [&_.ql-align-center]:text-center [&_.ql-align-right]:text-right [&_.ql-align-justify]:text-justify [&_.description-timestamp-separator]:mt-8 [&_.description-timestamp-separator]:mb-4 [&_.description-timestamp-separator]:pt-6 [&_.description-timestamp-separator]:border-t [&_.description-timestamp-separator]:border-border [&_.description-timestamp-text]:m-0 [&_.description-timestamp-text]:text-xs [&_.description-timestamp-text]:text-muted-foreground [&_.description-timestamp-text_strong]:font-semibold"
+                    dangerouslySetInnerHTML={{ __html: product.description }}
+                  />
+                </div>
               </div>
 
               {/* Questions & answers */}

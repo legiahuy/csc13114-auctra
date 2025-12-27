@@ -115,6 +115,13 @@ export default function OrderPage() {
   const [reviewComment, setReviewComment] = useState('');
   const [reviewingFor, setReviewingFor] = useState<'seller' | 'buyer' | null>(null);
   const [myReview, setMyReview] = useState<Review | null>(null);
+  
+  // Cancel order dialog
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelResult, setCancelResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const saveTimeoutRef = useRef<number | null>(null);
@@ -494,19 +501,28 @@ export default function OrderPage() {
     setReviewDialogOpen(true);
   };
 
-  const handleCancelOrder = async () => {
-    if (!window.confirm('Are you sure you want to cancel this order?')) return;
+  const handleOpenCancelDialog = () => {
+    setCancelResult(null);
+    setCancelDialogOpen(true);
+  };
 
+  const handleCancelOrder = async () => {
     try {
       await apiClient.put(`/orders/${orderId}`, {
         status: 'cancelled',
       });
-      toast.success('Order cancelled');
+      setCancelResult({
+        success: true,
+        message: 'Order has been cancelled successfully.',
+      });
       if (order) {
         setOrder({ ...order, status: 'cancelled' });
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Failed to cancel order');
+      setCancelResult({
+        success: false,
+        message: error.response?.data?.error?.message || 'Failed to cancel order',
+      });
     }
   };
 
@@ -852,7 +868,7 @@ export default function OrderPage() {
                     {canCancel && (
                       <Button
                         variant="outline"
-                        onClick={handleCancelOrder}
+                        onClick={handleOpenCancelDialog}
                         className="text-destructive hover:text-destructive"
                       >
                         Cancel Order
@@ -1034,6 +1050,73 @@ export default function OrderPage() {
           </Card>
         </div>
       </div>
+
+      {/* Cancel Order Dialog */}
+      <Dialog
+        open={cancelDialogOpen}
+        onOpenChange={(open) => {
+          setCancelDialogOpen(open);
+          if (!open) {
+            setCancelResult(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader className="text-center">
+            <DialogTitle className="text-center">
+              {cancelResult ? "Cancel Order Result" : "Cancel Order"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {!cancelResult ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground text-justify">
+                Are you sure you want to cancel this order? This action cannot be undone.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div
+                className={`flex items-start gap-3 p-4 rounded-lg border ${
+                  cancelResult.success
+                    ? "bg-green-50 border-green-200 text-green-900"
+                    : "bg-red-50 border-red-200 text-red-900"
+                }`}
+              >
+                <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                <p className="text-sm">{cancelResult.message}</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="!justify-center sm:!justify-center">
+            {!cancelResult ? (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCancelDialogOpen(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={handleCancelOrder}>
+                  Cancel Order
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={() => {
+                  setCancelDialogOpen(false);
+                  setCancelResult(null);
+                }}
+              >
+                Close
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Review Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={(open) => {
