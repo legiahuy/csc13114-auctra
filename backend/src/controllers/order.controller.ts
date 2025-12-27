@@ -52,8 +52,7 @@ export const processEndedAuctions = async () => {
         product.name,
         product.id,
         false,
-        undefined,
-        product.id
+        undefined
       );
 
       await sendAuctionEndedEmail(
@@ -61,8 +60,7 @@ export const processEndedAuctions = async () => {
         product.name,
         product.id,
         true,
-        parseFloat(winningBid.amount.toString()),
-        product.id
+        parseFloat(winningBid.amount.toString())
       );
     } else {
       // No winner
@@ -71,8 +69,7 @@ export const processEndedAuctions = async () => {
         product.name,
         product.id,
         false,
-        undefined,
-        product.id
+        undefined
       );
     }
 
@@ -210,7 +207,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response, next: N
     if (status) {
       order.status = status;
     }
-    
+
     // Luôn cho phép cập nhật các field thông tin, kể cả khi không thay đổi status
     // Điều này cho phép auto-save draft
     if (paymentMethod !== undefined) order.paymentMethod = paymentMethod;
@@ -234,7 +231,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response, next: N
         { model: User, as: 'buyer', attributes: ['id', 'fullName', 'email'] },
       ],
     });
-    
+
     if (updatedOrder) {
       io.to(`order-${orderId}`).emit('order-updated', updatedOrder.toJSON());
       // Emit cho seller và buyer để cập nhật orders list

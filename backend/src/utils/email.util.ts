@@ -76,14 +76,14 @@ export const sendEmail = async (
   try {
     logger.info(`Đang gửi email đến ${to}...`);
     logger.info(`Email config: HOST=${process.env.EMAIL_HOST}, PORT=${process.env.EMAIL_PORT}, USER=${process.env.EMAIL_USER}`);
-    
+
     const result = await transporter.sendMail({
       from: process.env.EMAIL_FROM,
       to,
       subject,
       html,
     });
-    
+
     logger.info(`Email đã được gửi thành công đến ${to}`);
     logger.info(`Message ID: ${result.messageId}`);
   } catch (error: any) {
@@ -136,14 +136,14 @@ export const sendBidNotificationEmail = async (
   productId?: number
 ): Promise<void> => {
   const templatePath = path.join(__dirname, "../templates/bid-notification.mjml");
-  
+
   const notificationType = isOutbid ? "Outbid Alert" : "Bid Placed Successfully";
-  const message = isOutbid 
+  const message = isOutbid
     ? "Your bid has been outbid. The current price has been updated. Place a new bid to stay in the auction!"
     : "Your bid has been placed successfully. You are currently the highest bidder!";
   const priceLabel = isOutbid ? "New Current Price" : "Your Bid Amount";
-  
-  const productUrl = productId 
+
+  const productUrl = productId
     ? `${process.env.FRONTEND_URL}/products/${productId}`
     : `${process.env.FRONTEND_URL}/products`;
 
@@ -174,7 +174,7 @@ export const sendQuestionNotificationEmail = async (
 ): Promise<void> => {
   const templatePath = path.join(__dirname, "../templates/qa-notification.mjml");
   const productUrl = `${process.env.FRONTEND_URL}/products/${productId}`;
-  
+
   const html = renderMJMLTemplate(templatePath, {
     notificationType: "📧 New Question About Your Product",
     userName: "", // Generic greeting
@@ -203,7 +203,7 @@ export const sendAnswerNotificationEmail = async (
 ): Promise<void> => {
   const templatePath = path.join(__dirname, "../templates/qa-notification.mjml");
   const productUrl = `${process.env.FRONTEND_URL}/products/${productId}`;
-  
+
   const html = renderMJMLTemplate(templatePath, {
     notificationType: "Answer Received",
     userName: "", // Generic greeting
@@ -228,17 +228,16 @@ export const sendAuctionEndedEmail = async (
   productName: string,
   productId: number,
   isWinner: boolean,
-  finalPrice?: number,
-  productId?: number
+  finalPrice?: number
 ): Promise<void> => {
   const templatePath = path.join(__dirname, "../templates/auction-ended.mjml");
-  
+
   let emailTitle: string;
   let message: string;
   let actionText: string;
   let actionUrl: string;
   let additionalInfo: string = "";
-  
+
   if (isWinner) {
     emailTitle = "🎉 Congratulations! You Won the Auction";
     message = "Congratulations! You have won the auction. Please complete your order to finalize the purchase.";
@@ -249,10 +248,10 @@ export const sendAuctionEndedEmail = async (
     emailTitle = "Auction Ended";
     message = "The auction for this product has ended.";
     actionText = "View Product Details";
-    actionUrl = productId 
+    actionUrl = productId
       ? `${process.env.FRONTEND_URL}/products/${productId}`
       : `${process.env.FRONTEND_URL}/products`;
-    additionalInfo = finalPrice 
+    additionalInfo = finalPrice
       ? "The product was sold to another bidder."
       : "This auction ended with no bids.";
   }
@@ -278,8 +277,8 @@ export const sendBidRejectedEmail = async (
   productId?: number
 ): Promise<void> => {
   const templatePath = path.join(__dirname, "../templates/bid-notification.mjml");
-  
-  const productUrl = productId 
+
+  const productUrl = productId
     ? `${process.env.FRONTEND_URL}/products/${productId}`
     : `${process.env.FRONTEND_URL}/products`;
 
