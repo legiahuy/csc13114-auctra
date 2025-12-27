@@ -27,6 +27,7 @@ import adminRoutes from './routes/admin.routes';
 import chatRoutes from './routes/chat.routes';
 import orderRoutes from './routes/order.routes';
 import uploadRoutes from './routes/upload.routes';
+import paymentRoutes from './routes/payment.routes';
 
 dotenv.config();
 
@@ -103,6 +104,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Socket.IO for real-time chat
 io.on('connection', (socket) => {
@@ -143,7 +145,7 @@ const startServer = async () => {
       logger.info('Database synced.');
     } else {
       logger.info('Database sync skipped. Use SYNC_DB=true to enable, or run "npm run seed" for migrations.');
-      
+
       // Auto-create settings table if it doesn't exist
       try {
         const { Settings } = await import('./models');
@@ -157,7 +159,7 @@ const startServer = async () => {
     httpServer.listen(PORT, () => {
       logger.info(`Server is running on port ${PORT}`);
       logger.info(`Swagger docs available at http://localhost:${PORT}/api-docs`);
-      
+
       // Start auction processor
       startAuctionProcessor();
     });

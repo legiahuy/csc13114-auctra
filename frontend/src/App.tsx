@@ -17,6 +17,7 @@ import SellerDashboardPage from "./pages/SellerDashboardPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import OrderPage from "./pages/OrderPage";
 import CategoryPage from "./pages/CategoryPage";
+import PaymentPage from "./pages/PaymentPage";
 
 function App() {
   const { user } = useAuthStore();
@@ -83,6 +84,7 @@ function App() {
               <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
             )}
             <Route path="/orders/:orderId" element={<OrderPage />} />
+            <Route path="/payment/:orderId" element={<PaymentPage />} />
           </>
         )}
       </Routes>
