@@ -308,7 +308,7 @@ export const askQuestion = async (req: AuthRequest, res: Response, next: NextFun
       return next(new AppError('Authentication required', 401));
     }
 
-    const { productId, question } = req.body;
+    const { productId, question, parentId } = req.body;
 
     const product = await Product.findByPk(productId, {
       include: [{ model: User, as: 'seller' }],
@@ -322,22 +322,85 @@ export const askQuestion = async (req: AuthRequest, res: Response, next: NextFun
       productId,
       userId: req.user.id,
       question,
+      parentId: parentId || null,
     });
 
     // Get asker info for email
     const asker = await User.findByPk(req.user.id);
 
-    // Send email to seller (không await để không block response)
-    sendQuestionNotificationEmail(
-      (product as any).seller?.email,
-      product.name,
-      question,
-      productId,
-      asker?.fullName
-    ).catch((error) => {
-      // Log error nhưng không làm crash request
-      console.error('Lỗi khi gửi email thông báo câu hỏi:', error);
-    });
+    // If this is a reply (has parentId), notify all participants in the thread
+    if (parentId) {
+      // Find the top-level parent comment
+      let topLevelParentId = parentId;
+      let currentParent = await Question.findByPk(parentId);
+
+      while (currentParent && currentParent.parentId) {
+        topLevelParentId = currentParent.parentId;
+        currentParent = await Question.findByPk(currentParent.parentId);
+      }
+
+      // Get all questions in this thread (parent + all replies)
+      const threadQuestions = await Question.findAll({
+        where: {
+          [Op.or]: [
+            { id: topLevelParentId },
+            { parentId: topLevelParentId },
+          ],
+        },
+        include: [
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'email', 'fullName'],
+          },
+        ],
+      });
+
+      // Get unique user IDs who participated (excluding current user)
+      const participantUserIds = new Set<number>();
+      threadQuestions.forEach((q: any) => {
+        if (q.userId !== req.user!.id) {
+          participantUserIds.add(q.userId);
+        }
+      });
+
+      // Also add the product seller
+      if ((product as any).seller?.id !== req.user.id) {
+        participantUserIds.add((product as any).seller?.id);
+      }
+
+      // Get all participant emails
+      const participants = await User.findAll({
+        where: {
+          id: Array.from(participantUserIds),
+        },
+        attributes: ['email', 'fullName'],
+      });
+
+      // Send email to all participants
+      participants.forEach((participant: any) => {
+        sendQuestionNotificationEmail(
+          participant.email,
+          product.name,
+          question,
+          productId,
+          asker?.fullName
+        ).catch((error) => {
+          console.error('Lỗi khi gửi email thông báo reply:', error);
+        });
+      });
+    } else {
+      // This is a top-level comment, only notify seller
+      sendQuestionNotificationEmail(
+        (product as any).seller?.email,
+        product.name,
+        question,
+        productId,
+        asker?.fullName
+      ).catch((error) => {
+        console.error('Lỗi khi gửi email thông báo câu hỏi:', error);
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -457,7 +520,7 @@ export const requestSellerUpgrade = async (req: AuthRequest, res: Response, next
     // Cho phép yêu cầu lại ngay nếu:
     // 1. Request trước đó bị từ chối (rejected)
     // 2. Hoặc đã hết thời hạn seller (upgradeExpireAt đã qua và role đã về bidder)
-    const canRequestImmediately = 
+    const canRequestImmediately =
       user.upgradeRequestStatus === 'rejected' ||
       (user.upgradeExpireAt && user.upgradeExpireAt < new Date() && user.role === 'bidder');
 
