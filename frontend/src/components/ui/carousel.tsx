@@ -22,7 +22,7 @@ export function Carousel({
   const [scrollLeft, setScrollLeft] = React.useState(0);
   const [canScrollLeft, setCanScrollLeft] = React.useState(false);
   const [canScrollRight, setCanScrollRight] = React.useState(true);
-  const autoScrollRef = React.useRef<NodeJS.Timeout | null>(null);
+  const autoScrollRef = React.useRef<number | null>(null);
 
   const checkScrollability = () => {
     if (scrollRef.current) {

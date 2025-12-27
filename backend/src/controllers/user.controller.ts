@@ -196,24 +196,52 @@ export const getMyBids = async (req: AuthRequest, res: Response, next: NextFunct
       return next(new AppError('Authentication required', 401));
     }
 
-    const bids = await Bid.findAll({
-      where: { bidderId: req.user.id },
+    const { page = '1', limit = '12', search, status } = req.query;
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const offset = (pageNum - 1) * limitNum;
+
+    const where: any = { bidderId: req.user.id };
+
+    // Build product filter for nested query
+    const productWhere: any = {};
+    if (search) {
+      productWhere.name = { [Op.iLike]: `%${search}%` };
+    }
+    if (status) {
+      productWhere.status = status;
+    }
+
+    const { count, rows: bids } = await Bid.findAndCountAll({
+      where,
       include: [
         {
           model: Product,
           as: 'product',
+          where: Object.keys(productWhere).length > 0 ? productWhere : undefined,
           include: [
             { model: Category, as: 'category' },
             { model: User, as: 'seller', attributes: ['id', 'fullName'] },
           ],
         },
       ],
+      limit: limitNum,
+      offset,
       order: [['createdAt', 'DESC']],
+      distinct: true, // Important for accurate count with includes
     });
 
     res.json({
       success: true,
-      data: bids,
+      data: {
+        bids,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: count,
+          totalPages: Math.ceil(count / limitNum),
+        },
+      },
     });
   } catch (error) {
     next(error);
@@ -457,7 +485,8 @@ export const answerQuestion = async (req: AuthRequest, res: Response, next: Next
         questioner.email,
         product.name,
         answer,
-        question.productId
+        question.productId,
+        question.question
       );
     }
 
@@ -489,7 +518,8 @@ export const answerQuestion = async (req: AuthRequest, res: Response, next: Next
         user.email,
         product.name,
         answer,
-        question.productId
+        question.productId,
+        question.question
       );
     }
 

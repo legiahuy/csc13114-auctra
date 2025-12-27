@@ -101,31 +101,7 @@ interface Product {
     };
     createdAt: string;
     replyCount?: number;
-    replies?: Array<{
-      id: number;
-      question: string;
-      answer?: string;
-      answeredAt?: string;
-      parentId?: number;
-      user: {
-        id: number;
-        fullName: string;
-      };
-      createdAt: string;
-      replies?: Array<{
-        id: number;
-        question: string;
-        answer?: string;
-        answeredAt?: string;
-        parentId?: number;
-        user: {
-          id: number;
-          fullName: string;
-        };
-        createdAt: string;
-        replies?: Array<any>;
-      }>;
-    }>;
+    replies?: Array<any>;
   }>;
 }
 
@@ -148,21 +124,18 @@ export default function ProductDetailPage() {
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [bidHistory, setBidHistory] = useState<BidHistory[]>([]);
 
-  const [bidAmount, setBidAmount] = useState("");
   const [maxAmount, setMaxAmount] = useState("");
-  const [isAutoBid, setIsAutoBid] = useState(false);
-
   const [isInWatchlist, setIsInWatchlist] = useState(false);
-
   const [loading, setLoading] = useState(true);
 
   const [bidHistoryOpen, setBidHistoryOpen] = useState(false);
   const [expandedReplies, setExpandedReplies] = useState<Set<number>>(new Set());
   const [showReplyInput, setShowReplyInput] = useState<number | null>(null);
-  const [localReplyText, setLocalReplyText] = useState<{ [key: number]: string }>({});
+  const [localReplyText, setLocalReplyText] = useState<{ [key: number]: string }>(
+    {}
+  );
 
   const [question, setQuestion] = useState("");
-
   const [selectedImage, setSelectedImage] = useState(0);
 
   const [order, setOrder] = useState<any>(null);
@@ -200,13 +173,13 @@ export default function ProductDetailPage() {
         setBidHistory(bidHistoryRes.data.data || []);
         setIsRejectedBidder(productRes.data.data.isRejectedBidder || false);
 
-        // Suggested bid
+        // Suggested max amount (auto-bidding only)
         if (productData.bids && productData.bids[0]) {
-          const suggestedBid =
-            Number(productData.currentPrice) + Number(productData.bidStep);
-          setBidAmount(String(suggestedBid));
+          const suggestedMax =
+            Number(productData.currentPrice) + Number(productData.bidStep) * 2;
+          setMaxAmount(String(suggestedMax));
         } else {
-          setBidAmount(String(productData.startingPrice));
+          setMaxAmount(String(productData.startingPrice));
         }
 
         // Watchlist + order info (only if logged in)
@@ -228,9 +201,7 @@ export default function ProductDetailPage() {
                 o.productId === Number(id) &&
                 (o.sellerId === user.id || o.buyerId === user.id)
             );
-            if (productOrder) {
-              setOrder(productOrder);
-            }
+            if (productOrder) setOrder(productOrder);
           } catch {
             // ignore
           }
@@ -253,12 +224,7 @@ export default function ProductDetailPage() {
       return;
     }
 
-    if (!isAutoBid && !bidAmount) {
-      toast.error("Please enter a bid amount");
-      return;
-    }
-
-    if (isAutoBid && !maxAmount) {
+    if (!maxAmount) {
       toast.error("Please enter a maximum amount");
       return;
     }
@@ -270,19 +236,19 @@ export default function ProductDetailPage() {
     try {
       await apiClient.post("/bids", {
         productId: id,
-        amount: bidAmount,
-        maxAmount: isAutoBid ? maxAmount : undefined,
-        isAutoBid,
+        amount: maxAmount, // System will calculate actual bid
+        maxAmount: maxAmount,
+        isAutoBid: true, // Always auto-bid
       });
 
       toast.success("Bid placed successfully");
       setConfirmOpen(false);
 
-      // Refresh data
       const [productRes, bidHistoryRes] = await Promise.all([
         apiClient.get(`/products/${id}`),
         apiClient.get(`/bids/history/${id}`),
       ]);
+
       setProduct(productRes.data.data.product);
       setBidHistory(bidHistoryRes.data.data);
       setIsRejectedBidder(productRes.data.data.isRejectedBidder || false);
@@ -326,15 +292,12 @@ export default function ProductDetailPage() {
       toast.success("Comment posted successfully");
       setQuestion("");
 
-      // Refresh all product data
       const response = await apiClient.get(`/products/${id}`);
       setProduct(response.data.data.product);
       setRelatedProducts(response.data.data.relatedProducts || []);
       setIsRejectedBidder(response.data.data.isRejectedBidder || false);
     } catch (error: any) {
-      toast.error(
-        error.response?.data?.error?.message || "Failed to post comment"
-      );
+      toast.error(error.response?.data?.error?.message || "Failed to post comment");
     }
   };
 
@@ -352,56 +315,46 @@ export default function ProductDetailPage() {
       });
       toast.success("Reply posted successfully");
 
-      // Find top-level question to expand
-      // If parentId is a reply, find its top-level parent
+      // Expand replies on the top-level parent
       let topLevelQuestionId = parentId;
       if (product) {
-        for (const question of product.questions) {
-          if (question.id === parentId) {
-            topLevelQuestionId = question.id;
+        for (const q of product.questions) {
+          if (q.id === parentId) {
+            topLevelQuestionId = q.id;
             break;
           }
-          // Check if parentId is in replies
-          if (question.replies) {
-            for (const reply of question.replies) {
-              if (reply.id === parentId) {
-                topLevelQuestionId = question.id;
+          if (q.replies) {
+            for (const r of q.replies) {
+              if (r.id === parentId) {
+                topLevelQuestionId = q.id;
                 break;
               }
             }
-            if (topLevelQuestionId !== parentId) break;
           }
         }
       }
 
-      // Expand replies section for the top-level question
       setExpandedReplies((prev) => {
-        const newSet = new Set(prev);
-        newSet.add(topLevelQuestionId);
-        return newSet;
+        const ns = new Set(prev);
+        ns.add(topLevelQuestionId);
+        return ns;
       });
 
-      // Refresh all product data
       const response = await apiClient.get(`/products/${id}`);
       setProduct(response.data.data.product);
       setRelatedProducts(response.data.data.relatedProducts || []);
       setIsRejectedBidder(response.data.data.isRejectedBidder || false);
     } catch (error: any) {
-      toast.error(
-        error.response?.data?.error?.message || "Failed to post reply"
-      );
+      toast.error(error.response?.data?.error?.message || "Failed to post reply");
     }
   };
 
   const toggleReplies = (questionId: number) => {
     setExpandedReplies((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(questionId)) {
-        newSet.delete(questionId);
-      } else {
-        newSet.add(questionId);
-      }
-      return newSet;
+      const ns = new Set(prev);
+      if (ns.has(questionId)) ns.delete(questionId);
+      else ns.add(questionId);
+      return ns;
     });
   };
 
@@ -418,7 +371,8 @@ export default function ProductDetailPage() {
       await apiClient.put(`/bids/${selectedBidId}/reject`);
       setRejectResult({
         success: true,
-        message: "Bid has been rejected successfully. The bidder will be notified.",
+        message:
+          "Bid has been rejected successfully. The bidder will be notified.",
       });
 
       const [productRes, bidHistoryRes] = await Promise.all([
@@ -463,11 +417,6 @@ export default function ProductDetailPage() {
 
   const parseCurrencyValue = (value: string): string => value.replace(/\D/g, "");
 
-  const handleBidAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const rawValue = parseCurrencyValue(e.target.value);
-    setBidAmount(rawValue);
-  };
-
   const handleMaxAmountChange = (e: ChangeEvent<HTMLInputElement>) => {
     const rawValue = parseCurrencyValue(e.target.value);
     setMaxAmount(rawValue);
@@ -488,7 +437,14 @@ export default function ProductDetailPage() {
 
   const isSeller = user?.id === product.sellerId;
   const isEnded =
-    product.status === "ended" || new Date(product.endDate) <= new Date();
+    product.status === "ended" ||
+    product.status === "cancelled" ||
+    new Date(product.endDate) <= new Date();
+
+  const canSeeAfterEnd =
+    !isEnded ||
+    isSeller ||
+    (order && (user?.id === order.sellerId || user?.id === order.buyerId));
 
   const sellerRating = getRatingPercentage(
     product.seller.rating,
@@ -500,18 +456,23 @@ export default function ProductDetailPage() {
   const highestBidderRating =
     highestBidder && highestBidder.bidder.totalRatings > 0
       ? getRatingPercentage(
-        highestBidder.bidder.rating,
-        highestBidder.bidder.totalRatings
-      )
+          highestBidder.bidder.rating,
+          highestBidder.bidder.totalRatings
+        )
       : 0;
 
   const allImages = [product.mainImage, ...(product.images || [])];
 
-  const suggestedNextBid =
-    Number(product.currentPrice) + Number(product.bidStep);
-
   return (
     <div className="space-y-6">
+      {product.status === "cancelled" && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <AlertCircle className="h-4 w-4 mt-0.5" />
+          <p className="font-medium my-0">
+            This product has been cancelled by the administrator.
+          </p>
+        </div>
+      )}
 
       {product.status === "ended" && !order && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -547,10 +508,11 @@ export default function ProductDetailPage() {
                     key={idx}
                     type="button"
                     onClick={() => setSelectedImage(idx)}
-                    className={`h-16 w-16 rounded-md overflow-hidden border ${selectedImage === idx
-                      ? "border-primary ring-2 ring-primary/40"
-                      : "border-border"
-                      }`}
+                    className={`h-16 w-16 rounded-md overflow-hidden border ${
+                      selectedImage === idx
+                        ? "border-primary ring-2 ring-primary/40"
+                        : "border-border"
+                    }`}
                   >
                     <img
                       src={img}
@@ -582,20 +544,21 @@ export default function ProductDetailPage() {
                     className="h-8 w-8"
                   >
                     <Heart
-                      className={`h-5 w-5 transition-colors ${isInWatchlist
-                        ? "text-red-500 fill-red-500"
-                        : ""
-                        }`}
+                      className={`h-5 w-5 transition-colors ${
+                        isInWatchlist ? "text-red-500 fill-red-500" : ""
+                      }`}
                     />
                   </Button>
                 </div>
               </CardTitle>
 
               <CardDescription className="flex flex-wrap gap-2">
-                <Badge className="flex items-center gap-1 border-brand/30 text-brand font-semibold transition-colors">
-                  <Clock className="h-3.5 w-3.5" />
-                  <span>Ends: {formatRelativeTime(product.endDate)}</span>
-                </Badge>
+                {product.status !== "cancelled" && (
+                  <Badge className="flex items-center gap-1 border-brand/30 text-brand font-semibold transition-colors">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>Ends: {formatRelativeTime(product.endDate)}</span>
+                  </Badge>
+                )}
                 <Badge variant="outline" className="flex items-center gap-1">
                   <Gavel className="h-3.5 w-3.5" />
                   <span>{product.bidCount} bids</span>
@@ -606,9 +569,7 @@ export default function ProductDetailPage() {
 
             <CardContent className="space-y-6">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">
-                  Current price
-                </p>
+                <p className="text-xs text-muted-foreground mb-1">Current price</p>
                 <p className="text-3xl font-bold text-brand">
                   {Number(product.currentPrice).toLocaleString("vi-VN")} VNĐ
                 </p>
@@ -616,9 +577,7 @@ export default function ProductDetailPage() {
 
               {product.buyNowPrice && (
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">
-                    Buy now price
-                  </p>
+                  <p className="text-xs text-muted-foreground mb-1">Buy now price</p>
                   <p className="text-xl font-semibold text-foreground">
                     {Number(product.buyNowPrice).toLocaleString("vi-VN")} VNĐ
                   </p>
@@ -679,7 +638,7 @@ export default function ProductDetailPage() {
                 <h2 className="text-base font-semibold">Product Description</h2>
                 <div className="rounded-lg border border-border bg-card p-4 md:p-6">
                   <div
-                    className="text-sm leading-relaxed text-muted-foreground [&_h1]:text-xl [&_h1]:font-bold [&_h1]:text-foreground [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-foreground [&_h3]:mt-3 [&_h3]:mb-2 [&_p]:my-2 [&_p]:text-muted-foreground [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-foreground [&_em]:italic [&_u]:underline [&_s]:line-through [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:space-y-1 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:space-y-1 [&_ol]:my-3 [&_li]:my-1 [&_a]:text-foreground [&_a]:underline [&_a:hover]:text-foreground/80 [&_img]:max-w-full [&_img]:max-h-96 [&_img]:w-auto [&_img]:h-auto [&_img]:object-contain [&_img]:rounded-md [&_img]:my-4 [&_img]:mx-auto [&_img]:block [&_.ql-align-left]:text-left [&_.ql-align-center]:text-center [&_.ql-align-right]:text-right [&_.ql-align-justify]:text-justify [&_.description-timestamp-separator]:mt-8 [&_.description-timestamp-separator]:mb-4 [&_.description-timestamp-separator]:pt-6 [&_.description-timestamp-separator]:border-t [&_.description-timestamp-separator]:border-border [&_.description-timestamp-text]:m-0 [&_.description-timestamp-text]:text-xs [&_.description-timestamp-text]:text-muted-foreground [&_.description-timestamp-text_strong]:font-semibold"
+                    className="text-sm leading-relaxed text-muted-foreground [&_h1]:text-xl [&_h1]:font-bold [&_h1]:text-foreground [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-foreground [&_h3]:mt-3 [&_h3]:mb-2 [&_p]:my-2 [&_p]:text-muted-foreground [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-foreground [&_em]:italic [&_u]:underline [&_s]:line-through [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:space-y-1 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:space-y-1 [&_ol]:my-3 [&_li]:my-1 [&_a]:text-foreground [&_a]:underline [&_a:hover]:text-foreground/80 [&_img]:max-w-full [&_img]:max-h-96 [&_img]:w-auto [&_img]:h-auto [&_img]:object-contain [&_img]:rounded-md [&_img]:my-4 [&_img]:mx-auto [&_img]:block [&_.ql-align-left]:text-left [&_.ql-align-center]:text-center [&_.ql-align-right]:text-right [&_.ql-align-justify]:text-justify"
                     dangerouslySetInnerHTML={{ __html: product.description }}
                   />
                 </div>
@@ -687,18 +646,14 @@ export default function ProductDetailPage() {
 
               {/* Comments */}
               <div className="space-y-3">
-                <h2 className="text-base font-semibold">
-                  Comments
-                </h2>
+                <h2 className="text-base font-semibold">Comments</h2>
 
                 {product.questions && product.questions.length > 0 ? (
                   <div className="space-y-4">
                     {product.questions.map((q) => {
-                      const getInitials = (name: string) => {
-                        return name.charAt(0).toUpperCase();
-                      };
+                      const getInitials = (name: string) =>
+                        name.charAt(0).toUpperCase();
 
-                      // Helper function to count all nested replies
                       const countAllReplies = (replies: any[]): number => {
                         let count = replies.length;
                         replies.forEach((reply) => {
@@ -711,20 +666,34 @@ export default function ProductDetailPage() {
 
                       const renderComment = (
                         comment: any,
-                        isReply: boolean = false,
-                        depth: number = 0
+                        isReply = false,
+                        depth = 0
                       ) => {
                         const commentUser = comment.user;
-                        const isSellerComment = commentUser.id === product.seller.id;
+                        const isSellerComment =
+                          commentUser.id === product.seller.id;
                         const canReply = !!user;
+
                         const commentReplies = comment.replies || [];
-                        const commentReplyCount = comment.replyCount || (commentReplies.length > 0 ? countAllReplies(commentReplies) : 0);
+                        const commentReplyCount =
+                          comment.replyCount ||
+                          (commentReplies.length > 0
+                            ? countAllReplies(commentReplies)
+                            : 0);
+
                         const hasCommentReplies = commentReplyCount > 0;
-                        const isCommentRepliesExpanded = expandedReplies.has(comment.id);
+                        const isExpanded = expandedReplies.has(comment.id);
+
+                        const indentRem = isReply
+                          ? Math.min(depth * 0.75 + 0.75, 3) // 0.75rem steps, max 3rem
+                          : 0;
 
                         return (
-                          <div key={comment.id} className={`space-y-2 ${isReply ? `ml-${Math.min(depth * 3 + 3, 12)} mt-2` : ''}`} style={isReply ? { marginLeft: `${Math.min(depth * 3 + 3, 12) * 0.25}rem` } : undefined}>
-                            {/* Comment header */}
+                          <div
+                            key={comment.id}
+                            className="space-y-2"
+                            style={isReply ? { marginLeft: `${indentRem}rem` } : undefined}
+                          >
                             <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8">
                                 <AvatarFallback>
@@ -740,15 +709,18 @@ export default function ProductDetailPage() {
                                 </Badge>
                               )}
                               <span className="text-xs text-muted-foreground">
-                                {format(new Date(comment.createdAt), "dd/MM/yyyy HH:mm")}
+                                {format(
+                                  new Date(comment.createdAt),
+                                  "dd/MM/yyyy HH:mm"
+                                )}
                               </span>
                             </div>
 
-                            {/* Comment content */}
                             <div className="ml-[40px] space-y-2">
-                              <p className="text-sm text-foreground">{comment.question}</p>
+                              <p className="text-sm text-foreground">
+                                {comment.question}
+                              </p>
 
-                              {/* Reply button and input */}
                               {canReply && (
                                 <div className="flex items-center gap-2 mt-1">
                                   <Button
@@ -760,7 +732,10 @@ export default function ProductDetailPage() {
                                         setShowReplyInput(null);
                                       } else {
                                         setShowReplyInput(comment.id);
-                                        setLocalReplyText({ ...localReplyText, [comment.id]: '' });
+                                        setLocalReplyText({
+                                          ...localReplyText,
+                                          [comment.id]: "",
+                                        });
                                       }
                                     }}
                                   >
@@ -770,42 +745,48 @@ export default function ProductDetailPage() {
                                 </div>
                               )}
 
-                              {/* Nested replies for this comment */}
                               {hasCommentReplies && (
-                                <div className={`mt-2 ${isReply ? '' : 'ml-0'}`}>
+                                <div className="mt-2">
                                   <Button
                                     variant="ghost"
                                     size="sm"
                                     className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground mb-2"
                                     onClick={() => toggleReplies(comment.id)}
                                   >
-                                    {isCommentRepliesExpanded ? (
+                                    {isExpanded ? (
                                       <>
                                         <ChevronUp className="h-3 w-3 mr-1" />
-                                        Hide {commentReplyCount} {commentReplyCount === 1 ? 'reply' : 'replies'}
+                                        Hide {commentReplyCount}{" "}
+                                        {commentReplyCount === 1
+                                          ? "reply"
+                                          : "replies"}
                                       </>
                                     ) : (
                                       <>
                                         <ChevronDown className="h-3 w-3 mr-1" />
-                                        View {commentReplyCount} {commentReplyCount === 1 ? 'reply' : 'replies'}
+                                        View {commentReplyCount}{" "}
+                                        {commentReplyCount === 1
+                                          ? "reply"
+                                          : "replies"}
                                       </>
                                     )}
                                   </Button>
 
-                                  {isCommentRepliesExpanded && (
+                                  {isExpanded && (
                                     <div className="space-y-3 mt-2">
-                                      {commentReplies.map((reply: any) => renderComment(reply, true, depth + 1))}
+                                      {commentReplies.map((reply: any) =>
+                                        renderComment(reply, true, depth + 1)
+                                      )}
                                     </div>
                                   )}
                                 </div>
                               )}
 
-                              {/* Reply input */}
                               {showReplyInput === comment.id && (
                                 <div className="mt-2 space-y-2">
                                   <Textarea
                                     placeholder="Write a reply..."
-                                    value={localReplyText[comment.id] || ''}
+                                    value={localReplyText[comment.id] || ""}
                                     onChange={(e) => {
                                       setLocalReplyText({
                                         ...localReplyText,
@@ -818,11 +799,15 @@ export default function ProductDetailPage() {
                                     <Button
                                       size="sm"
                                       onClick={async () => {
-                                        const replyText = localReplyText[comment.id] || '';
+                                        const replyText =
+                                          localReplyText[comment.id] || "";
                                         if (replyText.trim()) {
                                           await handleReply(comment.id, replyText);
                                           setShowReplyInput(null);
-                                          setLocalReplyText({ ...localReplyText, [comment.id]: '' });
+                                          setLocalReplyText({
+                                            ...localReplyText,
+                                            [comment.id]: "",
+                                          });
                                         }
                                       }}
                                     >
@@ -833,7 +818,10 @@ export default function ProductDetailPage() {
                                       variant="ghost"
                                       onClick={() => {
                                         setShowReplyInput(null);
-                                        setLocalReplyText({ ...localReplyText, [comment.id]: '' });
+                                        setLocalReplyText({
+                                          ...localReplyText,
+                                          [comment.id]: "",
+                                        });
                                       }}
                                     >
                                       Cancel
@@ -841,15 +829,16 @@ export default function ProductDetailPage() {
                                   </div>
                                 </div>
                               )}
-
                             </div>
                           </div>
                         );
                       };
 
                       return (
-                        <div key={q.id} className="space-y-2 border-b border-border pb-4 last:border-0">
-                          {/* Main comment with nested replies */}
+                        <div
+                          key={q.id}
+                          className="space-y-2 border-b border-border pb-4 last:border-0"
+                        >
                           {renderComment(q, false)}
                         </div>
                       );
@@ -861,7 +850,7 @@ export default function ProductDetailPage() {
                   </p>
                 )}
 
-                {/* Comment input box at the bottom */}
+                {/* Comment input */}
                 {user ? (
                   <div className="flex items-start gap-3 pt-4 border-t border-border">
                     <Avatar className="h-10 w-10 flex-shrink-0">
@@ -876,7 +865,7 @@ export default function ProductDetailPage() {
                         onChange={(e) => setQuestion(e.target.value)}
                         className="min-h-[40px] text-sm resize-y"
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                             handleAskQuestion();
                           }
                         }}
@@ -900,10 +889,7 @@ export default function ProductDetailPage() {
                     <p className="text-sm text-muted-foreground mb-3">
                       Log in to comment
                     </p>
-                    <Button
-                      size="sm"
-                      onClick={() => navigate("/login")}
-                    >
+                    <Button size="sm" onClick={() => navigate("/login")}>
                       Log in
                     </Button>
                   </div>
@@ -934,9 +920,7 @@ export default function ProductDetailPage() {
                         />
                       </div>
                       <div className="p-3 space-y-1">
-                        <p className="text-xs font-medium line-clamp-2">
-                          {p.name}
-                        </p>
+                        <p className="text-xs font-medium line-clamp-2">{p.name}</p>
                         <p className="text-sm font-semibold text-brand">
                           {Number(p.currentPrice).toLocaleString("vi-VN")} VNĐ
                         </p>
@@ -950,7 +934,7 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Right column – bidding panel */}
-        {(!isEnded || (isEnded && (isSeller || (order && (user?.id === order.sellerId || user?.id === order.buyerId))))) && (
+        {canSeeAfterEnd && (
           <div className="space-y-4 lg:sticky lg:top-20 lg:h-fit">
             <Card className="bg-transparent border-none shadow-none">
               <CardHeader>
@@ -970,89 +954,46 @@ export default function ProductDetailPage() {
                         {!isSeller ? (
                           isRejectedBidder ? (
                             <div className="space-y-3">
-                              <Button
-                                className="w-full"
-                                disabled
-                              >
-                                Place bid
+                              <Button className="w-full" disabled>
+                                Place automatic bid
                               </Button>
                               <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
                                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                                <span>You have been rejected from bidding on this product by the seller.</span>
+                                <span>
+                                  You have been rejected from bidding on this product by the seller.
+                                </span>
                               </div>
                             </div>
                           ) : (
                             <div className="space-y-4">
-                              <div className="flex items-center gap-2 text-sm">
-                                <input
-                                  id="auto-bid"
-                                  type="checkbox"
-                                  checked={isAutoBid}
-                                  onChange={(e) => setIsAutoBid(e.target.checked)}
-                                  className="h-4 w-4 rounded border border-input text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                />
-                                <label
-                                  htmlFor="auto-bid"
-                                  className="text-sm text-foreground"
-                                >
-                                  Automatic bidding
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                  Maximum amount
                                 </label>
+                                <div className="relative">
+                                  <Input
+                                    className="bg-background pr-12"
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={formatCurrencyDisplay(maxAmount)}
+                                    onChange={handleMaxAmountChange}
+                                    placeholder="0"
+                                  />
+                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                                    VNĐ
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  The system will automatically bid up to this maximum amount to help you win at the lowest possible price.
+                                </p>
                               </div>
-
-                              {!isAutoBid ? (
-                                <div className="space-y-2">
-                                  <label className="text-sm font-medium">
-                                    Bid amount
-                                  </label>
-                                  <div className="relative">
-                                    <Input
-                                      className="bg-background pr-12"
-                                      type="text"
-                                      inputMode="numeric"
-                                      value={formatCurrencyDisplay(bidAmount)}
-                                      onChange={handleBidAmountChange}
-                                      placeholder="0"
-                                    />
-                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
-                                      VNĐ
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    Suggested next bid:{" "}
-                                    {suggestedNextBid.toLocaleString("vi-VN")} VNĐ
-                                  </p>
-                                </div>
-                              ) : (
-                                <div className="space-y-2">
-                                  <label className="text-sm font-medium">
-                                    Maximum amount
-                                  </label>
-                                  <div className="relative">
-                                    <Input
-                                      className="bg-background pr-12"
-                                      type="text"
-                                      inputMode="numeric"
-                                      value={formatCurrencyDisplay(maxAmount)}
-                                      onChange={handleMaxAmountChange}
-                                      placeholder="0"
-                                    />
-                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
-                                      VNĐ
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    The system will automatically bid up to this
-                                    maximum amount.
-                                  </p>
-                                </div>
-                              )}
 
                               <Button
                                 className="w-full"
                                 onClick={handlePlaceBid}
-                                disabled={!isAutoBid && !bidAmount}
+                                disabled={!maxAmount}
                               >
-                                {isAutoBid ? "Place automatic bid" : "Place bid"}
+                                Place automatic bid
                               </Button>
                             </div>
                           )
@@ -1077,10 +1018,22 @@ export default function ProductDetailPage() {
                     )}
                   </>
                 ) : (
-                  <div className="flex items-center gap-2 text-sm text-amber-900 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>The auction has ended</span>
-                  </div>
+                  <>
+                    <div className="flex items-center gap-2 text-sm text-amber-900 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>The auction has ended</span>
+                    </div>
+
+                    {(user && (isSeller || order)) && (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setBidHistoryOpen(true)}
+                      >
+                        View bid history
+                      </Button>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -1096,25 +1049,15 @@ export default function ProductDetailPage() {
           </DialogHeader>
 
           <div className="space-y-3 text-sm">
-            {!isAutoBid ? (
-              <>
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">You will bid</span>
-                  <span className="font-semibold">
-                    {Number(bidAmount || "0").toLocaleString("vi-VN")} VNĐ
-                  </span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Auto-bid max</span>
-                  <span className="font-semibold">
-                    {Number(maxAmount || "0").toLocaleString("vi-VN")} VNĐ
-                  </span>
-                </div>
-              </>
-            )}
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Maximum bid amount</span>
+              <span className="font-semibold">
+                {Number(maxAmount || "0").toLocaleString("vi-VN")} VNĐ
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The system will automatically place bids on your behalf up to this maximum amount.
+            </p>
 
             <Separator />
 
@@ -1205,7 +1148,6 @@ export default function ProductDetailPage() {
         </DialogContent>
       </Dialog>
 
-
       {/* Reject Bid Dialog */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <DialogContent className="max-w-md">
@@ -1225,10 +1167,11 @@ export default function ProductDetailPage() {
           ) : (
             <div className="space-y-4">
               <div
-                className={`flex items-start gap-3 p-4 rounded-lg border ${rejectResult.success
-                  ? "bg-green-50 border-green-200 text-green-900"
-                  : "bg-red-50 border-red-200 text-red-900"
-                  }`}
+                className={`flex items-start gap-3 p-4 rounded-lg border ${
+                  rejectResult.success
+                    ? "bg-green-50 border-green-200 text-green-900"
+                    : "bg-red-50 border-red-200 text-red-900"
+                }`}
               >
                 <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                 <p className="text-sm">{rejectResult.message}</p>
