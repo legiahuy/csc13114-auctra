@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertCircle, CheckCircle2, XCircle, Send } from 'lucide-react';
+import { AlertCircle, CheckCircle2, XCircle, Send, CreditCard } from 'lucide-react';
 
 import apiClient from '../api/client';
 import { useAuthStore } from '../store/authStore';
@@ -98,6 +98,7 @@ const steps = [
 
 export default function OrderPage() {
   const { orderId } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,16 +107,23 @@ export default function OrderPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [paymentProofUrl, setPaymentProofUrl] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Stripe');
   const [paymentTransactionId, setPaymentTransactionId] = useState('');
-  const [shippingAddress, setShippingAddress] = useState('');
+  const [addressData, setAddressData] = useState({
+    houseNumber: '',
+    street: '',
+    city: '',
+    country: ''
+  });
+  // Derived shipping address for backward compatibility/display
+  const shippingAddress = [addressData.houseNumber, addressData.street, addressData.city, addressData.country].filter(Boolean).join(', ');
   const [shippingInvoiceUrl, setShippingInvoiceUrl] = useState('');
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewRating, setReviewRating] = useState<1 | -1>(1);
   const [reviewComment, setReviewComment] = useState('');
   const [reviewingFor, setReviewingFor] = useState<'seller' | 'buyer' | null>(null);
   const [myReview, setMyReview] = useState<Review | null>(null);
-  
+
   // Cancel order dialog
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelResult, setCancelResult] = useState<{
@@ -164,7 +172,7 @@ export default function OrderPage() {
         const response = await apiClient.get(`/orders/${orderId}`);
         const orderData = response.data.data;
         setOrder(orderData);
-        
+
         const statusSteps: Record<string, number> = {
           pending_payment: 0,
           pending_address: 1,
@@ -174,7 +182,7 @@ export default function OrderPage() {
           cancelled: -1,
         };
         setActiveStep(statusSteps[orderData.status] || 0);
-        
+
         if (orderData.reviews && user) {
           const myReviewData = orderData.reviews.find(
             (r: Review) => r.reviewerId === user.id
@@ -185,12 +193,14 @@ export default function OrderPage() {
             setReviewComment(myReviewData.comment);
           }
         }
-        setPaymentMethod(orderData.paymentMethod || '');
+        setPaymentMethod(orderData.paymentMethod || 'Stripe');
         setPaymentTransactionId(orderData.paymentTransactionId || '');
         setPaymentProofUrl(orderData.paymentProof || '');
-        setShippingAddress(orderData.shippingAddress || '');
+        // Parse shipping address logic REMOVED to disable auto-fill per user request
+        // if (orderData.shippingAddress) { ... }
+
         setShippingInvoiceUrl(orderData.shippingInvoice || '');
-        
+
         lastSavedRef.current = {
           paymentMethod: orderData.paymentMethod || undefined,
           paymentTransactionId: orderData.paymentTransactionId || undefined,
@@ -198,7 +208,7 @@ export default function OrderPage() {
           shippingAddress: orderData.shippingAddress || undefined,
           shippingInvoice: orderData.shippingInvoice || undefined,
         };
-        
+
         isInitialLoadRef.current = false;
       } catch (error) {
         console.error('Error fetching order:', error);
@@ -237,7 +247,7 @@ export default function OrderPage() {
         cancelled: -1,
       };
       setActiveStep(statusSteps[updatedOrder.status] || 0);
-      
+
       if (updatedOrder.reviews && user) {
         const myReviewData = updatedOrder.reviews.find(
           (r: Review) => r.reviewerId === user.id
@@ -248,12 +258,29 @@ export default function OrderPage() {
           setReviewComment(myReviewData.comment);
         }
       }
-      setPaymentMethod(updatedOrder.paymentMethod || '');
+      setPaymentMethod(updatedOrder.paymentMethod || 'Stripe');
       setPaymentTransactionId(updatedOrder.paymentTransactionId || '');
       setPaymentProofUrl(updatedOrder.paymentProof || '');
-      setShippingAddress(updatedOrder.shippingAddress || '');
+      if (updatedOrder.shippingAddress) {
+        const parts = updatedOrder.shippingAddress.split(', ');
+        if (parts.length >= 4) {
+          setAddressData({
+            houseNumber: parts[0] || '',
+            street: parts[1] || '',
+            city: parts[2] || '',
+            country: parts[3] || ''
+          });
+        } else {
+          setAddressData({
+            houseNumber: '',
+            street: updatedOrder.shippingAddress,
+            city: '',
+            country: ''
+          });
+        }
+      }
       setShippingInvoiceUrl(updatedOrder.shippingInvoice || '');
-      
+
       lastSavedRef.current = {
         paymentMethod: updatedOrder.paymentMethod || undefined,
         paymentTransactionId: updatedOrder.paymentTransactionId || undefined,
@@ -297,16 +324,13 @@ export default function OrderPage() {
 
     const isBuyer = user?.id === order.buyerId;
     const isSeller = user?.id === order.sellerId;
-    
-    const hasPaymentChanges = 
+
+    const hasPaymentChanges =
       (paymentMethod || '') !== (lastSavedRef.current.paymentMethod || '') ||
       (paymentTransactionId || '') !== (lastSavedRef.current.paymentTransactionId || '') ||
       (paymentProofUrl || '') !== (lastSavedRef.current.paymentProof || '');
-    
-    const hasShippingAddressChanges = 
-      (shippingAddress || '') !== (lastSavedRef.current.shippingAddress || '');
-    
-    const hasShippingInvoiceChanges = 
+
+    const hasShippingInvoiceChanges =
       (shippingInvoiceUrl || '') !== (lastSavedRef.current.shippingInvoice || '');
 
     if (isBuyer && hasPaymentChanges && (order.status === 'pending_payment' || order.status === 'pending_address')) {
@@ -317,11 +341,14 @@ export default function OrderPage() {
       });
     }
 
+    /* Removed autoSave for shippingAddress to prevent partial updates and auto-fill behavior */
+    /*
     if (isBuyer && hasShippingAddressChanges && (order.status === 'pending_address' || order.status === 'pending_shipping')) {
       autoSave({
         shippingAddress: shippingAddress || undefined,
       });
     }
+    */
 
     if (isSeller && hasShippingInvoiceChanges && shippingInvoiceUrl && (order.status === 'pending_shipping' || order.status === 'pending_delivery')) {
       autoSave({
@@ -338,76 +365,15 @@ export default function OrderPage() {
     };
   }, []);
 
-  const handlePaymentProofUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await apiClient.post('/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      const url = response.data.data.url;
-      setPaymentProofUrl(url);
-      toast.success('Image uploaded successfully');
-      await autoSave({ paymentProof: url });
-    } catch (error) {
-      toast.error('Failed to upload image');
-    }
-  };
-
-  const handleShippingInvoiceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await apiClient.post('/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      const url = response.data.data.url;
-      setShippingInvoiceUrl(url);
-      toast.success('Invoice uploaded successfully');
-      await autoSave({ shippingInvoice: url });
-    } catch (error) {
-      toast.error('Failed to upload invoice');
-    }
-  };
-
-  const handleStep1 = async () => {
-    if (!paymentProofUrl && !paymentTransactionId) {
-      toast.error('Please upload payment proof or enter transaction ID');
-      return;
-    }
-
-    try {
-      await apiClient.put(`/orders/${orderId}`, {
-        status: 'pending_address',
-        paymentMethod: paymentMethod || 'Other',
-        paymentTransactionId: paymentTransactionId || undefined,
-        paymentProof: paymentProofUrl || undefined,
-      });
-      toast.success('Payment confirmed successfully');
-      setActiveStep(1);
-      if (order) {
-        setOrder({ ...order, status: 'pending_address' });
-      }
-    } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Failed to confirm payment');
-    }
-  };
+  /* Removed handlePaymentProofUpload and handleStep1 as they are replaced by StripePaymentForm */
 
   const handleStep2 = async () => {
-    if (!shippingAddress.trim()) {
-      toast.error('Please enter shipping address');
+    if (!addressData.houseNumber || !addressData.street || !addressData.city || !addressData.country) {
+      toast.error('Please fill in all address fields');
       return;
     }
+
+    // derived shippingAddress variable is already defined in component scope
 
     try {
       await apiClient.put(`/orders/${orderId}`, {
@@ -417,26 +383,24 @@ export default function OrderPage() {
       if (order) {
         setOrder({ ...order, shippingAddress });
       }
+      setActiveStep(2); // Move to Step 3 (Waiting for seller)
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || 'Failed to send address');
     }
   };
 
-  const handleStep3 = async () => {
-    if (!shippingInvoiceUrl) {
-      toast.error('Please upload shipping invoice');
-      return;
-    }
+  /* handleShippingInvoiceUpload removed as unnecessary */
 
+  const handleStep3 = async () => {
     try {
       await apiClient.put(`/orders/${orderId}`, {
         status: 'pending_shipping',
-        shippingInvoice: shippingInvoiceUrl,
+        shippingInvoice: 'not_required', // Or simply omit if backend allows null
       });
       toast.success('Shipping confirmed successfully');
       setActiveStep(3);
       if (order) {
-        setOrder({ ...order, status: 'pending_shipping', shippingInvoice: shippingInvoiceUrl });
+        setOrder({ ...order, status: 'pending_shipping', shippingInvoice: 'not_required' });
       }
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || 'Confirmation failed');
@@ -562,10 +526,10 @@ export default function OrderPage() {
           shippingInvoice: '',
         } as any);
       }
-      setPaymentMethod('');
+      setPaymentMethod('Stripe');
       setPaymentTransactionId('');
       setPaymentProofUrl('');
-      setShippingAddress('');
+      setAddressData({ houseNumber: '', street: '', city: '', country: '' });
       setShippingInvoiceUrl('');
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || 'Failed to reset order');
@@ -659,53 +623,27 @@ export default function OrderPage() {
                   {activeStep === 0 && isBuyer && (
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">Step 1: Confirm Payment</h3>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="text-sm font-medium mb-1.5 block">Payment Method</label>
-                          <Input
-                            value={paymentMethod}
-                            onChange={(e) => setPaymentMethod(e.target.value)}
-                            placeholder="e.g., MoMo, ZaloPay, VNPay, Bank Transfer..."
-                          />
+
+                      <div className="rounded-lg border bg-card p-6 text-center space-y-4">
+                        <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                          <CreditCard className="h-6 w-6 text-primary" />
                         </div>
                         <div>
-                          <label className="text-sm font-medium mb-1.5 block">Transaction ID (if any)</label>
-                          <Input
-                            value={paymentTransactionId}
-                            onChange={(e) => setPaymentTransactionId(e.target.value)}
-                            placeholder="Enter transaction ID..."
-                          />
+                          <p className="text-lg font-medium">Total Amount</p>
+                          <p className="text-3xl font-bold text-brand">
+                            {parseFloat(order.finalPrice.toString()).toLocaleString('vi-VN')} VNĐ
+                          </p>
                         </div>
-                        <div>
-                          <input
-                            accept="image/*"
-                            style={{ display: 'none' }}
-                            id="payment-proof-upload"
-                            type="file"
-                            onChange={handlePaymentProofUpload}
-                          />
-                          <label htmlFor="payment-proof-upload">
-                            <Button variant="outline" asChild>
-                              <span>Upload Payment Proof</span>
-                            </Button>
-                          </label>
-                          {paymentProofUrl && (
-                            <div className="mt-3">
-                              <img
-                                src={`http://localhost:3000${paymentProofUrl}`}
-                                alt="Payment proof"
-                                className="max-w-full max-h-[300px] rounded-lg border"
-                              />
-                            </div>
-                          )}
-                        </div>
+                        <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                          Securely pay for your item using Stripe. You will be redirected to a dedicated payment page.
+                        </p>
+                        <Button
+                          className="w-full max-w-sm h-11 text-base"
+                          onClick={() => navigate(`/payment/${orderId}`)}
+                        >
+                          Pay with Stripe
+                        </Button>
                       </div>
-                      <Button
-                        onClick={handleStep1}
-                        disabled={!paymentProofUrl && !paymentTransactionId}
-                      >
-                        Confirm Payment
-                      </Button>
                     </div>
                   )}
 
@@ -713,18 +651,44 @@ export default function OrderPage() {
                   {activeStep === 1 && isBuyer && (
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">Step 2: Send Shipping Address</h3>
-                      <div>
-                        <label className="text-sm font-medium mb-1.5 block">Shipping Address</label>
-                        <Textarea
-                          rows={4}
-                          value={shippingAddress}
-                          onChange={(e) => setShippingAddress(e.target.value)}
-                          placeholder="Enter full shipping address..."
-                        />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium mb-1.5 block">House Number</label>
+                          <Input
+                            value={addressData.houseNumber}
+                            onChange={(e) => setAddressData({ ...addressData, houseNumber: e.target.value })}
+                            placeholder="e.g. 123"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-1.5 block">Street Name</label>
+                          <Input
+                            value={addressData.street}
+                            onChange={(e) => setAddressData({ ...addressData, street: e.target.value })}
+                            placeholder="e.g. Nguyen Van Linh"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-1.5 block">City</label>
+                          <Input
+                            value={addressData.city}
+                            onChange={(e) => setAddressData({ ...addressData, city: e.target.value })}
+                            placeholder="e.g. Ho Chi Minh City"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-1.5 block">Country</label>
+                          <Input
+                            value={addressData.country}
+                            onChange={(e) => setAddressData({ ...addressData, country: e.target.value })}
+                            placeholder="e.g. Vietnam"
+                          />
+                        </div>
                       </div>
+
                       <Button
                         onClick={handleStep2}
-                        disabled={!shippingAddress.trim()}
+                        disabled={!addressData.houseNumber || !addressData.street || !addressData.city || !addressData.country}
                       >
                         Confirm Address
                       </Button>
@@ -732,7 +696,7 @@ export default function OrderPage() {
                   )}
 
                   {/* Buyer waiting for seller to ship */}
-                  {activeStep === 1 && order?.status === 'pending_address' && order?.shippingAddress && isBuyer && (
+                  {((activeStep === 1 && order?.status === 'pending_address' && order?.shippingAddress) || activeStep === 2) && isBuyer && order?.status !== 'pending_shipping' && order?.status !== 'pending_delivery' && (
                     <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                       <AlertCircle className="h-4 w-4 mt-0.5" />
                       <p>You have sent the address. Please wait for the seller to confirm and ship.</p>
@@ -753,31 +717,12 @@ export default function OrderPage() {
                         </div>
                       )}
                       <div>
-                        <input
-                          accept="image/*,.pdf"
-                          style={{ display: 'none' }}
-                          id="shipping-invoice-upload"
-                          type="file"
-                          onChange={handleShippingInvoiceUpload}
-                        />
-                        <label htmlFor="shipping-invoice-upload">
-                          <Button variant="outline" asChild>
-                            <span>Upload Shipping Invoice</span>
-                          </Button>
-                        </label>
-                        {shippingInvoiceUrl && (
-                          <div className="mt-3">
-                            <img
-                              src={`http://localhost:3000${shippingInvoiceUrl}`}
-                              alt="Shipping invoice"
-                              className="max-w-full max-h-[300px] rounded-lg border"
-                            />
-                          </div>
-                        )}
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Please confirm that you have shipped the item to the buyer's address above.
+                        </p>
                       </div>
                       <Button
                         onClick={handleStep3}
-                        disabled={!shippingInvoiceUrl}
                       >
                         Confirm Shipped
                       </Button>
@@ -805,11 +750,11 @@ export default function OrderPage() {
                         <CheckCircle2 className="h-4 w-4 mt-0.5" />
                         <p>Order completed successfully!</p>
                       </div>
-                      
+
                       {/* Step 5: Review */}
                       <div className="space-y-4">
                         <h3 className="text-lg font-semibold">Step 5: Review Transaction</h3>
-                        
+
                         {/* Display current reviews if any */}
                         {order.reviews && order.reviews.length > 0 && (
                           <div className="space-y-3">
@@ -835,7 +780,7 @@ export default function OrderPage() {
                             ))}
                           </div>
                         )}
-                        
+
                         {/* Review form for current user */}
                         {user && (
                           <div className="space-y-3">
@@ -850,7 +795,7 @@ export default function OrderPage() {
                                 <p>Please review the {isBuyer ? 'seller' : 'buyer'} to complete the transaction.</p>
                               </div>
                             )}
-                            
+
                             <Button
                               variant={myReview ? 'outline' : 'default'}
                               onClick={() => handleOpenReviewDialog(isBuyer ? 'seller' : 'buyer')}
@@ -905,25 +850,24 @@ export default function OrderPage() {
                     const isOwnMessage = msg.senderId === user?.id;
                     const prevMessage = index > 0 ? messages[index - 1] : null;
                     const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
-                    
+
                     // Check if this is the first message in a group
-                    const isFirstInGroup = 
-                      !prevMessage || 
+                    const isFirstInGroup =
+                      !prevMessage ||
                       prevMessage.senderId !== msg.senderId ||
                       new Date(msg.createdAt).getTime() - new Date(prevMessage.createdAt).getTime() > 300000; // 5 minutes
-                    
+
                     // Check if this is the last message in a group
-                    const isLastInGroup = 
-                      !nextMessage || 
+                    const isLastInGroup =
+                      !nextMessage ||
                       nextMessage.senderId !== msg.senderId ||
                       new Date(nextMessage.createdAt).getTime() - new Date(msg.createdAt).getTime() > 300000;
-                    
+
                     return (
                       <div
                         key={msg.id}
-                        className={`flex items-end gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'} ${
-                          isFirstInGroup ? 'mt-2' : 'mt-1'
-                        }`}
+                        className={`flex items-end gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'} ${isFirstInGroup ? 'mt-2' : 'mt-1'
+                          }`}
                       >
                         {/* Avatar for other person's messages */}
                         {!isOwnMessage && (
@@ -939,7 +883,7 @@ export default function OrderPage() {
                             )}
                           </div>
                         )}
-                        
+
                         {/* Message bubble */}
                         <div className={`flex flex-col max-w-[70%] ${isOwnMessage ? 'items-end' : 'items-start'}`}>
                           {/* Sender name for other person's messages */}
@@ -948,28 +892,26 @@ export default function OrderPage() {
                               {msg.sender.fullName}
                             </span>
                           )}
-                          
+
                           {/* Message bubble */}
                           <div
-                            className={`relative rounded-2xl px-4 py-2.5 flex items-center justify-center min-h-[36px] ${
-                              isOwnMessage
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200 text-gray-900'
-                            }`}
+                            className={`relative rounded-2xl px-4 py-2.5 flex items-center justify-center min-h-[36px] ${isOwnMessage
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gray-200 text-gray-900'
+                              }`}
                           >
                             <p className="text-sm whitespace-pre-wrap break-words text-center leading-normal m-0 w-full">{msg.message}</p>
                           </div>
-                          
+
                           {/* Timestamp - only show for the latest message */}
                           {index === messages.length - 1 && (
-                            <span className={`text-xs text-muted-foreground mt-1 px-1.5 ${
-                              isOwnMessage ? 'text-right' : 'text-left'
-                            }`}>
+                            <span className={`text-xs text-muted-foreground mt-1 px-1.5 ${isOwnMessage ? 'text-right' : 'text-left'
+                              }`}>
                               {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
                             </span>
                           )}
                         </div>
-                        
+
                         {/* Spacer for own messages */}
                         {isOwnMessage && (
                           <div className="flex-shrink-0 w-8" />
@@ -980,7 +922,7 @@ export default function OrderPage() {
                 )}
                 <div ref={messagesEndRef} />
               </div>
-              
+
               {/* Input area */}
               <div className="border-t p-3 bg-background">
                 <div className="flex gap-2 items-end">
@@ -1000,8 +942,8 @@ export default function OrderPage() {
                       rows={1}
                     />
                   </div>
-                  <Button 
-                    onClick={handleSendMessage} 
+                  <Button
+                    onClick={handleSendMessage}
                     size="icon"
                     className="rounded-full h-11 w-11 flex-shrink-0"
                     disabled={!newMessage.trim()}
@@ -1077,11 +1019,10 @@ export default function OrderPage() {
           ) : (
             <div className="space-y-4">
               <div
-                className={`flex items-start gap-3 p-4 rounded-lg border ${
-                  cancelResult.success
-                    ? "bg-green-50 border-green-200 text-green-900"
-                    : "bg-red-50 border-red-200 text-red-900"
-                }`}
+                className={`flex items-start gap-3 p-4 rounded-lg border ${cancelResult.success
+                  ? "bg-green-50 border-green-200 text-green-900"
+                  : "bg-red-50 border-red-200 text-red-900"
+                  }`}
               >
                 <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                 <p className="text-sm">{cancelResult.message}</p>
