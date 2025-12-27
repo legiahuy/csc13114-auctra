@@ -226,6 +226,7 @@ export const sendAnswerNotificationEmail = async (
 export const sendAuctionEndedEmail = async (
   email: string,
   productName: string,
+  productId: number,
   isWinner: boolean,
   finalPrice?: number,
   productId?: number

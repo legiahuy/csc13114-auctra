@@ -271,7 +271,7 @@ export const getProducts = async (
 };
 
 export const getProductById = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ) => {
@@ -313,11 +313,46 @@ export const getProductById = async (
         {
           model: Question,
           as: "questions",
+          where: { parentId: null }, // Only top-level comments
+          required: false,
           include: [
             {
               model: User,
               as: "user",
               attributes: ["id", "fullName"],
+            },
+            {
+              model: Question,
+              as: "replies",
+              include: [
+                {
+                  model: User,
+                  as: "user",
+                  attributes: ["id", "fullName"],
+                },
+                {
+                  model: Question,
+                  as: "replies",
+                  include: [
+                    {
+                      model: User,
+                      as: "user",
+                      attributes: ["id", "fullName"],
+                    },
+                    {
+                      model: Question,
+                      as: "replies",
+                      include: [
+                        {
+                          model: User,
+                          as: "user",
+                          attributes: ["id", "fullName"],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
             },
           ],
           order: [["createdAt", "DESC"]],
@@ -331,6 +366,19 @@ export const getProductById = async (
 
     // Mark isNew
     product.setDataValue("isNew", isProductNew(product));
+
+    // Check if current user is rejected bidder
+    let isRejectedBidder = false;
+    if (req.user) {
+      const rejectedBid = await Bid.findOne({
+        where: {
+          productId: id,
+          bidderId: req.user.id,
+          isRejected: true,
+        },
+      });
+      isRejectedBidder = !!rejectedBid;
+    }
 
     // Increment view count
     product.viewCount += 1;
@@ -363,6 +411,7 @@ export const getProductById = async (
       data: {
         product,
         relatedProducts,
+        isRejectedBidder,
       },
     });
   } catch (error) {
@@ -394,10 +443,14 @@ export const createProduct = async (
       allowUnratedBidders,
     } = req.body;
 
-    // Validate images
+    // Validate images - need at least 3 images total (mainImage + at least 2 more)
+    if (!mainImage) {
+      return next(new AppError("Main image is required", 400));
+    }
     const imageArray = images || [];
-    if (imageArray.length < 3) {
-      return next(new AppError("At least 3 images are required", 400));
+    // Need at least 2 additional images (mainImage + 2 images = 3 total)
+    if (imageArray.length < 2) {
+      return next(new AppError("At least 3 images are required (1 main image + 2 additional images)", 400));
     }
 
     // Validate category
@@ -563,9 +616,32 @@ export const updateProductDescription = async (
     }
 
     // Append new description with timestamp
-    const timestampStr = timestamp || new Date().toLocaleDateString("vi-VN");
-    const newDescription = `\n\n✏️ ${timestampStr}\n\n${additionalDescription}`;
-    product.description = product.description + newDescription;
+    // Format: 
+    // [Nội dung ban đầu]
+    // 
+    // ✏️ [ngày]
+    // 
+    // [Nội dung mới]
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    const timestampStr = timestamp || `${day}/${month}/${year}`;
+
+    // Đảm bảo có separator rõ ràng giữa nội dung cũ và mới
+    // Loại bỏ khoảng trắng và xuống dòng thừa ở cuối mô tả cũ
+    let currentDescription = product.description.trimEnd();
+
+    // Format timestamp dưới dạng HTML để hiển thị đẹp với WYSIWYG content
+    // Thêm class để frontend có thể style dễ dàng
+    const timestampHtml = `<div class="description-timestamp-separator"><p class="description-timestamp-text"><strong>✏️ ${timestampStr}</strong></p></div>`;
+
+    // Nối nội dung: description cũ + separator + timestamp + nội dung mới
+    // additionalDescription đã là HTML từ RichTextEditor
+    product.description = currentDescription + timestampHtml + additionalDescription.trim();
+
+    // Update descriptionNoDiacritics for search
+    product.descriptionNoDiacritics = removeVietnameseDiacritics(product.description);
     await product.save();
 
     res.json({

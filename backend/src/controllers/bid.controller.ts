@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { Bid, Product, User } from '../models';
+import { Bid, Product, User, Settings } from '../models';
 import { AppError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { sendBidNotificationEmail, sendBidRejectedEmail } from '../utils/email.util';
@@ -60,20 +60,41 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
     }
 
     // Validate bid amount
-    const minBidAmount = parseFloat(product.currentPrice.toString()) + parseFloat(product.bidStep.toString());
+    const minBidAmount =
+      parseFloat(product.currentPrice.toString()) + parseFloat(product.bidStep.toString());
+
     if (!isAutoBid && parseFloat(amount) < minBidAmount) {
-      return next(new AppError(`Minimum bid amount is ${minBidAmount.toLocaleString('vi-VN')} VNĐ`, 400));
+      return next(
+        new AppError(`Minimum bid amount is ${minBidAmount.toLocaleString('vi-VN')} VNĐ`, 400)
+      );
     }
 
     if (isAutoBid && maxAmount && parseFloat(maxAmount) < minBidAmount) {
-      return next(new AppError(`Maximum bid amount must be at least ${minBidAmount.toLocaleString('vi-VN')} VNĐ`, 400));
+      return next(
+        new AppError(
+          `Maximum bid amount must be at least ${minBidAmount.toLocaleString('vi-VN')} VNĐ`,
+          400
+        )
+      );
     }
 
     // Check auto-extend
     const now = new Date();
     const timeUntilEnd = product.endDate.getTime() - now.getTime();
-    const thresholdMinutes = parseInt(process.env.AUTO_EXTEND_THRESHOLD_MINUTES || '5');
-    const extendMinutes = parseInt(process.env.AUTO_EXTEND_DURATION_MINUTES || '10');
+
+    // Get settings from database, fallback to environment variables
+    const [thresholdSetting, durationSetting] = await Promise.all([
+      Settings.findOne({ where: { key: 'AUTO_EXTEND_THRESHOLD_MINUTES' } }),
+      Settings.findOne({ where: { key: 'AUTO_EXTEND_DURATION_MINUTES' } }),
+    ]);
+
+    const thresholdMinutes = thresholdSetting
+      ? parseInt(thresholdSetting.value)
+      : parseInt(process.env.AUTO_EXTEND_THRESHOLD_MINUTES || '5');
+
+    const extendMinutes = durationSetting
+      ? parseInt(durationSetting.value)
+      : parseInt(process.env.AUTO_EXTEND_DURATION_MINUTES || '10');
 
     if (product.autoExtend && timeUntilEnd <= thresholdMinutes * 60 * 1000) {
       product.endDate = new Date(now.getTime() + extendMinutes * 60 * 1000);
@@ -111,7 +132,8 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
           );
         }
       } else {
-        finalAmount = parseFloat(product.currentPrice.toString()) + parseFloat(product.bidStep.toString());
+        finalAmount =
+          parseFloat(product.currentPrice.toString()) + parseFloat(product.bidStep.toString());
       }
     }
 
@@ -140,37 +162,28 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
         include: [{ model: User, as: 'bidder' }],
         order: [['amount', 'DESC']],
       });
+
       if (previousBid) {
         previousHighestBidder = previousBid.bidder;
       }
     }
 
     // Send notifications
-    await sendBidNotificationEmail(
-      req.user.email,
-      product.name,
-      finalAmount,
-      false,
-      productId
-    );
+    // NOTE: choose one consistent signature:
+    // Using (email, productName, amount, productId, isOutbid)
+    await sendBidNotificationEmail(req.user.email, product.name, finalAmount, productId, false);
 
     if (previousHighestBidder) {
       await sendBidNotificationEmail(
         previousHighestBidder.email,
         product.name,
         finalAmount,
-        true,
-        productId
+        productId,
+        true
       );
     }
 
-    await sendBidNotificationEmail(
-      product.seller.email,
-      product.name,
-      finalAmount,
-      false,
-      productId
-    );
+    await sendBidNotificationEmail(product.seller.email, product.name, finalAmount, productId, false);
 
     res.status(201).json({
       success: true,
@@ -181,15 +194,27 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
   }
 };
 
-export const getBidHistory = async (req: Request, res: Response, next: NextFunction) => {
+export const getBidHistory = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { productId } = req.params;
 
+    // Check if user is seller
+    let isSeller = false;
+    if (req.user) {
+      const product = await Product.findByPk(productId);
+      if (product && product.sellerId === req.user.id) {
+        isSeller = true;
+      }
+    }
+
+    // If seller, show all bids (including rejected), otherwise only non-rejected
+    const whereClause: any = { productId };
+    if (!isSeller) {
+      whereClause.isRejected = false;
+    }
+
     const bids = await Bid.findAll({
-      where: {
-        productId,
-        isRejected: false,
-      },
+      where: whereClause,
       include: [
         {
           model: User,
@@ -200,24 +225,35 @@ export const getBidHistory = async (req: Request, res: Response, next: NextFunct
       order: [['amount', 'DESC'], ['createdAt', 'DESC']],
     });
 
-    // Mask bidder names
-    const maskedBids = bids.map((bid) => {
-      const fullName = bid.bidder.fullName;
-      const maskedName = fullName.length > 4
-        ? '****' + fullName.slice(-4)
-        : '****' + fullName;
-      return {
-        ...bid.toJSON(),
-        bidder: {
-          ...bid.bidder.toJSON(),
-          fullName: maskedName,
-        },
-      };
+    // Mask bidder names for non-sellers, show full names for seller
+    const processedBids = bids.map((bid) => {
+      const bidData = bid.toJSON();
+      if (isSeller) {
+        // Seller sees full names and rejected status
+        return {
+          ...bidData,
+          bidder: {
+            ...bidData.bidder,
+            fullName: bidData.bidder.fullName,
+          },
+        };
+      } else {
+        // Others see masked names
+        const fullName = bid.bidder.fullName;
+        const maskedName = fullName.length > 4 ? '****' + fullName.slice(-4) : '****' + fullName;
+        return {
+          ...bidData,
+          bidder: {
+            ...bidData.bidder,
+            fullName: maskedName,
+          },
+        };
+      }
     });
 
     res.json({
       success: true,
-      data: maskedBids,
+      data: processedBids,
     });
   } catch (error) {
     next(error);
@@ -251,20 +287,24 @@ export const rejectBid = async (req: AuthRequest, res: Response, next: NextFunct
     await bid.save();
 
     // If this was the highest bid, find the next highest
+    // Check if the rejected bid amount matches current price (meaning it was the highest)
     if (parseFloat(bid.product.currentPrice.toString()) === parseFloat(bid.amount.toString())) {
+      // This was the highest bid, find the next highest non-rejected bid
       const nextHighestBid = await Bid.findOne({
         where: {
           productId: bid.productId,
           isRejected: false,
           id: { [Op.ne]: bidId },
         },
-        order: [['amount', 'DESC']],
+        order: [['amount', 'DESC'], ['createdAt', 'ASC']],
       });
 
       if (nextHighestBid) {
+        // Update to the next highest bid amount
         bid.product.currentPrice = nextHighestBid.amount;
         await bid.product.save();
       } else {
+        // No other bids, reset to starting price
         bid.product.currentPrice = bid.product.startingPrice;
         await bid.product.save();
       }
@@ -281,4 +321,3 @@ export const rejectBid = async (req: AuthRequest, res: Response, next: NextFunct
     next(error);
   }
 };
-

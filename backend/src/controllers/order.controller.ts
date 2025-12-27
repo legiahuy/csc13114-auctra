@@ -50,6 +50,7 @@ export const processEndedAuctions = async () => {
       await sendAuctionEndedEmail(
         product.seller.email,
         product.name,
+        product.id,
         false,
         undefined,
         product.id
@@ -58,6 +59,7 @@ export const processEndedAuctions = async () => {
       await sendAuctionEndedEmail(
         winningBid.bidder.email,
         product.name,
+        product.id,
         true,
         parseFloat(winningBid.amount.toString()),
         product.id
@@ -67,6 +69,7 @@ export const processEndedAuctions = async () => {
       await sendAuctionEndedEmail(
         product.seller.email,
         product.name,
+        product.id,
         false,
         undefined,
         product.id
@@ -97,6 +100,13 @@ export const getOrder = async (req: AuthRequest, res: Response, next: NextFuncti
         },
         { model: User, as: 'seller', attributes: ['id', 'fullName', 'email'] },
         { model: User, as: 'buyer', attributes: ['id', 'fullName', 'email'] },
+        {
+          model: Review,
+          as: 'reviews',
+          include: [
+            { model: User, as: 'reviewer', attributes: ['id', 'fullName'] },
+          ],
+        },
       ],
     });
 

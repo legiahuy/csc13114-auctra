@@ -60,6 +60,43 @@ export const authenticate = async (
   }
 };
 
+// Optional authentication - doesn't throw error if no token
+export const optionalAuthenticate = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (token) {
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET!
+      ) as { id: number; email: string; role: string };
+
+      // Check and auto-downgrade if seller expired
+      if (decoded.role === 'seller') {
+        const user = await User.findByPk(decoded.id);
+        if (user && user.upgradeExpireAt && user.upgradeExpireAt < new Date()) {
+          user.role = 'bidder';
+          user.upgradeExpireAt = undefined;
+          user.upgradeRequestStatus = undefined;
+          await user.save();
+          decoded.role = 'bidder';
+        }
+      }
+
+      req.user = decoded;
+    }
+    
+    next();
+  } catch (error) {
+    // If token is invalid, just continue without user
+    next();
+  }
+};
+
 export const authorize = (...roles: string[]) => {
   return async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {

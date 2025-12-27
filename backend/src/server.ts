@@ -143,6 +143,15 @@ const startServer = async () => {
       logger.info('Database synced.');
     } else {
       logger.info('Database sync skipped. Use SYNC_DB=true to enable, or run "npm run seed" for migrations.');
+      
+      // Auto-create settings table if it doesn't exist
+      try {
+        const { Settings } = await import('./models');
+        await Settings.sync({ alter: true });
+        logger.info('Settings table verified/created.');
+      } catch (error) {
+        logger.warn('Could not sync Settings table:', error);
+      }
     }
 
     httpServer.listen(PORT, () => {

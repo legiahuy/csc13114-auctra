@@ -287,7 +287,7 @@ export default function ProductListPage() {
                 {getCategoryNameById(categoryId) || "All categories"}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuContent align="start" className="w-[180px]">
               <DropdownMenuItem onSelect={() => setCategoryId("")}>
                 All categories
               </DropdownMenuItem>
@@ -296,19 +296,15 @@ export default function ProductListPage() {
                 category.children && category.children.length > 0 ? (
                   <DropdownMenuSub key={category.id}>
                     <DropdownMenuSubTrigger
-                      onSelect={(e) => {
+                      onClick={(e) => {
                         e.preventDefault();
+                        e.stopPropagation();
+                        setCategoryId(category.id.toString());
                       }}
                     >
                       {category.name}
                     </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuItem
-                        onSelect={() => setCategoryId(category.id.toString())}
-                      >
-                        {category.name}
-                      </DropdownMenuItem>
-                      <Separator />
+                    <DropdownMenuSubContent className="w-[180px]">
                       {category.children.map((child) => (
                         <DropdownMenuItem
                           key={child.id}

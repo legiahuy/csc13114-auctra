@@ -15,12 +15,18 @@ import {
   getUserDistribution,
   getUserDetails,
   testEmail,
+  getAutoExtendSettings,
+  updateAutoExtendSettings,
+  getAutoExtendSettingsPublic,
 } from '../controllers/admin.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// All routes require admin authentication
+// Public route for auto-extend settings (for sellers to see in form)
+router.get('/settings/auto-extend/public', getAutoExtendSettingsPublic);
+
+// All routes below require admin authentication
 router.use(authenticate);
 router.use(authorize('admin'));
 
@@ -35,16 +41,19 @@ router.put('/users/:id', updateUser);
 router.put('/users/:id/role', updateUserRole);
 router.delete('/users/:id', deleteUser);
 
+// User details (admin)
+router.get('/users/:id/details', getUserDetails);
+
 router.get('/products', getAllProducts);
 router.post('/test-email', testEmail);
 
-// Chart endpoints
+// Auto-extend settings (admin)
+router.get('/settings/auto-extend', getAutoExtendSettings);
+router.put('/settings/auto-extend', updateAutoExtendSettings);
+
+// Chart endpoints (admin)
 router.get('/charts/revenue', getRevenueChart);
 router.get('/charts/auctions', getAuctionsChart);
 router.get('/charts/user-distribution', getUserDistribution);
 
-// User details
-router.get('/users/:id/details', getUserDetails);
-
 export default router;
-

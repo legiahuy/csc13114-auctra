@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { User, Product, Category, Order } from '../models';
+import { User, Product, Category, Order, Settings } from '../models';
 import { AppError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { Op } from 'sequelize';
@@ -15,7 +15,6 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     const now = new Date();
     let startDate: Date;
 
-    // Calculate date range based on period
     switch (period) {
       case 'today':
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -33,36 +32,26 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
         startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     }
 
-    // New auctions
     const newAuctions = await Product.count({
-      where: {
-        createdAt: { [Op.gte]: startDate },
-      },
+      where: { createdAt: { [Op.gte]: startDate } },
     });
 
-    // Revenue (from completed orders)
-    const revenue = await Order.sum('finalPrice', {
-      where: {
-        status: 'completed',
-        createdAt: { [Op.gte]: startDate },
-      },
-    }) || 0;
+    const revenue =
+      (await Order.sum('finalPrice', {
+        where: {
+          status: 'completed',
+          createdAt: { [Op.gte]: startDate },
+        },
+      })) || 0;
 
-    // New users
     const newUsers = await User.count({
-      where: {
-        createdAt: { [Op.gte]: startDate },
-      },
+      where: { createdAt: { [Op.gte]: startDate } },
     });
 
-    // Upgrade requests (pending)
     const upgradeRequests = await User.count({
-      where: {
-        upgradeRequestStatus: 'pending',
-      },
+      where: { upgradeRequestStatus: 'pending' },
     });
 
-    // New upgrade requests in period
     const newUpgradeRequests = await User.count({
       where: {
         upgradeRequestDate: { [Op.gte]: startDate },
@@ -70,7 +59,6 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       },
     });
 
-    // Active products
     const activeProducts = await Product.count({
       where: {
         status: 'active',
@@ -78,10 +66,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
       },
     });
 
-    // Total users
     const totalUsers = await User.count();
-
-    // Total products
     const totalProducts = await Product.count();
 
     res.json({
@@ -109,17 +94,12 @@ export const getUpgradeRequests = async (req: AuthRequest, res: Response, next: 
     }
 
     const users = await User.findAll({
-      where: {
-        upgradeRequestStatus: 'pending',
-      },
+      where: { upgradeRequestStatus: 'pending' },
       attributes: { exclude: ['password'] },
       order: [['upgradeRequestDate', 'ASC']],
     });
 
-    res.json({
-      success: true,
-      data: users,
-    });
+    res.json({ success: true, data: users });
   } catch (error) {
     next(error);
   }
@@ -134,16 +114,13 @@ export const approveUpgrade = async (req: AuthRequest, res: Response, next: Next
     const { userId } = req.params;
 
     const user = await User.findByPk(userId);
-    if (!user) {
-      return next(new AppError('User not found', 404));
-    }
-
+    if (!user) return next(new AppError('User not found', 404));
     if (user.upgradeRequestStatus !== 'pending') {
       return next(new AppError('User upgrade request is not pending', 400));
     }
 
     const expireAt = new Date();
-    expireAt.setMinutes(expireAt.getMinutes() + 1); // seller quyền bán 1 phút (để test)
+    expireAt.setMinutes(expireAt.getMinutes() + 1); // test 1 phút
 
     user.role = 'seller';
     user.upgradeRequestStatus = 'approved';
@@ -170,19 +147,14 @@ export const rejectUpgrade = async (req: AuthRequest, res: Response, next: NextF
     const { reason } = req.body;
 
     const user = await User.findByPk(userId);
-    if (!user) {
-      return next(new AppError('User not found', 404));
-    }
+    if (!user) return next(new AppError('User not found', 404));
 
     user.upgradeRequestStatus = 'rejected';
     user.upgradeRejectionReason = reason || null;
     user.upgradeExpireAt = undefined;
     await user.save();
 
-    res.json({
-      success: true,
-      message: 'Upgrade rejected',
-    });
+    res.json({ success: true, message: 'Upgrade rejected' });
   } catch (error) {
     next(error);
   }
@@ -206,9 +178,7 @@ export const getAllUsers = async (req: AuthRequest, res: Response, next: NextFun
         { fullName: { [Op.iLike]: `%${search}%` } },
       ];
     }
-    if (role) {
-      where.role = role;
-    }
+    if (role) where.role = role;
 
     const { count, rows } = await User.findAndCountAll({
       where,
@@ -247,14 +217,9 @@ export const getUserById = async (req: AuthRequest, res: Response, next: NextFun
       attributes: { exclude: ['password'] },
     });
 
-    if (!user) {
-      return next(new AppError('User not found', 404));
-    }
+    if (!user) return next(new AppError('User not found', 404));
 
-    res.json({
-      success: true,
-      data: user,
-    });
+    res.json({ success: true, data: user });
   } catch (error) {
     next(error);
   }
@@ -270,27 +235,22 @@ export const updateUser = async (req: AuthRequest, res: Response, next: NextFunc
     const { fullName, email, role, address } = req.body;
 
     const user = await User.findByPk(id);
-    if (!user) {
-      return next(new AppError('User not found', 404));
-    }
+    if (!user) return next(new AppError('User not found', 404));
 
     if (fullName) user.fullName = fullName;
+
     if (email && email !== user.email) {
       const existingUser = await User.findOne({ where: { email } });
-      if (existingUser) {
-        return next(new AppError('Email already exists', 400));
-      }
+      if (existingUser) return next(new AppError('Email already exists', 400));
       user.email = email;
     }
+
     if (role) user.role = role;
     if (address) user.address = address;
 
     await user.save();
 
-    res.json({
-      success: true,
-      data: user,
-    });
+    res.json({ success: true, data: user });
   } catch (error) {
     next(error);
   }
@@ -309,15 +269,13 @@ export const deleteUser = async (req: AuthRequest, res: Response, next: NextFunc
     }
 
     const user = await User.findByPk(id);
-    if (!user) {
-      return next(new AppError('User not found', 404));
-    }
+    if (!user) return next(new AppError('User not found', 404));
 
     await user.destroy();
 
     res.json({
       success: true,
-      message: 'User updated successfully',
+      message: 'User deleted successfully',
       data: user,
     });
   } catch (error) {
@@ -339,14 +297,10 @@ export const updateUserRole = async (req: AuthRequest, res: Response, next: Next
     }
 
     const user = await User.findByPk(id);
-    if (!user) {
-      return next(new AppError('User not found', 404));
-    }
+    if (!user) return next(new AppError('User not found', 404));
 
-    // Update role
     user.role = role;
 
-    // If changing to seller, clear any pending upgrade requests
     if (role === 'seller') {
       user.upgradeRequestStatus = undefined;
       user.upgradeRequestDate = undefined;
@@ -359,10 +313,7 @@ export const updateUserRole = async (req: AuthRequest, res: Response, next: Next
     res.json({
       success: true,
       message: 'User role updated successfully',
-      data: {
-        id: user.id,
-        role: user.role,
-      },
+      data: { id: user.id, role: user.role },
     });
   } catch (error) {
     next(error);
@@ -381,12 +332,8 @@ export const getAllProducts = async (req: AuthRequest, res: Response, next: Next
     const offset = (pageNum - 1) * limitNum;
 
     const where: any = {};
-    if (search) {
-      where.name = { [Op.iLike]: `%${search}%` };
-    }
-    if (status) {
-      where.status = status;
-    }
+    if (search) where.name = { [Op.iLike]: `%${search}%` };
+    if (status) where.status = status;
 
     const { count, rows } = await Product.findAndCountAll({
       where,
@@ -423,9 +370,7 @@ export const testEmail = async (req: AuthRequest, res: Response, next: NextFunct
     }
 
     const { email } = req.body;
-    if (!email) {
-      return next(new AppError('Email is required', 400));
-    }
+    if (!email) return next(new AppError('Email is required', 400));
 
     const { sendQuestionNotificationEmail } = require('../utils/email.util');
 
@@ -450,8 +395,148 @@ export const testEmail = async (req: AuthRequest, res: Response, next: NextFunct
   }
 };
 
+// =========================
+// Auto-extend settings
+// =========================
 
-// Chart endpoints
+// Public endpoint (seller form can read these values)
+export const getAutoExtendSettingsPublic = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const [thresholdSetting, durationSetting] = await Promise.all([
+      Settings.findOrCreate({
+        where: { key: 'AUTO_EXTEND_THRESHOLD_MINUTES' },
+        defaults: {
+          key: 'AUTO_EXTEND_THRESHOLD_MINUTES',
+          value: process.env.AUTO_EXTEND_THRESHOLD_MINUTES || '5',
+          description: 'Số phút trước khi kết thúc để kích hoạt tự động gia hạn',
+        },
+      }),
+      Settings.findOrCreate({
+        where: { key: 'AUTO_EXTEND_DURATION_MINUTES' },
+        defaults: {
+          key: 'AUTO_EXTEND_DURATION_MINUTES',
+          value: process.env.AUTO_EXTEND_DURATION_MINUTES || '10',
+          description: 'Số phút gia hạn thêm khi có lượt đấu giá mới',
+        },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        thresholdMinutes: parseInt(thresholdSetting[0].value, 10),
+        durationMinutes: parseInt(durationSetting[0].value, 10),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Admin endpoint (view settings)
+export const getAutoExtendSettings = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Admin access required', 403));
+    }
+
+    const [thresholdSetting, durationSetting] = await Promise.all([
+      Settings.findOrCreate({
+        where: { key: 'AUTO_EXTEND_THRESHOLD_MINUTES' },
+        defaults: {
+          key: 'AUTO_EXTEND_THRESHOLD_MINUTES',
+          value: process.env.AUTO_EXTEND_THRESHOLD_MINUTES || '5',
+          description: 'Số phút trước khi kết thúc để kích hoạt tự động gia hạn',
+        },
+      }),
+      Settings.findOrCreate({
+        where: { key: 'AUTO_EXTEND_DURATION_MINUTES' },
+        defaults: {
+          key: 'AUTO_EXTEND_DURATION_MINUTES',
+          value: process.env.AUTO_EXTEND_DURATION_MINUTES || '10',
+          description: 'Số phút gia hạn thêm khi có lượt đấu giá mới',
+        },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        thresholdMinutes: parseInt(thresholdSetting[0].value, 10),
+        durationMinutes: parseInt(durationSetting[0].value, 10),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Admin endpoint (update settings)
+export const updateAutoExtendSettings = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Admin access required', 403));
+    }
+
+    const { thresholdMinutes, durationMinutes } = req.body;
+
+    if (thresholdMinutes === undefined || durationMinutes === undefined) {
+      return next(new AppError('thresholdMinutes and durationMinutes are required', 400));
+    }
+
+    const thresholdNum = parseInt(String(thresholdMinutes), 10);
+    const durationNum = parseInt(String(durationMinutes), 10);
+
+    if (Number.isNaN(thresholdNum) || thresholdNum < 1) {
+      return next(new AppError('thresholdMinutes must be a positive number', 400));
+    }
+
+    if (Number.isNaN(durationNum) || durationNum < 1) {
+      return next(new AppError('durationMinutes must be a positive number', 400));
+    }
+
+    await Promise.all([
+      Settings.upsert({
+        key: 'AUTO_EXTEND_THRESHOLD_MINUTES',
+        value: thresholdNum.toString(),
+        description: 'Số phút trước khi kết thúc để kích hoạt tự động gia hạn',
+      }),
+      Settings.upsert({
+        key: 'AUTO_EXTEND_DURATION_MINUTES',
+        value: durationNum.toString(),
+        description: 'Số phút gia hạn thêm khi có lượt đấu giá mới',
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Cấu hình tự động gia hạn đã được cập nhật',
+      data: {
+        thresholdMinutes: thresholdNum,
+        durationMinutes: durationNum,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// =========================
+// Chart endpoints (Admin)
+// =========================
+
 export const getRevenueChart = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.user || req.user.role !== 'admin') {
@@ -533,9 +618,7 @@ export const getAuctionsChart = async (req: AuthRequest, res: Response, next: Ne
     }
 
     const products = await Product.findAll({
-      where: {
-        createdAt: { [Op.gte]: startDate },
-      },
+      where: { createdAt: { [Op.gte]: startDate } },
       attributes: [
         [sequelize.fn('DATE', sequelize.col('createdAt')), 'date'],
         [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
@@ -549,7 +632,7 @@ export const getAuctionsChart = async (req: AuthRequest, res: Response, next: Ne
       success: true,
       data: products.map((p: any) => ({
         date: p.date,
-        count: parseInt(p.count || 0),
+        count: parseInt(p.count || 0, 10),
       })),
     });
   } catch (error) {
@@ -564,10 +647,7 @@ export const getUserDistribution = async (req: AuthRequest, res: Response, next:
     }
 
     const distribution = await User.findAll({
-      attributes: [
-        'role',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      ],
+      attributes: ['role', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
       group: ['role'],
       raw: true,
     });
@@ -576,13 +656,17 @@ export const getUserDistribution = async (req: AuthRequest, res: Response, next:
       success: true,
       data: distribution.map((d: any) => ({
         role: d.role,
-        count: parseInt(d.count || 0),
+        count: parseInt(d.count || 0, 10),
       })),
     });
   } catch (error) {
     next(error);
   }
 };
+
+// =========================
+// User details (Admin)
+// =========================
 
 export const getUserDetails = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -596,23 +680,18 @@ export const getUserDetails = async (req: AuthRequest, res: Response, next: Next
       attributes: { exclude: ['password'] },
     });
 
-    if (!user) {
-      return next(new AppError('User not found', 404));
-    }
+    if (!user) return next(new AppError('User not found', 404));
 
-    // Get user's products
     const products = await Product.findAll({
       where: { sellerId: id },
-      include: [
-        { model: Category, as: 'category', attributes: ['name'] },
-      ],
+      include: [{ model: Category, as: 'category', attributes: ['name'] }],
       order: [['createdAt', 'DESC']],
       limit: 10,
     });
 
-    // Get user's bids
+    // NOTE: require Bid from models (as your project currently does)
     const { Bid } = require('../models');
-    // Get all user's bids ordered by most recent
+
     const allBids = await Bid.findAll({
       where: { bidderId: id },
       include: [
@@ -625,28 +704,20 @@ export const getUserDetails = async (req: AuthRequest, res: Response, next: Next
       order: [['createdAt', 'DESC']],
     });
 
-    // Deduplicate by productId, keeping only the most recent bid per product
-    const seenProducts = new Set();
-    const bids = allBids.filter((bid: any) => {
-      if (!bid.product || seenProducts.has(bid.product.id)) {
-        return false;
-      }
-      seenProducts.add(bid.product.id);
-      return true;
-    }).slice(0, 10); // Limit to 10 unique products
+    const seenProducts = new Set<number>();
+    const bids = allBids
+      .filter((b: any) => {
+        if (!b.product || seenProducts.has(b.product.id)) return false;
+        seenProducts.add(b.product.id);
+        return true;
+      })
+      .slice(0, 10);
 
-    // Get user's orders
     const orders = await Order.findAll({
       where: {
         [Op.or]: [{ buyerId: id }, { sellerId: id }],
       },
-      include: [
-        {
-          model: Product,
-          as: 'product',
-          attributes: ['id', 'name'],
-        },
-      ],
+      include: [{ model: Product, as: 'product', attributes: ['id', 'name'] }],
       order: [['createdAt', 'DESC']],
       limit: 10,
     });

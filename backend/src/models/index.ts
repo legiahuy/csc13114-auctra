@@ -7,6 +7,7 @@ import { Question } from './Question.model';
 import { Review } from './Review.model';
 import { Order } from './Order.model';
 import { ChatMessage } from './ChatMessage.model';
+import { Settings } from './Settings.model';
 
 // Define relationships
 User.hasMany(Product, { foreignKey: 'sellerId', as: 'products' });
@@ -32,6 +33,10 @@ Question.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 Product.hasMany(Question, { foreignKey: 'productId', as: 'questions' });
 Question.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+
+// Self-referencing for nested replies
+Question.hasMany(Question, { foreignKey: 'parentId', as: 'replies' });
+Question.belongsTo(Question, { foreignKey: 'parentId', as: 'parent' });
 
 User.hasMany(Review, { foreignKey: 'reviewerId', as: 'givenReviews' });
 User.hasMany(Review, { foreignKey: 'revieweeId', as: 'receivedReviews' });
@@ -65,4 +70,5 @@ export {
   Review,
   Order,
   ChatMessage,
+  Settings,
 };

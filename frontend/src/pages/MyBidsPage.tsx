@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import apiClient from "../api/client";
 import { useAuthStore } from "../store/authStore";
@@ -21,12 +21,12 @@ import {
 import { LoaderIcon } from "lucide-react";
 import { useDebouncedSearch } from "@/hooks/useDebouncedSearch";
 import { usePagination } from "@/hooks/usePagination";
-import { useState } from "react";
 
 interface Bid {
   id: number;
   amount: number;
   createdAt: string;
+  isRejected?: boolean;
   product: {
     id: number;
     name: string;
@@ -43,12 +43,19 @@ interface Bid {
 export default function MyBidsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
 
-  const { searchInput, debouncedSearch, setSearchInput, handleClear, isSearching } =
-    useDebouncedSearch();
+  const {
+    searchInput,
+    debouncedSearch,
+    setSearchInput,
+    handleClear,
+    isSearching,
+  } = useDebouncedSearch();
+
   const { pagination, setPagination, handlePageChange } = usePagination();
 
   useEffect(() => {
@@ -76,6 +83,7 @@ export default function MyBidsPage() {
       if (statusFilter) params.status = statusFilter;
 
       const response = await apiClient.get("/users/bids", { params });
+
       setBids(response.data.data.bids || []);
       setPagination(response.data.data.pagination);
     } catch (error) {
@@ -95,6 +103,24 @@ export default function MyBidsPage() {
   if (loading && bids.length === 0) {
     return <Loading />;
   }
+
+  const getStatusBadge = (status: string) => {
+    const s = (status || "").toLowerCase();
+    const variant =
+      s === "active" ? "default" : s === "cancelled" ? "destructive" : "outline";
+
+    const className =
+      s === "active" ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "";
+
+    const label =
+      s === "active" ? "Active" : s === "cancelled" ? "Cancelled" : "Ended";
+
+    return (
+      <Badge variant={variant as any} className={className}>
+        {label}
+      </Badge>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -194,6 +220,7 @@ export default function MyBidsPage() {
                     className="w-full h-full object-cover"
                   />
                 </div>
+
                 <CardContent className="p-6 space-y-4 flex-1 flex flex-col">
                   <div className="space-y-2">
                     <h3 className="text-lg font-semibold leading-tight line-clamp-2">
@@ -208,30 +235,26 @@ export default function MyBidsPage() {
 
                   <div className="space-y-2 flex-1">
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">
-                        Your bid
-                      </p>
+                      <p className="text-xs text-muted-foreground mb-1">Your bid</p>
                       <p className="text-xl font-bold text-brand">
                         {Number(bid.amount).toLocaleString("vi-VN")} VNĐ
                       </p>
                     </div>
+
                     {bid.product.status === "active" && (
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">
                           Current price
                         </p>
                         <p className="text-lg font-semibold text-foreground">
-                          {Number(bid.product.currentPrice).toLocaleString(
-                            "vi-VN"
-                          )}{" "}
+                          {Number(bid.product.currentPrice).toLocaleString("vi-VN")}{" "}
                           VNĐ
                         </p>
                       </div>
                     )}
+
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">
-                        Bid placed
-                      </p>
+                      <p className="text-xs text-muted-foreground mb-1">Bid placed</p>
                       <p className="text-sm text-foreground">
                         {format(new Date(bid.createdAt), "dd/MM/yyyy HH:mm")}
                       </p>
@@ -239,30 +262,20 @@ export default function MyBidsPage() {
                   </div>
 
                   <div className="flex items-center justify-between pt-2">
-                    <Badge
-                      variant={
-                        bid.product.status === "active"
-                          ? "default"
-                          : bid.product.status === "cancelled"
-                          ? "destructive"
-                          : "outline"
-                      }
-                      className={
-                        bid.product.status === "active"
-                          ? "bg-emerald-500 hover:bg-emerald-600 text-white"
-                          : ""
-                      }
-                    >
-                      {bid.product.status === "active"
-                        ? "Active"
-                        : bid.product.status === "cancelled"
-                        ? "Cancelled"
-                        : "Ended"}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(bid.product.status)}
+                      {bid.isRejected && (
+                        <Badge
+                          variant="destructive"
+                          className="bg-red-500 hover:bg-red-600 text-white"
+                        >
+                          Rejected
+                        </Badge>
+                      )}
+                    </div>
+
                     <Button variant="outline" size="sm" asChild>
-                      <Link to={`/products/${bid.product.id}`}>
-                        View details
-                      </Link>
+                      <Link to={`/products/${bid.product.id}`}>View details</Link>
                     </Button>
                   </div>
                 </CardContent>
