@@ -60,28 +60,38 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
     }
 
     // Validate bid amount
-    const minBidAmount = parseFloat(product.currentPrice.toString()) + parseFloat(product.bidStep.toString());
+    const minBidAmount =
+      parseFloat(product.currentPrice.toString()) + parseFloat(product.bidStep.toString());
+
     if (!isAutoBid && parseFloat(amount) < minBidAmount) {
-      return next(new AppError(`Minimum bid amount is ${minBidAmount.toLocaleString('vi-VN')} VNĐ`, 400));
+      return next(
+        new AppError(`Minimum bid amount is ${minBidAmount.toLocaleString('vi-VN')} VNĐ`, 400)
+      );
     }
 
     if (isAutoBid && maxAmount && parseFloat(maxAmount) < minBidAmount) {
-      return next(new AppError(`Maximum bid amount must be at least ${minBidAmount.toLocaleString('vi-VN')} VNĐ`, 400));
+      return next(
+        new AppError(
+          `Maximum bid amount must be at least ${minBidAmount.toLocaleString('vi-VN')} VNĐ`,
+          400
+        )
+      );
     }
 
     // Check auto-extend
     const now = new Date();
     const timeUntilEnd = product.endDate.getTime() - now.getTime();
-    
+
     // Get settings from database, fallback to environment variables
     const [thresholdSetting, durationSetting] = await Promise.all([
       Settings.findOne({ where: { key: 'AUTO_EXTEND_THRESHOLD_MINUTES' } }),
       Settings.findOne({ where: { key: 'AUTO_EXTEND_DURATION_MINUTES' } }),
     ]);
-    
+
     const thresholdMinutes = thresholdSetting
       ? parseInt(thresholdSetting.value)
       : parseInt(process.env.AUTO_EXTEND_THRESHOLD_MINUTES || '5');
+
     const extendMinutes = durationSetting
       ? parseInt(durationSetting.value)
       : parseInt(process.env.AUTO_EXTEND_DURATION_MINUTES || '10');
@@ -104,7 +114,7 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
           isRejected: false,
         },
         include: [{ model: User, as: 'bidder' }],
-        order: [['maxAmount', 'DESC']],
+        order: [['maxAmount', 'DESC'], ['createdAt', 'ASC']], // First-come-first-served for equal max bids
       });
 
       if (highestAutoBid) {
@@ -122,7 +132,8 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
           );
         }
       } else {
-        finalAmount = parseFloat(product.currentPrice.toString()) + parseFloat(product.bidStep.toString());
+        finalAmount =
+          parseFloat(product.currentPrice.toString()) + parseFloat(product.bidStep.toString());
       }
     }
 
@@ -151,19 +162,16 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
         include: [{ model: User, as: 'bidder' }],
         order: [['amount', 'DESC']],
       });
+
       if (previousBid) {
         previousHighestBidder = previousBid.bidder;
       }
     }
 
     // Send notifications
-    await sendBidNotificationEmail(
-      req.user.email,
-      product.name,
-      finalAmount,
-      productId,
-      false
-    );
+    // NOTE: choose one consistent signature:
+    // Using (email, productName, amount, productId, isOutbid)
+    await sendBidNotificationEmail(req.user.email, product.name, finalAmount, productId, false);
 
     if (previousHighestBidder) {
       await sendBidNotificationEmail(
@@ -175,13 +183,7 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
       );
     }
 
-    await sendBidNotificationEmail(
-      product.seller.email,
-      product.name,
-      finalAmount,
-      productId,
-      false
-    );
+    await sendBidNotificationEmail(product.seller.email, product.name, finalAmount, productId, false);
 
     res.status(201).json({
       success: true,
@@ -238,9 +240,7 @@ export const getBidHistory = async (req: AuthRequest, res: Response, next: NextF
       } else {
         // Others see masked names
         const fullName = bid.bidder.fullName;
-        const maskedName = fullName.length > 4
-          ? '****' + fullName.slice(-4)
-          : '****' + fullName;
+        const maskedName = fullName.length > 4 ? '****' + fullName.slice(-4) : '****' + fullName;
         return {
           ...bidData,
           bidder: {
@@ -321,4 +321,3 @@ export const rejectBid = async (req: AuthRequest, res: Response, next: NextFunct
     next(error);
   }
 };
-

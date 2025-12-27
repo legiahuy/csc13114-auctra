@@ -28,21 +28,28 @@ export const authenticate = async (
       process.env.JWT_SECRET!
     ) as { id: number; email: string; role: string };
 
-    // Kiểm tra và tự động hạ quyền nếu seller hết hạn
-    if (decoded.role === 'seller') {
-      const user = await User.findByPk(decoded.id);
-      if (user && user.upgradeExpireAt && user.upgradeExpireAt < new Date()) {
-        // Hết hạn: hạ quyền về bidder
-        user.role = 'bidder';
-        user.upgradeExpireAt = undefined;
-        user.upgradeRequestStatus = undefined;
-        await user.save();
-        // Cập nhật role trong decoded để phản ánh thay đổi
-        decoded.role = 'bidder';
-      }
+    // Always fetch the latest user data from database to get current role
+    const user = await User.findByPk(decoded.id);
+    if (!user) {
+      throw new AppError('User not found', 404);
     }
 
-    req.user = decoded;
+    // Check if seller privileges have expired
+    if (user.role === 'seller' && user.upgradeExpireAt && user.upgradeExpireAt < new Date()) {
+      // Expired: downgrade to bidder
+      user.role = 'bidder';
+      user.upgradeExpireAt = undefined;
+      user.upgradeRequestStatus = undefined;
+      await user.save();
+    }
+
+    // Set req.user with the current role from database (not from JWT)
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role, // Use role from database, not from JWT
+    };
+    
     next();
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
@@ -97,25 +104,7 @@ export const authorize = (...roles: string[]) => {
         return next(new AppError('Authentication required', 401));
       }
 
-      // Nếu yêu cầu role seller, kiểm tra thời hạn upgrade
-      if (roles.includes('seller')) {
-        const user = await User.findByPk(req.user.id);
-        if (!user) return next(new AppError('User not found', 404));
-
-        if (user.role !== 'seller') {
-          return next(new AppError('Access denied', 403));
-        }
-
-        if (user.upgradeExpireAt && user.upgradeExpireAt < new Date()) {
-          // Hết hạn: hạ quyền về bidder
-          user.role = 'bidder';
-          user.upgradeExpireAt = undefined;
-          user.upgradeRequestStatus = undefined;
-          await user.save();
-          return next(new AppError('Tài khoản seller của bạn đã hết thời hạn. Vui lòng yêu cầu nâng cấp lại.', 403));
-        }
-      }
-
+      // req.user.role is already synced with database by authenticate middleware
       if (!roles.includes(req.user.role)) {
         return next(new AppError('Access denied', 403));
       }
