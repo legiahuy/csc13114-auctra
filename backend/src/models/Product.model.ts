@@ -39,12 +39,11 @@ export interface ProductCreationAttributes
     | "isNew"
     | "createdAt"
     | "updatedAt"
-  > {}
+  > { }
 
 export class Product
   extends Model<ProductAttributes, ProductCreationAttributes>
-  implements ProductAttributes
-{
+  implements ProductAttributes {
   public id!: number;
   public name!: string;
   public slug!: string;
@@ -69,6 +68,11 @@ export class Product
   public isNew!: boolean;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
+
+  // Associations
+  public readonly seller?: any;
+  public readonly bids?: any[];
+  public readonly questions?: any[];
 }
 
 Product.init(

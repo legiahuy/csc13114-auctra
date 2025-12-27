@@ -19,7 +19,7 @@ export interface OrderAttributes {
   updatedAt?: Date;
 }
 
-export interface OrderCreationAttributes extends Optional<OrderAttributes, 'id' | 'status' | 'createdAt' | 'updatedAt'> {}
+export interface OrderCreationAttributes extends Optional<OrderAttributes, 'id' | 'status' | 'createdAt' | 'updatedAt'> { }
 
 export class Order extends Model<OrderAttributes, OrderCreationAttributes> implements OrderAttributes {
   public id!: number;
@@ -30,6 +30,7 @@ export class Order extends Model<OrderAttributes, OrderCreationAttributes> imple
   public status!: 'pending_payment' | 'pending_address' | 'pending_shipping' | 'pending_delivery' | 'completed' | 'cancelled';
   public paymentMethod?: string;
   public paymentTransactionId?: string;
+  public paymentProof?: string;
   public shippingAddress?: string;
   public shippingInvoice?: string;
   public cancelledBy?: 'seller' | 'buyer';
