@@ -8,6 +8,9 @@ import {
   Heart,
   Image as ImageIcon,
   User,
+  ChevronDown,
+  ChevronUp,
+  Reply,
 } from "lucide-react";
 
 import apiClient from "../api/client";
@@ -42,6 +45,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface Product {
   id: number;
@@ -90,11 +94,14 @@ interface Product {
     question: string;
     answer?: string;
     answeredAt?: string;
+    parentId?: number;
     user: {
       id: number;
       fullName: string;
     };
     createdAt: string;
+    replyCount?: number;
+    replies?: Array<any>;
   }>;
 }
 
@@ -102,6 +109,7 @@ interface BidHistory {
   id: number;
   amount: number;
   createdAt: string;
+  isRejected?: boolean;
   bidder: {
     fullName: string;
   };
@@ -117,27 +125,34 @@ export default function ProductDetailPage() {
   const [bidHistory, setBidHistory] = useState<BidHistory[]>([]);
 
   const [maxAmount, setMaxAmount] = useState("");
-
   const [isInWatchlist, setIsInWatchlist] = useState(false);
-
   const [loading, setLoading] = useState(true);
 
   const [bidHistoryOpen, setBidHistoryOpen] = useState(false);
-  const [questionDialogOpen, setQuestionDialogOpen] = useState(false);
-  const [answerDialogOpen, setAnswerDialogOpen] = useState(false);
-  const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(
-    null
+  const [expandedReplies, setExpandedReplies] = useState<Set<number>>(new Set());
+  const [showReplyInput, setShowReplyInput] = useState<number | null>(null);
+  const [localReplyText, setLocalReplyText] = useState<{ [key: number]: string }>(
+    {}
   );
 
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
-
   const [selectedImage, setSelectedImage] = useState(0);
 
   const [order, setOrder] = useState<any>(null);
 
   // Confirm place bid dialog
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Reject bid dialog
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [selectedBidId, setSelectedBidId] = useState<number | null>(null);
+  const [rejectResult, setRejectResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
+  // Rejected bidder status
+  const [isRejectedBidder, setIsRejectedBidder] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -156,6 +171,7 @@ export default function ProductDetailPage() {
         setProduct(productData);
         setRelatedProducts(productRes.data.data.relatedProducts || []);
         setBidHistory(bidHistoryRes.data.data || []);
+        setIsRejectedBidder(productRes.data.data.isRejectedBidder || false);
 
         // Suggested max amount (auto-bidding only)
         if (productData.bids && productData.bids[0]) {
@@ -199,7 +215,7 @@ export default function ProductDetailPage() {
     };
 
     fetchData();
-  }, [id, user]);
+  }, [id, user, navigate]);
 
   const handlePlaceBid = () => {
     if (!user) {
@@ -228,13 +244,14 @@ export default function ProductDetailPage() {
       toast.success("Bid placed successfully");
       setConfirmOpen(false);
 
-      // Refresh data
       const [productRes, bidHistoryRes] = await Promise.all([
         apiClient.get(`/products/${id}`),
         apiClient.get(`/bids/history/${id}`),
       ]);
+
       setProduct(productRes.data.data.product);
       setBidHistory(bidHistoryRes.data.data);
+      setIsRejectedBidder(productRes.data.data.isRejectedBidder || false);
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || "Failed to place bid");
     }
@@ -263,7 +280,7 @@ export default function ProductDetailPage() {
 
   const handleAskQuestion = async () => {
     if (!question.trim()) {
-      toast.error("Please enter your question");
+      toast.error("Please enter a comment");
       return;
     }
 
@@ -272,48 +289,91 @@ export default function ProductDetailPage() {
         productId: id,
         question,
       });
-      toast.success("Question submitted");
+      toast.success("Comment posted successfully");
       setQuestion("");
-      setQuestionDialogOpen(false);
 
       const response = await apiClient.get(`/products/${id}`);
       setProduct(response.data.data.product);
+      setRelatedProducts(response.data.data.relatedProducts || []);
+      setIsRejectedBidder(response.data.data.isRejectedBidder || false);
     } catch (error: any) {
-      toast.error(
-        error.response?.data?.error?.message || "Failed to submit question"
-      );
+      toast.error(error.response?.data?.error?.message || "Failed to post comment");
     }
   };
 
-  const handleAnswerQuestion = async () => {
-    if (!answer.trim()) {
-      toast.error("Please enter your answer");
+  const handleReply = async (parentId: number, replyText: string) => {
+    if (!replyText.trim()) {
+      toast.error("Please enter a reply");
       return;
     }
 
     try {
-      await apiClient.put(`/users/questions/${selectedQuestionId}/answer`, {
-        answer,
+      await apiClient.post("/users/questions", {
+        productId: id,
+        question: replyText,
+        parentId,
       });
-      toast.success("Answer submitted");
-      setAnswer("");
-      setAnswerDialogOpen(false);
+      toast.success("Reply posted successfully");
+
+      // Expand replies on the top-level parent
+      let topLevelQuestionId = parentId;
+      if (product) {
+        for (const q of product.questions) {
+          if (q.id === parentId) {
+            topLevelQuestionId = q.id;
+            break;
+          }
+          if (q.replies) {
+            for (const r of q.replies) {
+              if (r.id === parentId) {
+                topLevelQuestionId = q.id;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      setExpandedReplies((prev) => {
+        const ns = new Set(prev);
+        ns.add(topLevelQuestionId);
+        return ns;
+      });
 
       const response = await apiClient.get(`/products/${id}`);
       setProduct(response.data.data.product);
+      setRelatedProducts(response.data.data.relatedProducts || []);
+      setIsRejectedBidder(response.data.data.isRejectedBidder || false);
     } catch (error: any) {
-      toast.error(
-        error.response?.data?.error?.message || "Failed to submit answer"
-      );
+      toast.error(error.response?.data?.error?.message || "Failed to post reply");
     }
   };
 
-  const handleRejectBid = async (bidId: number) => {
-    if (!window.confirm("Are you sure you want to reject this bid?")) return;
+  const toggleReplies = (questionId: number) => {
+    setExpandedReplies((prev) => {
+      const ns = new Set(prev);
+      if (ns.has(questionId)) ns.delete(questionId);
+      else ns.add(questionId);
+      return ns;
+    });
+  };
+
+  const handleOpenRejectDialog = (bidId: number) => {
+    setSelectedBidId(bidId);
+    setRejectResult(null);
+    setRejectDialogOpen(true);
+  };
+
+  const handleRejectBid = async () => {
+    if (!selectedBidId) return;
 
     try {
-      await apiClient.put(`/bids/${bidId}/reject`);
-      toast.success("Bid rejected");
+      await apiClient.put(`/bids/${selectedBidId}/reject`);
+      setRejectResult({
+        success: true,
+        message:
+          "Bid has been rejected successfully. The bidder will be notified.",
+      });
 
       const [productRes, bidHistoryRes] = await Promise.all([
         apiClient.get(`/products/${id}`),
@@ -322,8 +382,12 @@ export default function ProductDetailPage() {
 
       setProduct(productRes.data.data.product);
       setBidHistory(bidHistoryRes.data.data);
+      setIsRejectedBidder(productRes.data.data.isRejectedBidder || false);
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || "Failed to reject bid");
+      setRejectResult({
+        success: false,
+        message: error.response?.data?.error?.message || "Failed to reject bid",
+      });
     }
   };
 
@@ -371,17 +435,16 @@ export default function ProductDetailPage() {
     );
   }
 
-  const shouldShowOrderLink =
-    product.status === "ended" &&
-    order &&
-    user &&
-    (user.id === order.sellerId || user.id === order.buyerId);
-
   const isSeller = user?.id === product.sellerId;
   const isEnded =
     product.status === "ended" ||
     product.status === "cancelled" ||
     new Date(product.endDate) <= new Date();
+
+  const canSeeAfterEnd =
+    !isEnded ||
+    isSeller ||
+    (order && (user?.id === order.sellerId || user?.id === order.buyerId));
 
   const sellerRating = getRatingPercentage(
     product.seller.rating,
@@ -393,41 +456,28 @@ export default function ProductDetailPage() {
   const highestBidderRating =
     highestBidder && highestBidder.bidder.totalRatings > 0
       ? getRatingPercentage(
-        highestBidder.bidder.rating,
-        highestBidder.bidder.totalRatings
-      )
+          highestBidder.bidder.rating,
+          highestBidder.bidder.totalRatings
+        )
       : 0;
 
   const allImages = [product.mainImage, ...(product.images || [])];
 
   return (
     <div className="space-y-6">
-      {shouldShowOrderLink && (
-        <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-          <AlertCircle className="h-4 w-4 mt-0.5" />
-          <div className="space-y-1">
-            <p>The auction for this product has ended.</p>
-            <Link
-              to={`/orders/${order.id}`}
-              className="font-medium text-blue-700 hover:underline"
-            >
-              View order details
-            </Link>
-          </div>
-        </div>
-      )}
-
       {product.status === "cancelled" && (
         <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
           <AlertCircle className="h-4 w-4 mt-0.5" />
-          <p className="font-medium my-0">This product has been cancelled by the administrator.</p>
+          <p className="font-medium my-0">
+            This product has been cancelled by the administrator.
+          </p>
         </div>
       )}
 
       {product.status === "ended" && !order && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <AlertCircle className="h-4 w-4 mt-0.5" />
-          <p>This auction has ended.</p>
+          <p>Product has ended</p>
         </div>
       )}
 
@@ -458,10 +508,11 @@ export default function ProductDetailPage() {
                     key={idx}
                     type="button"
                     onClick={() => setSelectedImage(idx)}
-                    className={`h-16 w-16 rounded-md overflow-hidden border ${selectedImage === idx
-                      ? "border-primary ring-2 ring-primary/40"
-                      : "border-border"
-                      }`}
+                    className={`h-16 w-16 rounded-md overflow-hidden border ${
+                      selectedImage === idx
+                        ? "border-primary ring-2 ring-primary/40"
+                        : "border-border"
+                    }`}
                   >
                     <img
                       src={img}
@@ -493,10 +544,9 @@ export default function ProductDetailPage() {
                     className="h-8 w-8"
                   >
                     <Heart
-                      className={`h-5 w-5 transition-colors ${isInWatchlist
-                        ? "text-red-500 fill-red-500"
-                        : ""
-                        }`}
+                      className={`h-5 w-5 transition-colors ${
+                        isInWatchlist ? "text-red-500 fill-red-500" : ""
+                      }`}
                     />
                   </Button>
                 </div>
@@ -519,9 +569,7 @@ export default function ProductDetailPage() {
 
             <CardContent className="space-y-6">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">
-                  Current price
-                </p>
+                <p className="text-xs text-muted-foreground mb-1">Current price</p>
                 <p className="text-3xl font-bold text-brand">
                   {Number(product.currentPrice).toLocaleString("vi-VN")} VNĐ
                 </p>
@@ -529,9 +577,7 @@ export default function ProductDetailPage() {
 
               {product.buyNowPrice && (
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">
-                    Buy now price
-                  </p>
+                  <p className="text-xs text-muted-foreground mb-1">Buy now price</p>
                   <p className="text-xl font-semibold text-foreground">
                     {Number(product.buyNowPrice).toLocaleString("vi-VN")} VNĐ
                   </p>
@@ -588,72 +634,265 @@ export default function ProductDetailPage() {
               </div>
 
               {/* Description */}
-              <div className="space-y-2">
-                <h2 className="text-base font-semibold">Product description</h2>
-                <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                  {product.description}
-                </p>
+              <div className="space-y-3">
+                <h2 className="text-base font-semibold">Product Description</h2>
+                <div className="rounded-lg border border-border bg-card p-4 md:p-6">
+                  <div
+                    className="text-sm leading-relaxed text-muted-foreground [&_h1]:text-xl [&_h1]:font-bold [&_h1]:text-foreground [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-foreground [&_h3]:mt-3 [&_h3]:mb-2 [&_p]:my-2 [&_p]:text-muted-foreground [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-foreground [&_em]:italic [&_u]:underline [&_s]:line-through [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:space-y-1 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:space-y-1 [&_ol]:my-3 [&_li]:my-1 [&_a]:text-foreground [&_a]:underline [&_a:hover]:text-foreground/80 [&_img]:max-w-full [&_img]:max-h-96 [&_img]:w-auto [&_img]:h-auto [&_img]:object-contain [&_img]:rounded-md [&_img]:my-4 [&_img]:mx-auto [&_img]:block [&_.ql-align-left]:text-left [&_.ql-align-center]:text-center [&_.ql-align-right]:text-right [&_.ql-align-justify]:text-justify"
+                    dangerouslySetInnerHTML={{ __html: product.description }}
+                  />
+                </div>
               </div>
 
-              {/* Questions & answers */}
+              {/* Comments */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-base font-semibold">
-                    Questions & answers
-                  </h2>
-                  {user && !isSeller && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setQuestionDialogOpen(true)}
-                    >
-                      Ask a question
-                    </Button>
-                  )}
-                </div>
+                <h2 className="text-base font-semibold">Comments</h2>
 
                 {product.questions && product.questions.length > 0 ? (
-                  <div className="space-y-3">
-                    {product.questions.map((q) => (
-                      <div
-                        key={q.id}
-                        className="rounded-lg border bg-card p-3 space-y-2"
-                      >
-                        <p className="text-sm font-medium">
-                          {q.user.fullName} asked:
-                        </p>
-                        <p className="text-sm text-foreground">{q.question}</p>
+                  <div className="space-y-4">
+                    {product.questions.map((q) => {
+                      const getInitials = (name: string) =>
+                        name.charAt(0).toUpperCase();
 
-                        {q.answer ? (
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold text-primary">
-                              Seller answered:
-                            </p>
-                            <p className="text-sm text-foreground">{q.answer}</p>
-                          </div>
-                        ) : isSeller ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedQuestionId(q.id);
-                              setAnswerDialogOpen(true);
-                            }}
+                      const countAllReplies = (replies: any[]): number => {
+                        let count = replies.length;
+                        replies.forEach((reply) => {
+                          if (reply.replies && reply.replies.length > 0) {
+                            count += countAllReplies(reply.replies);
+                          }
+                        });
+                        return count;
+                      };
+
+                      const renderComment = (
+                        comment: any,
+                        isReply = false,
+                        depth = 0
+                      ) => {
+                        const commentUser = comment.user;
+                        const isSellerComment =
+                          commentUser.id === product.seller.id;
+                        const canReply = !!user;
+
+                        const commentReplies = comment.replies || [];
+                        const commentReplyCount =
+                          comment.replyCount ||
+                          (commentReplies.length > 0
+                            ? countAllReplies(commentReplies)
+                            : 0);
+
+                        const hasCommentReplies = commentReplyCount > 0;
+                        const isExpanded = expandedReplies.has(comment.id);
+
+                        const indentRem = isReply
+                          ? Math.min(depth * 0.75 + 0.75, 3) // 0.75rem steps, max 3rem
+                          : 0;
+
+                        return (
+                          <div
+                            key={comment.id}
+                            className="space-y-2"
+                            style={isReply ? { marginLeft: `${indentRem}rem` } : undefined}
                           >
-                            Answer
-                          </Button>
-                        ) : (
-                          <p className="text-xs text-muted-foreground">
-                            No answer yet
-                          </p>
-                        )}
-                      </div>
-                    ))}
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback>
+                                  {getInitials(commentUser.fullName)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-sm font-semibold">
+                                {commentUser.fullName}
+                              </span>
+                              {isSellerComment && (
+                                <Badge variant="outline" className="text-xs">
+                                  Seller
+                                </Badge>
+                              )}
+                              <span className="text-xs text-muted-foreground">
+                                {format(
+                                  new Date(comment.createdAt),
+                                  "dd/MM/yyyy HH:mm"
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="ml-[40px] space-y-2">
+                              <p className="text-sm text-foreground">
+                                {comment.question}
+                              </p>
+
+                              {canReply && (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                    onClick={() => {
+                                      if (showReplyInput === comment.id) {
+                                        setShowReplyInput(null);
+                                      } else {
+                                        setShowReplyInput(comment.id);
+                                        setLocalReplyText({
+                                          ...localReplyText,
+                                          [comment.id]: "",
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <Reply className="h-3 w-3 mr-1" />
+                                    Reply
+                                  </Button>
+                                </div>
+                              )}
+
+                              {hasCommentReplies && (
+                                <div className="mt-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground mb-2"
+                                    onClick={() => toggleReplies(comment.id)}
+                                  >
+                                    {isExpanded ? (
+                                      <>
+                                        <ChevronUp className="h-3 w-3 mr-1" />
+                                        Hide {commentReplyCount}{" "}
+                                        {commentReplyCount === 1
+                                          ? "reply"
+                                          : "replies"}
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ChevronDown className="h-3 w-3 mr-1" />
+                                        View {commentReplyCount}{" "}
+                                        {commentReplyCount === 1
+                                          ? "reply"
+                                          : "replies"}
+                                      </>
+                                    )}
+                                  </Button>
+
+                                  {isExpanded && (
+                                    <div className="space-y-3 mt-2">
+                                      {commentReplies.map((reply: any) =>
+                                        renderComment(reply, true, depth + 1)
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {showReplyInput === comment.id && (
+                                <div className="mt-2 space-y-2">
+                                  <Textarea
+                                    placeholder="Write a reply..."
+                                    value={localReplyText[comment.id] || ""}
+                                    onChange={(e) => {
+                                      setLocalReplyText({
+                                        ...localReplyText,
+                                        [comment.id]: e.target.value,
+                                      });
+                                    }}
+                                    className="min-h-[60px] text-sm"
+                                  />
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={async () => {
+                                        const replyText =
+                                          localReplyText[comment.id] || "";
+                                        if (replyText.trim()) {
+                                          await handleReply(comment.id, replyText);
+                                          setShowReplyInput(null);
+                                          setLocalReplyText({
+                                            ...localReplyText,
+                                            [comment.id]: "",
+                                          });
+                                        }
+                                      }}
+                                    >
+                                      Post
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setShowReplyInput(null);
+                                        setLocalReplyText({
+                                          ...localReplyText,
+                                          [comment.id]: "",
+                                        });
+                                      }}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      };
+
+                      return (
+                        <div
+                          key={q.id}
+                          className="space-y-2 border-b border-border pb-4 last:border-0"
+                        >
+                          {renderComment(q, false)}
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No questions yet
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No comments yet. Be the first to comment!
                   </p>
+                )}
+
+                {/* Comment input */}
+                {user ? (
+                  <div className="flex items-start gap-3 pt-4 border-t border-border">
+                    <Avatar className="h-10 w-10 flex-shrink-0">
+                      <AvatarFallback>
+                        {user.fullName.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 space-y-2">
+                      <Textarea
+                        placeholder="Write a comment..."
+                        value={question}
+                        onChange={(e) => setQuestion(e.target.value)}
+                        className="min-h-[40px] text-sm resize-y"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                            handleAskQuestion();
+                          }
+                        }}
+                      />
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">
+                          Press Ctrl+Enter to send
+                        </p>
+                        <Button
+                          size="sm"
+                          onClick={handleAskQuestion}
+                          disabled={!question.trim()}
+                        >
+                          Comment
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-border bg-card p-4 text-center mt-4">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Log in to comment
+                    </p>
+                    <Button size="sm" onClick={() => navigate("/login")}>
+                      Log in
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardContent>
@@ -681,9 +920,7 @@ export default function ProductDetailPage() {
                         />
                       </div>
                       <div className="p-3 space-y-1">
-                        <p className="text-xs font-medium line-clamp-2">
-                          {p.name}
-                        </p>
+                        <p className="text-xs font-medium line-clamp-2">{p.name}</p>
                         <p className="text-sm font-semibold text-brand">
                           {Number(p.currentPrice).toLocaleString("vi-VN")} VNĐ
                         </p>
@@ -697,61 +934,97 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Right column – bidding panel */}
-        <div className="space-y-4 lg:sticky lg:top-20 lg:h-fit">
-          <Card className="bg-transparent border-none shadow-none">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">
-                Place a bid
-              </CardTitle>
-              <CardDescription className="text-sm text-muted-foreground">
-                Submit a bid for this product
-              </CardDescription>
-            </CardHeader>
+        {canSeeAfterEnd && (
+          <div className="space-y-4 lg:sticky lg:top-20 lg:h-fit">
+            <Card className="bg-transparent border-none shadow-none">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold">
+                  Place a bid
+                </CardTitle>
+                <CardDescription className="text-sm text-muted-foreground">
+                  Submit a bid for this product
+                </CardDescription>
+              </CardHeader>
 
-            <CardContent className="space-y-4">
-              {!isEnded ? (
-                <>
-                  {user ? (
-                    <>
-                      {!isSeller ? (
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">
-                              Maximum amount
-                            </label>
-                            <div className="relative">
-                              <Input
-                                className="bg-background pr-12"
-                                type="text"
-                                inputMode="numeric"
-                                value={formatCurrencyDisplay(maxAmount)}
-                                onChange={handleMaxAmountChange}
-                                placeholder="0"
-                              />
-                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
-                                VNĐ
-                              </span>
+              <CardContent className="space-y-4">
+                {!isEnded ? (
+                  <>
+                    {user ? (
+                      <>
+                        {!isSeller ? (
+                          isRejectedBidder ? (
+                            <div className="space-y-3">
+                              <Button className="w-full" disabled>
+                                Place automatic bid
+                              </Button>
+                              <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
+                                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                                <span>
+                                  You have been rejected from bidding on this product by the seller.
+                                </span>
+                              </div>
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              The system will automatically bid up to this
-                              maximum amount to help you win at the lowest possible price.
-                            </p>
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                  Maximum amount
+                                </label>
+                                <div className="relative">
+                                  <Input
+                                    className="bg-background pr-12"
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={formatCurrencyDisplay(maxAmount)}
+                                    onChange={handleMaxAmountChange}
+                                    placeholder="0"
+                                  />
+                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                                    VNĐ
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  The system will automatically bid up to this maximum amount to help you win at the lowest possible price.
+                                </p>
+                              </div>
+
+                              <Button
+                                className="w-full"
+                                onClick={handlePlaceBid}
+                                disabled={!maxAmount}
+                              >
+                                Place automatic bid
+                              </Button>
+                            </div>
+                          )
+                        ) : (
+                          <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                            This is your product; you cannot place a bid.
                           </div>
+                        )}
 
-                          <Button
-                            className="w-full"
-                            onClick={handlePlaceBid}
-                            disabled={!maxAmount}
-                          >
-                            Place automatic bid
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-                          This is your product; you cannot place a bid.
-                        </div>
-                      )}
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => setBidHistoryOpen(true)}
+                        >
+                          View bid history
+                        </Button>
+                      </>
+                    ) : (
+                      <Button className="w-full" onClick={() => navigate("/login")}>
+                        Log in to bid
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-sm text-amber-900 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>The auction has ended</span>
+                    </div>
 
+                    {(user && (isSeller || order)) && (
                       <Button
                         variant="outline"
                         className="w-full"
@@ -759,22 +1032,13 @@ export default function ProductDetailPage() {
                       >
                         View bid history
                       </Button>
-                    </>
-                  ) : (
-                    <Button className="w-full" onClick={() => navigate("/login")}>
-                      Log in to bid
-                    </Button>
-                  )}
-                </>
-              ) : (
-                <div className="flex items-center gap-2 text-sm text-amber-900 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>The auction has ended</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
 
       {/* Confirm bid dialog */}
@@ -835,6 +1099,7 @@ export default function ProductDetailPage() {
                   <TableHead>Time</TableHead>
                   <TableHead>Bidder</TableHead>
                   <TableHead>Amount</TableHead>
+                  {isSeller && <TableHead>Status</TableHead>}
                   {isSeller && <TableHead>Actions</TableHead>}
                 </TableRow>
               </TableHeader>
@@ -850,12 +1115,22 @@ export default function ProductDetailPage() {
                     </TableCell>
                     {isSeller && (
                       <TableCell>
+                        {bid.isRejected ? (
+                          <Badge variant="destructive">Rejected</Badge>
+                        ) : (
+                          <Badge variant="default">Active</Badge>
+                        )}
+                      </TableCell>
+                    )}
+                    {isSeller && (
+                      <TableCell>
                         <Button
                           size="sm"
                           variant="destructive"
-                          onClick={() => handleRejectBid(bid.id)}
+                          onClick={() => handleOpenRejectDialog(bid.id)}
+                          disabled={bid.isRejected}
                         >
-                          Reject
+                          {bid.isRejected ? "Rejected" : "Reject"}
                         </Button>
                       </TableCell>
                     )}
@@ -873,58 +1148,64 @@ export default function ProductDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Ask question dialog */}
-      <Dialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ask a question</DialogTitle>
+      {/* Reject Bid Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="text-center">
+            <DialogTitle className="text-center">
+              {rejectResult ? "Reject Bid Result" : "Reject Bid"}
+            </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-3">
-            <Textarea
-              rows={4}
-              placeholder="Type your question..."
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-            />
-          </div>
+          {!rejectResult ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to reject this bid? This action cannot be undone.
+                The bidder will be notified and will not be able to bid on this product again.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div
+                className={`flex items-start gap-3 p-4 rounded-lg border ${
+                  rejectResult.success
+                    ? "bg-green-50 border-green-200 text-green-900"
+                    : "bg-red-50 border-red-200 text-red-900"
+                }`}
+              >
+                <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                <p className="text-sm">{rejectResult.message}</p>
+              </div>
+            </div>
+          )}
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setQuestionDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleAskQuestion}>Submit</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Answer question dialog */}
-      <Dialog open={answerDialogOpen} onOpenChange={setAnswerDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Answer question</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            <Textarea
-              rows={4}
-              placeholder="Type your answer..."
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-            />
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setAnswerDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleAnswerQuestion}>Submit</Button>
+          <DialogFooter className="!justify-center sm:!justify-center">
+            {!rejectResult ? (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setRejectDialogOpen(false);
+                    setSelectedBidId(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={handleRejectBid}>
+                  Reject
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={() => {
+                  setRejectDialogOpen(false);
+                  setSelectedBidId(null);
+                  setRejectResult(null);
+                }}
+              >
+                Close
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

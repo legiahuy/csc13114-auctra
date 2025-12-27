@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { io, Socket } from "socket.io-client";
 import { format } from "date-fns";
 import {
   Plus,
-  Trash2,
   Edit,
   Image as ImageIcon,
   AlertCircle,
@@ -13,6 +12,7 @@ import {
   Package,
   Gavel,
   X,
+  Star,
 } from "lucide-react";
 import { useFormik } from "formik";
 import * as yup from "yup";
@@ -27,7 +27,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -46,19 +45,23 @@ import {
   TabsContent,
 } from "@/components/ui/tabs";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
+import RichTextEditor from "@/components/RichTextEditor";
 
 interface Category {
   id: number;
   name: string;
   parentId?: number;
+  children?: Category[];
 }
 
 interface Product {
@@ -156,6 +159,35 @@ export default function SellerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [expired, setExpired] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [autoExtendConfig, setAutoExtendConfig] = useState({
+    thresholdMinutes: 5,
+    durationMinutes: 10,
+  });
+  const [appendDescriptionDialogOpen, setAppendDescriptionDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [additionalDescription, setAdditionalDescription] = useState("");
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [reviewRating, setReviewRating] = useState<1 | -1>(1);
+  const [reviewComment, setReviewComment] = useState("");
+  const categoryTriggerRef = useRef<HTMLButtonElement>(null);
+  const [categoryMenuWidth, setCategoryMenuWidth] = useState<number | undefined>(undefined);
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+
+  // Cancel order dialog
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [cancelResult, setCancelResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
+  // Set category menu width when dialog opens
+  useEffect(() => {
+    if (createDialogOpen && categoryTriggerRef.current) {
+      setCategoryMenuWidth(categoryTriggerRef.current.offsetWidth);
+    }
+  }, [createDialogOpen]);
 
   useEffect(() => {
     if (user?.role !== "seller") {
@@ -211,15 +243,19 @@ export default function SellerDashboardPage() {
 
   const fetchData = async () => {
     try {
-      const [categoriesRes, productsRes, ordersRes] = await Promise.all([
+      const [categoriesRes, productsRes, ordersRes, settingsRes] = await Promise.all([
         apiClient.get("/categories"),
         apiClient.get("/products/seller/my-products"),
         apiClient.get("/products/seller/orders"),
+        apiClient.get("/admin/settings/auto-extend/public").catch(() => null),
       ]);
 
       setCategories(categoriesRes.data.data);
       setProducts(productsRes.data.data);
       setOrders(ordersRes.data.data);
+      if (settingsRes?.data?.data) {
+        setAutoExtendConfig(settingsRes.data.data);
+      }
     } catch (error: any) {
       console.error("Error fetching data:", error);
       if (
@@ -242,7 +278,23 @@ export default function SellerDashboardPage() {
     }
   };
 
-  // Setup Socket.IO để nhận cập nhật real-time
+  // Fetch auto-extend config when dialog opens
+  useEffect(() => {
+    if (createDialogOpen) {
+      apiClient
+        .get("/admin/settings/auto-extend/public")
+        .then((res) => {
+          if (res.data?.data) {
+            setAutoExtendConfig(res.data.data);
+          }
+        })
+        .catch((error) => {
+          console.error("Error fetching auto-extend config:", error);
+        });
+    }
+  }, [createDialogOpen]);
+
+  // Setup Socket.IO to receive real-time updates
   useEffect(() => {
     if (!user || user.role !== "seller" || expired) return;
 
@@ -374,6 +426,63 @@ export default function SellerDashboardPage() {
     setImagePreviews(newPreviews);
   };
 
+  const handleOpenCancelDialog = (orderId: number) => {
+    setSelectedOrderId(orderId);
+    setCancelResult(null);
+    setCancelDialogOpen(true);
+  };
+
+  const handleCancelOrder = async () => {
+    if (!selectedOrderId) return;
+
+    try {
+      await apiClient.put(`/orders/${selectedOrderId}`, {
+        status: "cancelled",
+      });
+      setCancelResult({
+        success: true,
+        message: "Transaction has been cancelled successfully. The winner will automatically receive a -1 rating with the comment 'Winner did not pay'.",
+      });
+      fetchData();
+    } catch (error: any) {
+      setCancelResult({
+        success: false,
+        message: error.response?.data?.error?.message || "Failed to cancel transaction",
+      });
+    }
+  };
+
+  const handleOpenReviewDialog = (order: Order) => {
+    setSelectedOrder(order);
+    setReviewRating(1);
+    setReviewComment("");
+    setReviewDialogOpen(true);
+  };
+
+  const handleSubmitReview = async () => {
+    if (!selectedOrder || !reviewComment.trim()) {
+      toast.error("Please enter a comment");
+      return;
+    }
+
+    try {
+      await apiClient.post("/users/rate", {
+        orderId: selectedOrder.id,
+        rating: reviewRating,
+        comment: reviewComment,
+      });
+      toast.success("Review submitted successfully");
+      setReviewDialogOpen(false);
+      setSelectedOrder(null);
+      setReviewComment("");
+      fetchData();
+    } catch (error: any) {
+      toast.error(
+        error.response?.data?.error?.message || "Failed to submit review"
+      );
+    }
+  };
+
   const activeProducts = products.filter(
     (p) => p.status === "active" && new Date(p.endDate) > new Date()
   );
@@ -459,42 +568,59 @@ export default function SellerDashboardPage() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {activeProducts.map((product) => (
-                      <Link
+                      <div
                         key={product.id}
-                        to={`/products/${product.id}`}
                         className="group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow"
                       >
-                        <div className="aspect-video overflow-hidden">
-                          <img
-                            src={product.mainImage}
-                            alt={product.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        </div>
-                        <div className="p-4 space-y-2">
-                          <h3 className="font-semibold line-clamp-2">
-                            {product.name}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {product.category.name}
-                          </p>
-                          <p className="text-lg font-semibold text-brand">
-                            {Number(product.currentPrice).toLocaleString("vi-VN")}{" "}
-                            VNĐ
-                          </p>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span>{product.bidCount} bids</span>
-                            <span>
-                              Ends: {format(new Date(product.endDate), "dd/MM/yyyy HH:mm")}
-                            </span>
+                        <Link to={`/products/${product.id}`}>
+                          <div className="aspect-video overflow-hidden">
+                            <img
+                              src={product.mainImage}
+                              alt={product.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
                           </div>
-                          {product.bids && product.bids[0] && (
-                            <p className="text-xs text-muted-foreground">
-                              Highest bidder: {product.bids[0].bidder.fullName}
+                          <div className="p-4 space-y-2">
+                            <h3 className="font-semibold line-clamp-2">
+                              {product.name}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {product.category.name}
                             </p>
-                          )}
+                            <p className="text-lg font-semibold text-brand">
+                              {Number(product.currentPrice).toLocaleString("vi-VN")}{" "}
+                              VNĐ
+                            </p>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <span>{product.bidCount} bids</span>
+                              <span>
+                                Ends: {format(new Date(product.endDate), "dd/MM/yyyy HH:mm")}
+                              </span>
+                            </div>
+                            {product.bids && product.bids[0] && (
+                              <p className="text-xs text-muted-foreground">
+                                Highest bidder: {product.bids[0].bidder.fullName}
+                              </p>
+                            )}
+                          </div>
+                        </Link>
+                        <div className="p-4 pt-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setSelectedProduct(product);
+                              setAdditionalDescription("");
+                              setAppendDescriptionDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Append Description
+                          </Button>
                         </div>
-                      </Link>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -721,15 +847,37 @@ export default function SellerDashboardPage() {
                                 )}
                               </div>
                             </div>
-                            <div className="mt-4">
+                            <div className="mt-4 flex gap-2">
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => navigate(`/orders/${order.id}`)}
-                                className="w-full"
+                                className="flex-1"
                               >
                                 View Order Details
                               </Button>
+                              {!isCancelled &&
+                                (order.status === "pending_payment" ||
+                                  order.status === "pending_address") && (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => handleOpenCancelDialog(order.id)}
+                                  >
+                                    <X className="h-4 w-4 mr-2" />
+                                    Cancel Transaction
+                                  </Button>
+                                )}
+                              {isCompleted && (
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => handleOpenReviewDialog(order)}
+                                >
+                                  <Star className="h-4 w-4 mr-2" />
+                                  Review
+                                </Button>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
@@ -769,25 +917,70 @@ export default function SellerDashboardPage() {
 
             <div className="space-y-2">
               <Label htmlFor="categoryId">Category *</Label>
-              <Select
-                value={formik.values.categoryId}
-                onValueChange={(value) =>
-                  formik.setFieldValue("categoryId", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories
-                    .filter((c) => !c.parentId)
-                    .map((category) => (
-                      <SelectItem key={category.id} value={category.id.toString()}>
+              <DropdownMenu open={categoryMenuOpen} onOpenChange={setCategoryMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    ref={categoryTriggerRef}
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    {formik.values.categoryId
+                      ? categories
+                          .flatMap((c) => [
+                            c,
+                            ...(c.children || []),
+                          ])
+                          .find((cat) => cat.id.toString() === formik.values.categoryId)?.name ||
+                        "Select category"
+                      : "Select category"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent 
+                  align="start" 
+                  style={{ width: categoryMenuWidth ? `${categoryMenuWidth}px` : undefined }}
+                  className={!categoryMenuWidth ? "w-full" : ""}
+                >
+                  {categories.map((category) =>
+                    category.children && category.children.length > 0 ? (
+                      <DropdownMenuSub key={category.id}>
+                        <DropdownMenuSubTrigger
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            formik.setFieldValue("categoryId", category.id.toString());
+                            setCategoryMenuOpen(false);
+                          }}
+                        >
+                          {category.name}
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                          {category.children.map((child) => (
+                            <DropdownMenuItem
+                              key={child.id}
+                              onSelect={() => {
+                                formik.setFieldValue("categoryId", child.id.toString());
+                                setCategoryMenuOpen(false);
+                              }}
+                            >
+                              {child.name}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    ) : (
+                      <DropdownMenuItem
+                        key={category.id}
+                        onSelect={() => {
+                          formik.setFieldValue("categoryId", category.id.toString());
+                          setCategoryMenuOpen(false);
+                        }}
+                      >
                         {category.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+                      </DropdownMenuItem>
+                    )
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
               {formik.touched.categoryId && formik.errors.categoryId && (
                 <p className="text-xs text-destructive">
                   {formik.errors.categoryId}
@@ -796,15 +989,12 @@ export default function SellerDashboardPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description *</Label>
-              <Textarea
-                id="description"
-                name="description"
-                rows={6}
+              <Label htmlFor="description">Product Description *</Label>
+              <RichTextEditor
                 value={formik.values.description}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                placeholder="Enter product description"
+                onChange={(value) => formik.setFieldValue("description", value)}
+                placeholder="Enter product description..."
+                className="bg-background"
               />
               {formik.touched.description && formik.errors.description && (
                 <p className="text-xs text-destructive">
@@ -813,7 +1003,7 @@ export default function SellerDashboardPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 -mt-2">
               <div className="space-y-2">
                 <Label htmlFor="startingPrice">Starting Price (VNĐ) *</Label>
                 <Input
@@ -889,8 +1079,16 @@ export default function SellerDashboardPage() {
 
             <Separator />
 
-            <div className="space-y-2">
-              <Label>Images * (Minimum 3 images)</Label>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">
+                  Product Images <span className="text-destructive">*</span>
+                </Label>
+                <span className="text-xs text-muted-foreground">
+                  {selectedImages.length}/10
+                </span>
+              </div>
+              
               <input
                 accept="image/*"
                 style={{ display: "none" }}
@@ -899,47 +1097,90 @@ export default function SellerDashboardPage() {
                 multiple
                 onChange={handleImageSelect}
               />
-              <label htmlFor="image-upload">
-                <Button variant="outline" type="button" asChild>
-                  <span>
-                    <ImageIcon className="h-4 w-4 mr-2" />
-                    Upload Images
-                  </span>
-                </Button>
-              </label>
-              {imagePreviews.length > 0 && (
-                <div className="flex gap-2 flex-wrap mt-2">
-                  {imagePreviews.map((preview, index) => (
-                    <div key={index} className="relative">
-                      <img
-                        src={preview}
-                        alt={`Preview ${index + 1}`}
-                        className="w-24 h-24 object-cover rounded-md border"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
-                        onClick={() => handleRemoveImage(index)}
+              
+              {imagePreviews.length === 0 ? (
+                <label htmlFor="image-upload">
+                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-accent/50 transition-colors">
+                    <ImageIcon className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm font-medium mb-1">
+                      Click to upload images
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Minimum 3 images required (Max 10 images)
+                    </p>
+                  </div>
+                </label>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                    {imagePreviews.map((preview, index) => (
+                      <div
+                        key={index}
+                        className="relative group aspect-square rounded-lg border border-border overflow-hidden bg-muted"
                       >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
+                        <img
+                          src={preview}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-1 left-1">
+                          <span className="bg-background/80 backdrop-blur-sm text-xs font-semibold px-1.5 py-0.5 rounded">
+                            {index + 1}
+                          </span>
+                        </div>
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveImage(index);
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {imagePreviews.length < 10 && (
+                      <label htmlFor="image-upload">
+                        <div className="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-accent/50 transition-colors bg-muted/50">
+                          <ImageIcon className="h-6 w-6 mb-1.5 text-muted-foreground" />
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Add
+                          </span>
+                        </div>
+                      </label>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-xs">
+                    {selectedImages.length < 3 ? (
+                      <p className="text-destructive font-medium">
+                        Need at least 3 images ({selectedImages.length}/3 selected)
+                      </p>
+                    ) : (
+                      <p className="text-emerald-600 font-medium flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {selectedImages.length} image{selectedImages.length > 1 ? 's' : ''} selected
+                      </p>
+                    )}
+                    {selectedImages.length < 10 && (
+                      <label htmlFor="image-upload" className="text-primary hover:underline cursor-pointer">
+                        Add more
+                      </label>
+                    )}
+                  </div>
                 </div>
-              )}
-              {selectedImages.length < 3 && (
-                <p className="text-xs text-destructive">
-                  Need at least 3 images (selected: {selectedImages.length})
-                </p>
               )}
             </div>
 
             <Separator />
 
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-start gap-2">
                 <input
                   type="checkbox"
                   id="autoExtend"
@@ -947,14 +1188,14 @@ export default function SellerDashboardPage() {
                   onChange={(e) =>
                     formik.setFieldValue("autoExtend", e.target.checked)
                   }
-                  className="h-4 w-4 rounded border border-input"
+                  className="h-4 w-4 rounded border border-input flex-shrink-0 mt-0.5"
                 />
                 <Label htmlFor="autoExtend" className="text-sm font-normal cursor-pointer">
-                  Auto-extend if there are bids in the last 3 minutes
+                  Auto-extend: When there is a new bid within {autoExtendConfig.thresholdMinutes} minutes before the end, the product will automatically extend by {autoExtendConfig.durationMinutes} minutes
                 </Label>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-start gap-2">
                 <input
                   type="checkbox"
                   id="allowUnratedBidders"
@@ -962,7 +1203,7 @@ export default function SellerDashboardPage() {
                   onChange={(e) =>
                     formik.setFieldValue("allowUnratedBidders", e.target.checked)
                   }
-                  className="h-4 w-4 rounded border border-input"
+                  className="h-4 w-4 rounded border border-input flex-shrink-0 mt-0.5"
                 />
                 <Label htmlFor="allowUnratedBidders" className="text-sm font-normal cursor-pointer">
                   Allow unrated bidders to participate
@@ -983,6 +1224,213 @@ export default function SellerDashboardPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Append Description Dialog */}
+      <Dialog open={appendDescriptionDialogOpen} onOpenChange={setAppendDescriptionDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Append Product Description</DialogTitle>
+          </DialogHeader>
+          {selectedProduct && (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium mb-1">Product:</p>
+                <p className="text-sm text-muted-foreground">{selectedProduct.name}</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="additionalDescription">
+                  Additional Information (will be appended to current description)
+                </Label>
+                <RichTextEditor
+                  value={additionalDescription}
+                  onChange={setAdditionalDescription}
+                  placeholder="Enter additional information..."
+                  className="bg-background"
+                />
+                <p className="text-xs text-muted-foreground">
+                  New information will be appended to the existing description with automatic timestamp
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAppendDescriptionDialogOpen(false);
+                setSelectedProduct(null);
+                setAdditionalDescription("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!selectedProduct || !additionalDescription.trim()) {
+                  toast.error("Please enter additional information");
+                  return;
+                }
+
+                try {
+                  await apiClient.put(`/products/${selectedProduct.id}/description`, {
+                    additionalDescription: additionalDescription.trim(),
+                  });
+                  toast.success("Description appended successfully");
+                  setAppendDescriptionDialogOpen(false);
+                  setSelectedProduct(null);
+                  setAdditionalDescription("");
+                  fetchData();
+                } catch (error: any) {
+                  toast.error(
+                    error.response?.data?.error?.message || "Failed to append description"
+                  );
+                }
+              }}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Order Dialog */}
+      <Dialog
+        open={cancelDialogOpen}
+        onOpenChange={(open) => {
+          setCancelDialogOpen(open);
+          if (!open) {
+            setSelectedOrderId(null);
+            setCancelResult(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader className="text-center">
+            <DialogTitle className="text-center">
+              {cancelResult ? "Cancel Transaction Result" : "Cancel Transaction"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {!cancelResult ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground  text-justify">
+                Are you sure you want to cancel this transaction? This action cannot be undone.
+                The winner will automatically receive a -1 rating with the comment 'Winner did not pay'.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div
+                className={`flex items-start gap-3 p-4 rounded-lg border ${
+                  cancelResult.success
+                    ? "bg-green-50 border-green-200 text-green-900"
+                    : "bg-red-50 border-red-200 text-red-900"
+                }`}
+              >
+                <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                <p className="text-sm">{cancelResult.message}</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="!justify-center sm:!justify-center">
+            {!cancelResult ? (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCancelDialogOpen(false);
+                    setSelectedOrderId(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={handleCancelOrder}>
+                  Cancel Transaction
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={() => {
+                  setCancelDialogOpen(false);
+                  setSelectedOrderId(null);
+                  setCancelResult(null);
+                }}
+              >
+                Close
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Review Buyer Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Review Auction Winner</DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium mb-1">Product:</p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedOrder.product.name}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-1">Buyer:</p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedOrder.buyer.fullName}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Rating:</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={reviewRating === 1 ? "default" : "outline"}
+                    className={reviewRating === 1 ? "bg-green-500 hover:bg-green-600" : ""}
+                    onClick={() => setReviewRating(1)}
+                  >
+                    +1 (Positive)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={reviewRating === -1 ? "destructive" : "outline"}
+                    onClick={() => setReviewRating(-1)}
+                  >
+                    -1 (Negative)
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reviewComment">Comment:</Label>
+                <Textarea
+                  id="reviewComment"
+                  rows={4}
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Enter comment about the buyer..."
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setReviewDialogOpen(false);
+                setSelectedOrder(null);
+                setReviewComment("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitReview}>Submit Review</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -24,12 +24,7 @@ import DashboardCharts from "@/components/DashboardCharts";
 import UserDetailsModal from "@/components/UserDetailsModal";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -106,6 +101,7 @@ interface Product {
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -114,11 +110,16 @@ export default function AdminDashboardPage() {
 
   // Category Dialog State
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
-    null
-  );
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [categoryName, setCategoryName] = useState("");
   const [parentCategoryId, setParentCategoryId] = useState("0");
+
+  // Auto-extend settings (admin)
+  const [autoExtendSettings, setAutoExtendSettings] = useState({
+    thresholdMinutes: 5,
+    durationMinutes: 10,
+  });
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
   // Users Management State
   const [usersPage, setUsersPage] = useState(1);
@@ -156,7 +157,7 @@ export default function AdminDashboardPage() {
   const [rejectReason, setRejectReason] = useState("");
 
   // Time period filter
-  const [period, setPeriod] = useState<'today' | 'week' | 'month' | 'year'>('week');
+  const [period, setPeriod] = useState<"today" | "week" | "month" | "year">("week");
 
   // User details modal
   const [userDetailsModal, setUserDetailsModal] = useState<{
@@ -170,21 +171,31 @@ export default function AdminDashboardPage() {
       return;
     }
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, navigate, period]);
 
   const fetchData = async () => {
     try {
-      const [dashboardRes, categoriesRes] = await Promise.all([
+      setLoading(true);
+
+      const [dashboardRes, categoriesRes, settingsRes] = await Promise.all([
         apiClient.get("/admin/dashboard", { params: { period } }),
         apiClient.get("/categories"),
+        apiClient.get("/admin/settings/auto-extend").catch(() => null),
       ]);
 
       setStats(dashboardRes.data.data);
       setCategories(categoriesRes.data.data);
 
+      if (settingsRes?.data?.data) {
+        setAutoExtendSettings(settingsRes.data.data);
+      }
+
       // Fetch users and products with current filters
-      fetchUsers(usersPage, usersSearch, usersRole);
-      fetchProducts(productsPage, productsSearch, productsStatus);
+      await Promise.all([
+        fetchUsers(usersPage, usersSearch, usersRole),
+        fetchProducts(productsPage, productsSearch, productsStatus),
+      ]);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Unable to load data");
@@ -211,11 +222,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const fetchProducts = async (
-    page: number,
-    search: string,
-    status: string
-  ) => {
+  const fetchProducts = async (page: number, search: string, status: string) => {
     try {
       const res = await apiClient.get("/admin/products", {
         params: {
@@ -259,6 +266,17 @@ export default function AdminDashboardPage() {
     fetchProducts(1, productsSearch, status);
   };
 
+  const handleUpdateAutoExtendSettings = async () => {
+    try {
+      await apiClient.put("/admin/settings/auto-extend", autoExtendSettings);
+      toast.success("Auto-extend settings updated successfully");
+      setSettingsDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || "Unable to update settings");
+    }
+  };
+
   const handleCreateCategory = async () => {
     if (!categoryName.trim()) {
       toast.error("Please enter category name");
@@ -279,9 +297,7 @@ export default function AdminDashboardPage() {
       setParentCategoryId("0");
       fetchData();
     } catch (error: any) {
-      toast.error(
-        error.response?.data?.error?.message || "Failed to create category"
-      );
+      toast.error(error.response?.data?.error?.message || "Failed to create category");
     }
   };
 
@@ -377,9 +393,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  if (loading) {
-    return <Loading />;
-  }
+  if (loading) return <Loading />;
 
   if (!stats) {
     return (
@@ -393,9 +407,6 @@ export default function AdminDashboardPage() {
   }
 
   const parentCategories = categories.filter((c) => !c.parentId);
-  const hasPendingUpgrade = users.some(
-    (u) => u.upgradeRequestStatus === "pending"
-  );
 
   const flattenedCategories = categories.reduce((acc: Category[], parent) => {
     acc.push(parent);
@@ -417,20 +428,28 @@ export default function AdminDashboardPage() {
             Manage categories, products, and users
           </p>
         </div>
-        <Select value={period} onValueChange={(value: any) => setPeriod(value)}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">Today</SelectItem>
-            <SelectItem value="week">This Week</SelectItem>
-            <SelectItem value="month">This Month</SelectItem>
-            <SelectItem value="year">This Year</SelectItem>
-          </SelectContent>
-        </Select>
+
+        <div className="flex items-center gap-2">
+          <Select value={period} onValueChange={(value: any) => setPeriod(value)}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="week">This Week</SelectItem>
+              <SelectItem value="month">This Month</SelectItem>
+              <SelectItem value="year">This Year</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button variant="outline" onClick={() => setSettingsDialogOpen(true)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Configure Auto-Extend
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Cards - Compact Grid */}
+      {/* Stats Cards */}
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         <Card className="p-4">
           <div className="flex items-center justify-between">
@@ -478,7 +497,7 @@ export default function AdminDashboardPage() {
       {/* Charts */}
       <DashboardCharts period={period} />
 
-      {/* Two Column Layout for Management */}
+      {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Categories */}
         <Card>
@@ -513,10 +532,7 @@ export default function AdminDashboardPage() {
                 <TableBody>
                   {flattenedCategories.length === 0 ? (
                     <TableRow>
-                      <TableCell
-                        colSpan={4}
-                        className="text-center py-4 text-xs text-muted-foreground"
-                      >
+                      <TableCell colSpan={4} className="text-center py-4 text-xs text-muted-foreground">
                         No categories
                       </TableCell>
                     </TableRow>
@@ -524,14 +540,10 @@ export default function AdminDashboardPage() {
                     flattenedCategories.map((cat) => (
                       <TableRow key={cat.id}>
                         <TableCell className="text-xs">{cat.id}</TableCell>
-                        <TableCell className="text-xs font-medium">
-                          {cat.name}
-                        </TableCell>
+                        <TableCell className="text-xs font-medium">{cat.name}</TableCell>
                         <TableCell className="text-xs">
                           {cat.parentId
-                            ? flattenedCategories
-                                .find((c) => c.id === cat.parentId)
-                                ?.name?.substring(0, 8)
+                            ? flattenedCategories.find((c) => c.id === cat.parentId)?.name?.substring(0, 8)
                             : "-"}
                         </TableCell>
                         <TableCell>
@@ -543,9 +555,7 @@ export default function AdminDashboardPage() {
                               onClick={() => {
                                 setSelectedCategory(cat);
                                 setCategoryName(cat.name);
-                                setParentCategoryId(
-                                  cat.parentId?.toString() || "0"
-                                );
+                                setParentCategoryId(cat.parentId?.toString() || "0");
                                 setCategoryDialogOpen(true);
                               }}
                             >
@@ -570,7 +580,7 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Active Upgrade Requests */}
+        {/* Pending Upgrades */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
@@ -597,25 +607,19 @@ export default function AdminDashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.filter((u) => u.upgradeRequestStatus === "pending")
-                    .length === 0 ? (
+                  {users.filter((u) => u.upgradeRequestStatus === "pending").length === 0 ? (
                     <TableRow>
-                      <TableCell
-                        colSpan={3}
-                        className="text-center py-4 text-xs text-muted-foreground"
-                      >
+                      <TableCell colSpan={3} className="text-center py-4 text-xs text-muted-foreground">
                         No pending requests
                       </TableCell>
                     </TableRow>
                   ) : (
                     users
                       .filter((u) => u.upgradeRequestStatus === "pending")
-                      .map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell className="text-xs">{user.id}</TableCell>
-                          <TableCell className="text-xs truncate">
-                            {user.email}
-                          </TableCell>
+                      .map((u) => (
+                        <TableRow key={u.id}>
+                          <TableCell className="text-xs">{u.id}</TableCell>
+                          <TableCell className="text-xs truncate">{u.email}</TableCell>
                           <TableCell>
                             <div className="flex gap-1 justify-center">
                               <Button
@@ -624,16 +628,11 @@ export default function AdminDashboardPage() {
                                 className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
                                 onClick={async () => {
                                   try {
-                                    await apiClient.put(
-                                      `/admin/upgrade-requests/${user.id}/approve`
-                                    );
+                                    await apiClient.put(`/admin/upgrade-requests/${u.id}/approve`);
                                     toast.success("Approved");
                                     fetchData();
                                   } catch (error: any) {
-                                    toast.error(
-                                      error.response?.data?.error?.message ||
-                                        "Failed to approve"
-                                    );
+                                    toast.error(error.response?.data?.error?.message || "Failed to approve");
                                   }
                                 }}
                               >
@@ -644,7 +643,7 @@ export default function AdminDashboardPage() {
                                 variant="outline"
                                 className="h-7 px-2 text-xs"
                                 onClick={() => {
-                                  setRejectDialog({ open: true, userId: user.id });
+                                  setRejectDialog({ open: true, userId: u.id });
                                   setRejectReason("");
                                 }}
                               >
@@ -662,7 +661,7 @@ export default function AdminDashboardPage() {
         </Card>
       </div>
 
-      {/* Products Management */}
+      {/* Products */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3">
@@ -677,10 +676,7 @@ export default function AdminDashboardPage() {
                   onChange={(e) => handleProductsSearch(e.target.value)}
                 />
               </div>
-              <Select
-                value={productsStatus || "all"}
-                onValueChange={handleProductsStatusFilter}
-              >
+              <Select value={productsStatus || "all"} onValueChange={handleProductsStatusFilter}>
                 <SelectTrigger className="w-32 h-9 text-sm">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
@@ -710,40 +706,27 @@ export default function AdminDashboardPage() {
               <TableBody>
                 {products.length === 0 ? (
                   <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="text-center py-4 text-xs text-muted-foreground"
-                    >
+                    <TableCell colSpan={6} className="text-center py-4 text-xs text-muted-foreground">
                       No products
                     </TableCell>
                   </TableRow>
                 ) : (
-                  products.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="text-xs">{product.id}</TableCell>
-                      <TableCell className="text-xs font-medium truncate max-w-xs">
-                        {product.name}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {product.category.name.substring(0, 12)}
-                      </TableCell>
-                      <TableCell className="text-xs truncate">
-                        {product.seller.fullName.substring(0, 15)}
-                      </TableCell>
+                  products.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="text-xs">{p.id}</TableCell>
+                      <TableCell className="text-xs font-medium truncate max-w-xs">{p.name}</TableCell>
+                      <TableCell className="text-xs">{p.category.name.substring(0, 12)}</TableCell>
+                      <TableCell className="text-xs truncate">{p.seller.fullName.substring(0, 15)}</TableCell>
                       <TableCell className="text-center">
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="flex items-center justify-center">
-                                <Circle
-                                  className={`h-2.5 w-2.5 fill-current ${
-                                    getStatusColor(product.status)
-                                  }`}
-                                />
+                                <Circle className={`h-2.5 w-2.5 fill-current ${getStatusColor(p.status)}`} />
                               </div>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p className="capitalize">{product.status}</p>
+                              <p className="capitalize">{p.status}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -754,7 +737,7 @@ export default function AdminDashboardPage() {
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0"
-                            onClick={() => navigate(`/products/${product.id}`)}
+                            onClick={() => navigate(`/products/${p.id}`)}
                           >
                             <Eye className="h-3 w-3" />
                           </Button>
@@ -762,7 +745,7 @@ export default function AdminDashboardPage() {
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                            onClick={() => handleDeleteProduct(product.id)}
+                            onClick={() => handleDeleteProduct(p.id)}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -774,7 +757,7 @@ export default function AdminDashboardPage() {
               </TableBody>
             </Table>
           </div>
-          {/* Pagination */}
+
           {productsTotalPages > 1 && (
             <div className="flex items-center justify-between mt-3 pt-3 border-t">
               <span className="text-xs text-muted-foreground">
@@ -788,11 +771,7 @@ export default function AdminDashboardPage() {
                   onClick={() => {
                     if (productsPage > 1) {
                       setProductsPage(productsPage - 1);
-                      fetchProducts(
-                        productsPage - 1,
-                        productsSearch,
-                        productsStatus
-                      );
+                      fetchProducts(productsPage - 1, productsSearch, productsStatus);
                     }
                   }}
                   disabled={productsPage === 1}
@@ -806,11 +785,7 @@ export default function AdminDashboardPage() {
                   onClick={() => {
                     if (productsPage < productsTotalPages) {
                       setProductsPage(productsPage + 1);
-                      fetchProducts(
-                        productsPage + 1,
-                        productsSearch,
-                        productsStatus
-                      );
+                      fetchProducts(productsPage + 1, productsSearch, productsStatus);
                     }
                   }}
                   disabled={productsPage === productsTotalPages}
@@ -823,7 +798,7 @@ export default function AdminDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Users Management */}
+      {/* Users */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3">
@@ -868,42 +843,30 @@ export default function AdminDashboardPage() {
               <TableBody>
                 {users.length === 0 ? (
                   <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="text-center py-4 text-xs text-muted-foreground"
-                    >
+                    <TableCell colSpan={6} className="text-center py-4 text-xs text-muted-foreground">
                       No users
                     </TableCell>
                   </TableRow>
                 ) : (
-                  users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="text-xs">{user.id}</TableCell>
-                      <TableCell className="text-xs truncate">
-                        {user.email}
-                      </TableCell>
-                      <TableCell className="text-xs truncate">
-                        {user.fullName.substring(0, 15)}
-                      </TableCell>
+                  users.map((u) => (
+                    <TableRow key={u.id}>
+                      <TableCell className="text-xs">{u.id}</TableCell>
+                      <TableCell className="text-xs truncate">{u.email}</TableCell>
+                      <TableCell className="text-xs truncate">{u.fullName.substring(0, 15)}</TableCell>
                       <TableCell>
                         <Badge
-                          variant={
-                            user.role === "admin" ? "destructive" : "default"
-                          }
+                          variant={u.role === "admin" ? "destructive" : "default"}
                           className="text-xs"
                         >
-                          {user.role === "admin"
-                            ? "Admin"
-                            : user.role === "seller"
-                            ? "Seller"
-                            : "Bidder"}
+                          {u.role === "admin" ? "Admin" : u.role === "seller" ? "Seller" : "Bidder"}
                         </Badge>
                       </TableCell>
+
                       <TableCell>
                         {(() => {
-                          // Check if upgrade has expired
-                          const isExpired = user.upgradeExpireAt && new Date(user.upgradeExpireAt) < new Date();
-                          const status = isExpired ? null : user.upgradeRequestStatus;
+                          const isExpired =
+                            u.upgradeExpireAt && new Date(u.upgradeExpireAt) < new Date();
+                          const status = isExpired ? null : u.upgradeRequestStatus;
 
                           return (
                             <Badge
@@ -917,25 +880,22 @@ export default function AdminDashboardPage() {
                                   : "secondary"
                               }
                               className={`text-xs ${
-                                status === "approved"
-                                  ? "bg-green-500 hover:bg-green-600"
-                                  : ""
+                                status === "approved" ? "bg-green-500 hover:bg-green-600" : ""
                               }`}
                             >
-                              {status
-                                ? status.charAt(0).toUpperCase() + status.slice(1)
-                                : "-"}
+                              {status ? status.charAt(0).toUpperCase() + status.slice(1) : "-"}
                             </Badge>
                           );
                         })()}
                       </TableCell>
+
                       <TableCell className="text-center">
                         <div className="flex gap-1 justify-center">
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0"
-                            onClick={() => setUserDetailsModal({ open: true, userId: user.id })}
+                            onClick={() => setUserDetailsModal({ open: true, userId: u.id })}
                           >
                             <Eye className="h-3 w-3" />
                           </Button>
@@ -943,7 +903,7 @@ export default function AdminDashboardPage() {
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                            onClick={() => handleDeleteUser(user.id)}
+                            onClick={() => handleDeleteUser(u.id)}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -955,7 +915,7 @@ export default function AdminDashboardPage() {
               </TableBody>
             </Table>
           </div>
-          {/* Pagination */}
+
           {usersTotalPages > 1 && (
             <div className="flex items-center justify-between mt-3 pt-3 border-t">
               <span className="text-xs text-muted-foreground">
@@ -1000,9 +960,7 @@ export default function AdminDashboardPage() {
       <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {selectedCategory ? "Edit Category" : "New Category"}
-            </DialogTitle>
+            <DialogTitle>{selectedCategory ? "Edit Category" : "New Category"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <Input
@@ -1010,10 +968,7 @@ export default function AdminDashboardPage() {
               value={categoryName}
               onChange={(e) => setCategoryName(e.target.value)}
             />
-            <Select
-              value={parentCategoryId}
-              onValueChange={setParentCategoryId}
-            >
+            <Select value={parentCategoryId} onValueChange={setParentCategoryId}>
               <SelectTrigger>
                 <SelectValue placeholder="Parent category" />
               </SelectTrigger>
@@ -1028,19 +983,66 @@ export default function AdminDashboardPage() {
             </Select>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setCategoryDialogOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={
-                selectedCategory ? handleUpdateCategory : handleCreateCategory
-              }
-            >
+            <Button onClick={selectedCategory ? handleUpdateCategory : handleCreateCategory}>
               {selectedCategory ? "Update" : "Create"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Auto-Extend Settings Dialog */}
+      <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Configure Auto-Extend Settings</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Minutes before end to trigger (minutes)</label>
+              <Input
+                type="number"
+                min="1"
+                value={autoExtendSettings.thresholdMinutes}
+                onChange={(e) =>
+                  setAutoExtendSettings({
+                    ...autoExtendSettings,
+                    thresholdMinutes: parseInt(e.target.value) || 5,
+                  })
+                }
+                placeholder="5"
+              />
+              <p className="text-xs text-muted-foreground">
+                When there is a new bid within this time period before the end, the product will automatically extend
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Extension duration (minutes)</label>
+              <Input
+                type="number"
+                min="1"
+                value={autoExtendSettings.durationMinutes}
+                onChange={(e) =>
+                  setAutoExtendSettings({
+                    ...autoExtendSettings,
+                    durationMinutes: parseInt(e.target.value) || 10,
+                  })
+                }
+                placeholder="10"
+              />
+              <p className="text-xs text-muted-foreground">
+                Number of minutes to add to the end time when there is a new bid
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSettingsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateAutoExtendSettings}>Save Settings</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1048,16 +1050,18 @@ export default function AdminDashboardPage() {
       {/* Confirmation Dialog */}
       <ConfirmDialog
         open={confirmDialog.open}
-        onOpenChange={(open) =>
-          setConfirmDialog({ ...confirmDialog, open })
-        }
+        onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, open })}
         title={confirmDialog.title}
         description={confirmDialog.description}
         onConfirm={confirmDialog.onConfirm}
         variant={confirmDialog.variant}
       />
+
       {/* Rejection Reason Dialog */}
-      <Dialog open={rejectDialog.open} onOpenChange={(open) => setRejectDialog({ ...rejectDialog, open })}>
+      <Dialog
+        open={rejectDialog.open}
+        onOpenChange={(open) => setRejectDialog({ ...rejectDialog, open })}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reject Upgrade Request</DialogTitle>
@@ -1085,18 +1089,15 @@ export default function AdminDashboardPage() {
               onClick={async () => {
                 if (!rejectDialog.userId) return;
                 try {
-                  await apiClient.put(
-                    `/admin/upgrade-requests/${rejectDialog.userId}/reject`,
-                    { reason: rejectReason }
-                  );
+                  await apiClient.put(`/admin/upgrade-requests/${rejectDialog.userId}/reject`, {
+                    reason: rejectReason,
+                  });
                   toast.success("Request rejected");
                   setRejectDialog({ open: false, userId: null });
                   setRejectReason("");
                   fetchData();
                 } catch (error: any) {
-                  toast.error(
-                    error.response?.data?.error?.message || "Failed to reject request"
-                  );
+                  toast.error(error.response?.data?.error?.message || "Failed to reject request");
                 }
               }}
             >

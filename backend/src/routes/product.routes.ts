@@ -9,7 +9,7 @@ import {
   getMyProducts,
   getSellerOrders,
 } from "../controllers/product.controller";
-import { authenticate, authorize } from "../middleware/auth.middleware";
+import { authenticate, authorize, optionalAuthenticate } from "../middleware/auth.middleware";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -54,7 +54,7 @@ const upload = multer({
 // Public routes
 router.get("/homepage", getHomepageProducts);
 router.get("/", getProducts);
-router.get("/:id", getProductById);
+router.get("/:id", optionalAuthenticate, getProductById);
 
 // Seller routes
 router.post(
