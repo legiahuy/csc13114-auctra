@@ -23,7 +23,7 @@ export default function RichTextEditor({
         [{ list: "ordered" }, { list: "bullet" }],
         [{ indent: "-1" }, { indent: "+1" }],
         [{ align: [] }],
-        ["link", "image"],
+        ["link"],
         ["clean"],
       ],
     }),
@@ -41,7 +41,6 @@ export default function RichTextEditor({
     "indent",
     "align",
     "link",
-    "image",
   ];
 
   return (

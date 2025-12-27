@@ -174,6 +174,14 @@ export default function SellerDashboardPage() {
   const [categoryMenuWidth, setCategoryMenuWidth] = useState<number | undefined>(undefined);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
 
+  // Cancel order dialog
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [cancelResult, setCancelResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
   // Set category menu width when dialog opens
   useEffect(() => {
     if (createDialogOpen && categoryTriggerRef.current) {
@@ -418,24 +426,29 @@ export default function SellerDashboardPage() {
     setImagePreviews(newPreviews);
   };
 
-  const handleCancelOrder = async (orderId: number) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to cancel this transaction? The winner will automatically receive a -1 rating with the comment 'Winner did not pay'."
-      )
-    )
-      return;
+  const handleOpenCancelDialog = (orderId: number) => {
+    setSelectedOrderId(orderId);
+    setCancelResult(null);
+    setCancelDialogOpen(true);
+  };
+
+  const handleCancelOrder = async () => {
+    if (!selectedOrderId) return;
 
     try {
-      await apiClient.put(`/orders/${orderId}`, {
+      await apiClient.put(`/orders/${selectedOrderId}`, {
         status: "cancelled",
       });
-      toast.success("Transaction cancelled");
+      setCancelResult({
+        success: true,
+        message: "Transaction has been cancelled successfully. The winner will automatically receive a -1 rating with the comment 'Winner did not pay'.",
+      });
       fetchData();
     } catch (error: any) {
-      toast.error(
-        error.response?.data?.error?.message || "Failed to cancel transaction"
-      );
+      setCancelResult({
+        success: false,
+        message: error.response?.data?.error?.message || "Failed to cancel transaction",
+      });
     }
   };
 
@@ -849,7 +862,7 @@ export default function SellerDashboardPage() {
                                   <Button
                                     variant="destructive"
                                     size="sm"
-                                    onClick={() => handleCancelOrder(order.id)}
+                                    onClick={() => handleOpenCancelDialog(order.id)}
                                   >
                                     <X className="h-4 w-4 mr-2" />
                                     Cancel Transaction
@@ -1066,8 +1079,16 @@ export default function SellerDashboardPage() {
 
             <Separator />
 
-            <div className="space-y-2">
-              <Label>Product Images * (Minimum 3 images)</Label>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">
+                  Product Images <span className="text-destructive">*</span>
+                </Label>
+                <span className="text-xs text-muted-foreground">
+                  {selectedImages.length}/10
+                </span>
+              </div>
+              
               <input
                 accept="image/*"
                 style={{ display: "none" }}
@@ -1076,45 +1097,83 @@ export default function SellerDashboardPage() {
                 multiple
                 onChange={handleImageSelect}
               />
-              <label htmlFor="image-upload">
-                <Button variant="outline" type="button" asChild>
-                  <span>
-                    <ImageIcon className="h-4 w-4 mr-2" />
-                    Upload Images
-                  </span>
-                </Button>
-              </label>
-              {imagePreviews.length > 0 && (
-                <div className="flex gap-2 flex-wrap mt-2">
-                  {imagePreviews.map((preview, index) => (
-                    <div key={index} className="relative">
-                      <img
-                        src={preview}
-                        alt={`Preview ${index + 1}`}
-                        className="w-24 h-24 object-cover rounded-md border"
-                      />
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
-                        onClick={() => handleRemoveImage(index)}
+              
+              {imagePreviews.length === 0 ? (
+                <label htmlFor="image-upload">
+                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-accent/50 transition-colors">
+                    <ImageIcon className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm font-medium mb-1">
+                      Click to upload images
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Minimum 3 images required (Max 10 images)
+                    </p>
+                  </div>
+                </label>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                    {imagePreviews.map((preview, index) => (
+                      <div
+                        key={index}
+                        className="relative group aspect-square rounded-lg border border-border overflow-hidden bg-muted"
                       >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
+                        <img
+                          src={preview}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-1 left-1">
+                          <span className="bg-background/80 backdrop-blur-sm text-xs font-semibold px-1.5 py-0.5 rounded">
+                            {index + 1}
+                          </span>
+                        </div>
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveImage(index);
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {imagePreviews.length < 10 && (
+                      <label htmlFor="image-upload">
+                        <div className="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-accent/50 transition-colors bg-muted/50">
+                          <ImageIcon className="h-6 w-6 mb-1.5 text-muted-foreground" />
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Add
+                          </span>
+                        </div>
+                      </label>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-xs">
+                    {selectedImages.length < 3 ? (
+                      <p className="text-destructive font-medium">
+                        Need at least 3 images ({selectedImages.length}/3 selected)
+                      </p>
+                    ) : (
+                      <p className="text-emerald-600 font-medium flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {selectedImages.length} image{selectedImages.length > 1 ? 's' : ''} selected
+                      </p>
+                    )}
+                    {selectedImages.length < 10 && (
+                      <label htmlFor="image-upload" className="text-primary hover:underline cursor-pointer">
+                        Add more
+                      </label>
+                    )}
+                  </div>
                 </div>
-              )}
-              {selectedImages.length < 3 && (
-                <p className="text-xs text-destructive">
-                  Need at least 3 images (selected: {selectedImages.length}/3)
-                </p>
-              )}
-              {selectedImages.length >= 3 && (
-                <p className="text-xs text-green-600">
-                  ✓ Selected {selectedImages.length} images
-                </p>
               )}
             </div>
 
@@ -1232,6 +1291,77 @@ export default function SellerDashboardPage() {
             >
               Save
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Order Dialog */}
+      <Dialog
+        open={cancelDialogOpen}
+        onOpenChange={(open) => {
+          setCancelDialogOpen(open);
+          if (!open) {
+            setSelectedOrderId(null);
+            setCancelResult(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader className="text-center">
+            <DialogTitle className="text-center">
+              {cancelResult ? "Cancel Transaction Result" : "Cancel Transaction"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {!cancelResult ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground  text-justify">
+                Are you sure you want to cancel this transaction? This action cannot be undone.
+                The winner will automatically receive a -1 rating with the comment 'Winner did not pay'.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div
+                className={`flex items-start gap-3 p-4 rounded-lg border ${
+                  cancelResult.success
+                    ? "bg-green-50 border-green-200 text-green-900"
+                    : "bg-red-50 border-red-200 text-red-900"
+                }`}
+              >
+                <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                <p className="text-sm">{cancelResult.message}</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="!justify-center sm:!justify-center">
+            {!cancelResult ? (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCancelDialogOpen(false);
+                    setSelectedOrderId(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={handleCancelOrder}>
+                  Cancel Transaction
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={() => {
+                  setCancelDialogOpen(false);
+                  setSelectedOrderId(null);
+                  setCancelResult(null);
+                }}
+              >
+                Close
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
