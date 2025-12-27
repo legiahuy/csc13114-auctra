@@ -313,11 +313,46 @@ export const getProductById = async (
         {
           model: Question,
           as: "questions",
+          where: { parentId: null }, // Only top-level comments
+          required: false,
           include: [
             {
               model: User,
               as: "user",
               attributes: ["id", "fullName"],
+            },
+            {
+              model: Question,
+              as: "replies",
+              include: [
+                {
+                  model: User,
+                  as: "user",
+                  attributes: ["id", "fullName"],
+                },
+                {
+                  model: Question,
+                  as: "replies",
+                  include: [
+                    {
+                      model: User,
+                      as: "user",
+                      attributes: ["id", "fullName"],
+                    },
+                    {
+                      model: Question,
+                      as: "replies",
+                      include: [
+                        {
+                          model: User,
+                          as: "user",
+                          attributes: ["id", "fullName"],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
             },
           ],
           order: [["createdAt", "DESC"]],
@@ -592,19 +627,19 @@ export const updateProductDescription = async (
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const year = now.getFullYear();
     const timestampStr = timestamp || `${day}/${month}/${year}`;
-    
+
     // Đảm bảo có separator rõ ràng giữa nội dung cũ và mới
     // Loại bỏ khoảng trắng và xuống dòng thừa ở cuối mô tả cũ
     let currentDescription = product.description.trimEnd();
-    
+
     // Format timestamp dưới dạng HTML để hiển thị đẹp với WYSIWYG content
     // Thêm class để frontend có thể style dễ dàng
     const timestampHtml = `<div class="description-timestamp-separator"><p class="description-timestamp-text"><strong>✏️ ${timestampStr}</strong></p></div>`;
-    
+
     // Nối nội dung: description cũ + separator + timestamp + nội dung mới
     // additionalDescription đã là HTML từ RichTextEditor
     product.description = currentDescription + timestampHtml + additionalDescription.trim();
-    
+
     // Update descriptionNoDiacritics for search
     product.descriptionNoDiacritics = removeVietnameseDiacritics(product.description);
     await product.save();

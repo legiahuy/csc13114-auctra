@@ -8,11 +8,12 @@ export interface QuestionAttributes {
   question: string;
   answer?: string;
   answeredAt?: Date;
+  parentId?: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-export interface QuestionCreationAttributes extends Optional<QuestionAttributes, 'id' | 'answer' | 'answeredAt' | 'createdAt' | 'updatedAt'> {}
+export interface QuestionCreationAttributes extends Optional<QuestionAttributes, 'id' | 'answer' | 'answeredAt' | 'createdAt' | 'updatedAt'> { }
 
 export class Question extends Model<QuestionAttributes, QuestionCreationAttributes> implements QuestionAttributes {
   public id!: number;
@@ -21,6 +22,7 @@ export class Question extends Model<QuestionAttributes, QuestionCreationAttribut
   public question!: string;
   public answer?: string;
   public answeredAt?: Date;
+  public parentId?: number;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -59,6 +61,14 @@ Question.init(
     answeredAt: {
       type: DataTypes.DATE,
       allowNull: true,
+    },
+    parentId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'questions',
+        key: 'id',
+      },
     },
   },
   {

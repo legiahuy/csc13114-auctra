@@ -8,6 +8,9 @@ import {
   Heart,
   Image as ImageIcon,
   User,
+  ChevronDown,
+  ChevronUp,
+  Reply,
 } from "lucide-react";
 
 import apiClient from "../api/client";
@@ -91,11 +94,38 @@ interface Product {
     question: string;
     answer?: string;
     answeredAt?: string;
+    parentId?: number;
     user: {
       id: number;
       fullName: string;
     };
     createdAt: string;
+    replyCount?: number;
+    replies?: Array<{
+      id: number;
+      question: string;
+      answer?: string;
+      answeredAt?: string;
+      parentId?: number;
+      user: {
+        id: number;
+        fullName: string;
+      };
+      createdAt: string;
+      replies?: Array<{
+        id: number;
+        question: string;
+        answer?: string;
+        answeredAt?: string;
+        parentId?: number;
+        user: {
+          id: number;
+          fullName: string;
+        };
+        createdAt: string;
+        replies?: Array<any>;
+      }>;
+    }>;
   }>;
 }
 
@@ -127,14 +157,11 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
 
   const [bidHistoryOpen, setBidHistoryOpen] = useState(false);
-  const [questionDialogOpen, setQuestionDialogOpen] = useState(false);
-  const [answerDialogOpen, setAnswerDialogOpen] = useState(false);
-  const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(
-    null
-  );
+  const [expandedReplies, setExpandedReplies] = useState<Set<number>>(new Set());
+  const [showReplyInput, setShowReplyInput] = useState<number | null>(null);
+  const [localReplyText, setLocalReplyText] = useState<{ [key: number]: string }>({});
 
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
 
   const [selectedImage, setSelectedImage] = useState(0);
 
@@ -287,7 +314,7 @@ export default function ProductDetailPage() {
 
   const handleAskQuestion = async () => {
     if (!question.trim()) {
-      toast.error("Please enter your question");
+      toast.error("Please enter a comment");
       return;
     }
 
@@ -296,41 +323,86 @@ export default function ProductDetailPage() {
         productId: id,
         question,
       });
-      toast.success("Question submitted");
+      toast.success("Comment posted successfully");
       setQuestion("");
-      setQuestionDialogOpen(false);
 
+      // Refresh all product data
       const response = await apiClient.get(`/products/${id}`);
       setProduct(response.data.data.product);
+      setRelatedProducts(response.data.data.relatedProducts || []);
+      setIsRejectedBidder(response.data.data.isRejectedBidder || false);
     } catch (error: any) {
       toast.error(
-        error.response?.data?.error?.message || "Failed to submit question"
+        error.response?.data?.error?.message || "Failed to post comment"
       );
     }
   };
 
-  const handleAnswerQuestion = async () => {
-    if (!answer.trim()) {
-      toast.error("Please enter your answer");
+  const handleReply = async (parentId: number, replyText: string) => {
+    if (!replyText.trim()) {
+      toast.error("Please enter a reply");
       return;
     }
 
     try {
-      await apiClient.put(`/users/questions/${selectedQuestionId}/answer`, {
-        answer,
+      await apiClient.post("/users/questions", {
+        productId: id,
+        question: replyText,
+        parentId,
       });
-      toast.success("Answer submitted");
-      setAnswer("");
-      setAnswerDialogOpen(false);
-      setSelectedQuestionId(null);
+      toast.success("Reply posted successfully");
 
+      // Find top-level question to expand
+      // If parentId is a reply, find its top-level parent
+      let topLevelQuestionId = parentId;
+      if (product) {
+        for (const question of product.questions) {
+          if (question.id === parentId) {
+            topLevelQuestionId = question.id;
+            break;
+          }
+          // Check if parentId is in replies
+          if (question.replies) {
+            for (const reply of question.replies) {
+              if (reply.id === parentId) {
+                topLevelQuestionId = question.id;
+                break;
+              }
+            }
+            if (topLevelQuestionId !== parentId) break;
+          }
+        }
+      }
+
+      // Expand replies section for the top-level question
+      setExpandedReplies((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(topLevelQuestionId);
+        return newSet;
+      });
+
+      // Refresh all product data
       const response = await apiClient.get(`/products/${id}`);
       setProduct(response.data.data.product);
+      setRelatedProducts(response.data.data.relatedProducts || []);
+      setIsRejectedBidder(response.data.data.isRejectedBidder || false);
     } catch (error: any) {
       toast.error(
-        error.response?.data?.error?.message || "Failed to submit answer"
+        error.response?.data?.error?.message || "Failed to post reply"
       );
     }
+  };
+
+  const toggleReplies = (questionId: number) => {
+    setExpandedReplies((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(questionId)) {
+        newSet.delete(questionId);
+      } else {
+        newSet.add(questionId);
+      }
+      return newSet;
+    });
   };
 
   const handleOpenRejectDialog = (bidId: number) => {
@@ -428,9 +500,9 @@ export default function ProductDetailPage() {
   const highestBidderRating =
     highestBidder && highestBidder.bidder.totalRatings > 0
       ? getRatingPercentage(
-          highestBidder.bidder.rating,
-          highestBidder.bidder.totalRatings
-        )
+        highestBidder.bidder.rating,
+        highestBidder.bidder.totalRatings
+      )
       : 0;
 
   const allImages = [product.mainImage, ...(product.images || [])];
@@ -475,11 +547,10 @@ export default function ProductDetailPage() {
                     key={idx}
                     type="button"
                     onClick={() => setSelectedImage(idx)}
-                    className={`h-16 w-16 rounded-md overflow-hidden border ${
-                      selectedImage === idx
-                        ? "border-primary ring-2 ring-primary/40"
-                        : "border-border"
-                    }`}
+                    className={`h-16 w-16 rounded-md overflow-hidden border ${selectedImage === idx
+                      ? "border-primary ring-2 ring-primary/40"
+                      : "border-border"
+                      }`}
                   >
                     <img
                       src={img}
@@ -511,11 +582,10 @@ export default function ProductDetailPage() {
                     className="h-8 w-8"
                   >
                     <Heart
-                      className={`h-5 w-5 transition-colors ${
-                        isInWatchlist
-                          ? "text-red-500 fill-red-500"
-                          : ""
-                      }`}
+                      className={`h-5 w-5 transition-colors ${isInWatchlist
+                        ? "text-red-500 fill-red-500"
+                        : ""
+                        }`}
                     />
                   </Button>
                 </div>
@@ -615,107 +685,228 @@ export default function ProductDetailPage() {
                 </div>
               </div>
 
-              {/* Questions & answers */}
+              {/* Comments */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-base font-semibold">
-                    Questions & answers
-                  </h2>
-                  {user && !isSeller && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setQuestionDialogOpen(true)}
-                    >
-                      Ask a question
-                    </Button>
-                  )}
-                </div>
+                <h2 className="text-base font-semibold">
+                  Comments
+                </h2>
 
                 {product.questions && product.questions.length > 0 ? (
                   <div className="space-y-4">
-                    {product.questions.map((q, index) => {
+                    {product.questions.map((q) => {
                       const getInitials = (name: string) => {
                         return name.charAt(0).toUpperCase();
                       };
 
-                      const previousQuestion = index > 0 ? product.questions[index - 1] : null;
-                      const isDifferentBidder = previousQuestion && previousQuestion.user.id !== q.user.id;
-                      const showSeparator = isDifferentBidder;
+                      // Helper function to count all nested replies
+                      const countAllReplies = (replies: any[]): number => {
+                        let count = replies.length;
+                        replies.forEach((reply) => {
+                          if (reply.replies && reply.replies.length > 0) {
+                            count += countAllReplies(reply.replies);
+                          }
+                        });
+                        return count;
+                      };
 
-                      return (
-                        <div key={q.id} className="space-y-3">
-                          {/* Separator between different bidders */}
-                          {showSeparator && (
-                            <Separator className="my-4" />
-                          )}
+                      const renderComment = (
+                        comment: any,
+                        isReply: boolean = false,
+                        depth: number = 0
+                      ) => {
+                        const commentUser = comment.user;
+                        const isSellerComment = commentUser.id === product.seller.id;
+                        const canReply = !!user;
+                        const commentReplies = comment.replies || [];
+                        const commentReplyCount = comment.replyCount || (commentReplies.length > 0 ? countAllReplies(commentReplies) : 0);
+                        const hasCommentReplies = commentReplyCount > 0;
+                        const isCommentRepliesExpanded = expandedReplies.has(comment.id);
 
-                          {/* Question */}
-                          <div className="space-y-2">
+                        return (
+                          <div key={comment.id} className={`space-y-2 ${isReply ? `ml-${Math.min(depth * 3 + 3, 12)} mt-2` : ''}`} style={isReply ? { marginLeft: `${Math.min(depth * 3 + 3, 12) * 0.25}rem` } : undefined}>
+                            {/* Comment header */}
                             <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8">
                                 <AvatarFallback>
-                                  {getInitials(q.user.fullName)}
+                                  {getInitials(commentUser.fullName)}
                                 </AvatarFallback>
                               </Avatar>
                               <span className="text-sm font-semibold">
-                                {q.user.fullName}
+                                {commentUser.fullName}
                               </span>
+                              {isSellerComment && (
+                                <Badge variant="outline" className="text-xs">
+                                  Seller
+                                </Badge>
+                              )}
                               <span className="text-xs text-muted-foreground">
-                                {format(new Date(q.createdAt), "dd/MM/yyyy HH:mm")}
+                                {format(new Date(comment.createdAt), "dd/MM/yyyy HH:mm")}
                               </span>
                             </div>
-                            <p className="text-sm text-foreground ml-[40px]">{q.question}</p>
-                          </div>
 
-                          {/* Answer */}
-                          {q.answer ? (
-                            <div className="ml-[44px] space-y-2">
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarFallback>
-                                    {getInitials(product.seller.fullName)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm font-semibold">
-                                  {product.seller.fullName}
-                                </span>
-                                {q.answeredAt && (
-                                  <span className="text-xs text-muted-foreground">
-                                    {format(new Date(q.answeredAt), "dd/MM/yyyy HH:mm")}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-sm text-foreground leading-relaxed ml-[40px]">{q.answer}</p>
+                            {/* Comment content */}
+                            <div className="ml-[40px] space-y-2">
+                              <p className="text-sm text-foreground">{comment.question}</p>
+
+                              {/* Reply button and input */}
+                              {canReply && (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                    onClick={() => {
+                                      if (showReplyInput === comment.id) {
+                                        setShowReplyInput(null);
+                                      } else {
+                                        setShowReplyInput(comment.id);
+                                        setLocalReplyText({ ...localReplyText, [comment.id]: '' });
+                                      }
+                                    }}
+                                  >
+                                    <Reply className="h-3 w-3 mr-1" />
+                                    Reply
+                                  </Button>
+                                </div>
+                              )}
+
+                              {/* Nested replies for this comment */}
+                              {hasCommentReplies && (
+                                <div className={`mt-2 ${isReply ? '' : 'ml-0'}`}>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground mb-2"
+                                    onClick={() => toggleReplies(comment.id)}
+                                  >
+                                    {isCommentRepliesExpanded ? (
+                                      <>
+                                        <ChevronUp className="h-3 w-3 mr-1" />
+                                        Hide {commentReplyCount} {commentReplyCount === 1 ? 'reply' : 'replies'}
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ChevronDown className="h-3 w-3 mr-1" />
+                                        View {commentReplyCount} {commentReplyCount === 1 ? 'reply' : 'replies'}
+                                      </>
+                                    )}
+                                  </Button>
+
+                                  {isCommentRepliesExpanded && (
+                                    <div className="space-y-3 mt-2">
+                                      {commentReplies.map((reply: any) => renderComment(reply, true, depth + 1))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Reply input */}
+                              {showReplyInput === comment.id && (
+                                <div className="mt-2 space-y-2">
+                                  <Textarea
+                                    placeholder="Write a reply..."
+                                    value={localReplyText[comment.id] || ''}
+                                    onChange={(e) => {
+                                      setLocalReplyText({
+                                        ...localReplyText,
+                                        [comment.id]: e.target.value,
+                                      });
+                                    }}
+                                    className="min-h-[60px] text-sm"
+                                  />
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={async () => {
+                                        const replyText = localReplyText[comment.id] || '';
+                                        if (replyText.trim()) {
+                                          await handleReply(comment.id, replyText);
+                                          setShowReplyInput(null);
+                                          setLocalReplyText({ ...localReplyText, [comment.id]: '' });
+                                        }
+                                      }}
+                                    >
+                                      Post
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setShowReplyInput(null);
+                                        setLocalReplyText({ ...localReplyText, [comment.id]: '' });
+                                      }}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+
                             </div>
-                          ) : isSeller ? (
-                            <div className="ml-[44px]">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedQuestionId(q.id);
-                                  setAnswerDialogOpen(true);
-                                }}
-                              >
-                                Answer
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="ml-[44px]">
-                              <p className="text-xs text-muted-foreground">
-                                No answer yet
-                              </p>
-                            </div>
-                          )}
+                          </div>
+                        );
+                      };
+
+                      return (
+                        <div key={q.id} className="space-y-2 border-b border-border pb-4 last:border-0">
+                          {/* Main comment with nested replies */}
+                          {renderComment(q, false)}
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No questions yet
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No comments yet. Be the first to comment!
                   </p>
+                )}
+
+                {/* Comment input box at the bottom */}
+                {user ? (
+                  <div className="flex items-start gap-3 pt-4 border-t border-border">
+                    <Avatar className="h-10 w-10 flex-shrink-0">
+                      <AvatarFallback>
+                        {user.fullName.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 space-y-2">
+                      <Textarea
+                        placeholder="Write a comment..."
+                        value={question}
+                        onChange={(e) => setQuestion(e.target.value)}
+                        className="min-h-[40px] text-sm resize-y"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                            handleAskQuestion();
+                          }
+                        }}
+                      />
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">
+                          Press Ctrl+Enter to send
+                        </p>
+                        <Button
+                          size="sm"
+                          onClick={handleAskQuestion}
+                          disabled={!question.trim()}
+                        >
+                          Comment
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-border bg-card p-4 text-center mt-4">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Log in to comment
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => navigate("/login")}
+                    >
+                      Log in
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardContent>
@@ -773,119 +964,119 @@ export default function ProductDetailPage() {
 
               <CardContent className="space-y-4">
                 {!isEnded ? (
-                <>
-                  {user ? (
-                    <>
-                      {!isSeller ? (
-                        isRejectedBidder ? (
-                          <div className="space-y-3">
-                            <Button
-                              className="w-full"
-                              disabled
-                            >
-                              Place bid
-                            </Button>
-                            <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
-                              <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                              <span>You have been rejected from bidding on this product by the seller.</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-4">
-                            <div className="flex items-center gap-2 text-sm">
-                              <input
-                                id="auto-bid"
-                                type="checkbox"
-                                checked={isAutoBid}
-                                onChange={(e) => setIsAutoBid(e.target.checked)}
-                                className="h-4 w-4 rounded border border-input text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                              />
-                              <label
-                                htmlFor="auto-bid"
-                                className="text-sm text-foreground"
+                  <>
+                    {user ? (
+                      <>
+                        {!isSeller ? (
+                          isRejectedBidder ? (
+                            <div className="space-y-3">
+                              <Button
+                                className="w-full"
+                                disabled
                               >
-                                Automatic bidding
-                              </label>
+                                Place bid
+                              </Button>
+                              <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
+                                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                                <span>You have been rejected from bidding on this product by the seller.</span>
+                              </div>
                             </div>
-
-                            {!isAutoBid ? (
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium">
-                                  Bid amount
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-2 text-sm">
+                                <input
+                                  id="auto-bid"
+                                  type="checkbox"
+                                  checked={isAutoBid}
+                                  onChange={(e) => setIsAutoBid(e.target.checked)}
+                                  className="h-4 w-4 rounded border border-input text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                />
+                                <label
+                                  htmlFor="auto-bid"
+                                  className="text-sm text-foreground"
+                                >
+                                  Automatic bidding
                                 </label>
-                                <div className="relative">
-                                  <Input
-                                    className="bg-background pr-12"
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={formatCurrencyDisplay(bidAmount)}
-                                    onChange={handleBidAmountChange}
-                                    placeholder="0"
-                                  />
-                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
-                                    VNĐ
-                                  </span>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                  Suggested next bid:{" "}
-                                  {suggestedNextBid.toLocaleString("vi-VN")} VNĐ
-                                </p>
                               </div>
-                            ) : (
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium">
-                                  Maximum amount
-                                </label>
-                                <div className="relative">
-                                  <Input
-                                    className="bg-background pr-12"
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={formatCurrencyDisplay(maxAmount)}
-                                    onChange={handleMaxAmountChange}
-                                    placeholder="0"
-                                  />
-                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
-                                    VNĐ
-                                  </span>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                  The system will automatically bid up to this
-                                  maximum amount.
-                                </p>
-                              </div>
-                            )}
 
-                            <Button
-                              className="w-full"
-                              onClick={handlePlaceBid}
-                              disabled={!isAutoBid && !bidAmount}
-                            >
-                              {isAutoBid ? "Place automatic bid" : "Place bid"}
-                            </Button>
+                              {!isAutoBid ? (
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">
+                                    Bid amount
+                                  </label>
+                                  <div className="relative">
+                                    <Input
+                                      className="bg-background pr-12"
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={formatCurrencyDisplay(bidAmount)}
+                                      onChange={handleBidAmountChange}
+                                      placeholder="0"
+                                    />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                                      VNĐ
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    Suggested next bid:{" "}
+                                    {suggestedNextBid.toLocaleString("vi-VN")} VNĐ
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">
+                                    Maximum amount
+                                  </label>
+                                  <div className="relative">
+                                    <Input
+                                      className="bg-background pr-12"
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={formatCurrencyDisplay(maxAmount)}
+                                      onChange={handleMaxAmountChange}
+                                      placeholder="0"
+                                    />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                                      VNĐ
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    The system will automatically bid up to this
+                                    maximum amount.
+                                  </p>
+                                </div>
+                              )}
+
+                              <Button
+                                className="w-full"
+                                onClick={handlePlaceBid}
+                                disabled={!isAutoBid && !bidAmount}
+                              >
+                                {isAutoBid ? "Place automatic bid" : "Place bid"}
+                              </Button>
+                            </div>
+                          )
+                        ) : (
+                          <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                            This is your product; you cannot place a bid.
                           </div>
-                        )
-                      ) : (
-                        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-                          This is your product; you cannot place a bid.
-                        </div>
-                      )}
+                        )}
 
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => setBidHistoryOpen(true)}
-                      >
-                        View bid history
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => setBidHistoryOpen(true)}
+                        >
+                          View bid history
+                        </Button>
+                      </>
+                    ) : (
+                      <Button className="w-full" onClick={() => navigate("/login")}>
+                        Log in to bid
                       </Button>
-                    </>
-                  ) : (
-                    <Button className="w-full" onClick={() => navigate("/login")}>
-                      Log in to bid
-                    </Button>
-                  )}
-                </>
-              ) : (
+                    )}
+                  </>
+                ) : (
                   <div className="flex items-center gap-2 text-sm text-amber-900 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
                     <AlertCircle className="h-4 w-4" />
                     <span>The auction has ended</span>
@@ -1014,79 +1205,6 @@ export default function ProductDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Ask question dialog */}
-      <Dialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ask a question</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            <Textarea
-              rows={4}
-              placeholder="Type your question..."
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-            />
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setQuestionDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleAskQuestion}>Submit</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Answer question dialog */}
-      <Dialog open={answerDialogOpen} onOpenChange={setAnswerDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Answer question</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            {selectedQuestionId && product && (
-              <div className="space-y-2">
-                <p className="text-sm font-semibold">Question:</p>
-                <div className="rounded-lg border bg-muted p-3">
-                  <p className="text-sm text-foreground">
-                    {product.questions.find((q) => q.id === selectedQuestionId)
-                      ?.question || ""}
-                  </p>
-                </div>
-              </div>
-            )}
-            <div className="space-y-2">
-              <p className="text-sm font-semibold">Your answer:</p>
-              <Textarea
-                rows={4}
-                placeholder="Type your answer..."
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setAnswerDialogOpen(false);
-                setAnswer("");
-                setSelectedQuestionId(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleAnswerQuestion}>Submit</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Reject Bid Dialog */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
@@ -1107,11 +1225,10 @@ export default function ProductDetailPage() {
           ) : (
             <div className="space-y-4">
               <div
-                className={`flex items-start gap-3 p-4 rounded-lg border ${
-                  rejectResult.success
-                    ? "bg-green-50 border-green-200 text-green-900"
-                    : "bg-red-50 border-red-200 text-red-900"
-                }`}
+                className={`flex items-start gap-3 p-4 rounded-lg border ${rejectResult.success
+                  ? "bg-green-50 border-green-200 text-green-900"
+                  : "bg-red-50 border-red-200 text-red-900"
+                  }`}
               >
                 <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                 <p className="text-sm">{rejectResult.message}</p>
