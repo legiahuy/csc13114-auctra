@@ -233,7 +233,21 @@ export default function OrderPage() {
     });
 
     newSocket.on('new-message', (message: ChatMessage) => {
-      setMessages((prev) => [...prev, message]);
+      // Enrich message with proper sender info if missing or if it's the generic "User"
+      const needsEnrichment = !message.sender || 
+                              !message.sender.fullName || 
+                              message.sender.fullName === 'User';
+      
+      const enrichedMessage = {
+        ...message,
+        sender: needsEnrichment ? {
+          id: message.senderId,
+          fullName: message.senderId === order.buyerId 
+            ? order.buyer.fullName 
+            : order.seller.fullName
+        } : message.sender
+      };
+      setMessages((prev) => [...prev, enrichedMessage]);
     });
 
     newSocket.on('order-updated', (updatedOrder: Order) => {
@@ -866,7 +880,7 @@ export default function OrderPage() {
                     return (
                       <div
                         key={msg.id}
-                        className={`flex items-end gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'} ${isFirstInGroup ? 'mt-2' : 'mt-1'
+                        className={`flex items-start gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'} ${isFirstInGroup ? 'mt-2' : 'mt-1'
                           }`}
                       >
                         {/* Avatar for other person's messages */}
@@ -938,7 +952,7 @@ export default function OrderPage() {
                         }
                       }}
                       placeholder="Type a message..."
-                      className="min-h-[44px] max-h-[120px] resize-none pr-12 rounded-2xl"
+                      className="min-h-[44px] max-h-[120px] resize-none pr-12 pt-2.5 rounded-2xl"
                       rows={1}
                     />
                   </div>

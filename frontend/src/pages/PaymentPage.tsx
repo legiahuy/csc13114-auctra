@@ -220,28 +220,65 @@ export default function PaymentPage() {
     if (!order) return null;
 
     return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center py-10 px-4">
-            <Card className="w-full max-w-md shadow-lg">
-                <CardHeader className="border-b bg-muted/20">
-                    <CardTitle className="text-xl text-center">PAYMENT</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6">
-                    <div className="mb-6 space-y-2">
-                        <div className="flex justify-between text-sm">
-                            <span className="font-semibold text-muted-foreground">Item Name:</span>
-                            <span className="font-medium">{order.product.name}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="font-semibold text-muted-foreground">Price:</span>
-                            <span className="font-bold text-brand">{parseFloat(String(order.finalPrice)).toLocaleString()} VND</span>
-                        </div>
-                    </div>
+        <div className="min-h-screen flex items-center justify-center py-8 px-4">
+            <div className="container mx-auto max-w-6xl">
+                <Card className="shadow-lg">
+                    <CardHeader className="border-b bg-muted/20">
+                        <CardTitle className="text-2xl text-center">Complete Your Payment</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-8">
+                            {/* Left Section - Product Summary */}
+                            <div className="space-y-4">
+                                {/* Product Image - Smaller */}
+                                {order.product.images && order.product.images.length > 0 && (
+                                    <div className="h-48 w-full overflow-hidden rounded-lg border bg-muted">
+                                        <img
+                                            src={order.product.images[0]}
+                                            alt={order.product.name}
+                                            className="h-full w-full object-cover"
+                                        />
+                                    </div>
+                                )}
 
-                    <Elements stripe={stripePromise}>
-                        <CheckoutForm order={order} onSuccess={handleSuccess} />
-                    </Elements>
-                </CardContent>
-            </Card>
+                                {/* Product Details */}
+                                <div className="space-y-3">
+                                    <div>
+                                        <h3 className="font-semibold mb-1">{order.product.name}</h3>
+                                        {order.product.description && (
+                                            <p className="text-xs text-muted-foreground line-clamp-2">
+                                                {order.product.description}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div className="border-t pt-3 space-y-2">
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">Winning Bid:</span>
+                                            <span className="font-medium">{parseFloat(String(order.finalPrice)).toLocaleString()} VND</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">Seller:</span>
+                                            <span className="font-medium">{order.product.seller?.fullName || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between text-base font-bold border-t pt-2 mt-2">
+                                            <span>Total:</span>
+                                            <span className="text-brand">{parseFloat(String(order.finalPrice)).toLocaleString()} VND</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Right Section - Payment Form */}
+                            <div className="border-l pl-8">
+                                <Elements stripe={stripePromise}>
+                                    <CheckoutForm order={order} onSuccess={handleSuccess} />
+                                </Elements>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 }
