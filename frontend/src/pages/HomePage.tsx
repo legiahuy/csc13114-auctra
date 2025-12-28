@@ -191,15 +191,15 @@ export default function HomePage() {
               <Sparkles className="h-4 w-4" />
               <span>Leading Online Auction Platform</span>
             </div>
-            <h1 className="relative z-10 inline-block max-w-[920px] text-3xl font-semibold text-balance text-foreground drop-shadow-2xl sm:text-5xl sm:leading-tight md:text-7xl md:leading-tight">
-              <span className="block text-primary-foreground">
+            <h1 className="from-foreground to-foreground dark:to-muted-foreground relative z-10 inline-block max-w-[920px] bg-linear-to-r bg-clip-text text-3xl font-semibold text-balance text-transparent drop-shadow-2xl sm:text-5xl sm:leading-tight md:text-7xl md:leading-tight">
+              <span className="block">
                 Discover Unique
               </span>
-              <span className="block text-muted-foreground">
+              <span className="block">
                 Products Through Online Auctions
               </span>
             </h1>
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed font-medium text-balance">
               Join thousands of bidders on high-quality products. Find unique
               items at the best prices.
             </p>
@@ -313,7 +313,7 @@ export default function HomePage() {
       )}
 
       {/* Stats Section */}
-      <section ref={statsRef} className="container mx-auto px-4">
+      {/* <section ref={statsRef} className="container mx-auto px-4">
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
           <StatCard
             icon={Gavel}
@@ -334,7 +334,7 @@ export default function HomePage() {
             delay={400}
           />
         </div>
-      </section>
+      </section> */}
 
       {/* CTA Section */}
       <section className="container mx-auto px-4">
