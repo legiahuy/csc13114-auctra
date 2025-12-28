@@ -554,10 +554,10 @@ export default function ProductDetailPage() {
 
               <CardDescription className="flex flex-wrap gap-2">
                 {product.status !== "cancelled" && (
-                  <Badge className="flex items-center gap-1 border-brand/30 text-brand font-semibold transition-colors">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span>Ends: {formatRelativeTime(product.endDate)}</span>
-                  </Badge>
+                  <div className="inline-flex items-center rounded-full border dark:border-border/20 text-xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 gap-2 px-2.5 py-1 border-brand/30 text-brand">
+                   <Clock className="h-3.5 w-3.5" />
+                  <span>Ends: {formatRelativeTime(product.endDate)}</span>
+                  </div>
                 )}
                 <Badge variant="outline" className="flex items-center gap-1">
                   <Gavel className="h-3.5 w-3.5" />

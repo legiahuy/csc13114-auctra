@@ -14,8 +14,8 @@
     --card-foreground: var(--foreground);
     --popover: lab(96.1596 -0.0823438 -1.13575);
     --popover-foreground: var(--foreground);
-    --primary: lab(96.1596 -0.0823438 -1.13575);
-    --primary-foreground: lab(7.0001 -1.35344 -16.7248);
+    --primary: lab(49.303 9.20001 -66.8696);
+    --primary-foreground: lab(94.2 0 0);
     --secondary: lab(94.2 0 0);
     --secondary-foreground: lab(7.0001 -1.35344 -16.7248);
     --muted: oklab(0.930743 0.000226639 -0.000781483);
@@ -76,8 +76,8 @@
     --card-foreground: var(--foreground);
     --popover: oklab(0.208371 -0.0014115 -0.012475);
     --popover-foreground: var(--foreground);
-    --primary: lab(94.2 0 0);
-    --primary-foreground: oklab(0.209689 0.00105747 -0.0070462);
+    --primary: lab(49.303 9.20001 -66.8696);
+    --primary-foreground: lab(94.2 0 0);
     --secondary: oklab(0.199997 -0.0171033 -0.0469782 / 0.1);
     --secondary-foreground: var(--foreground);
     --muted: oklab(0.199997 -0.0171033 -0.0469782 / 0.05);
