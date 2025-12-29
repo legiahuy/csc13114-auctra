@@ -12,27 +12,12 @@ import {
 import { authenticate, authorize, optionalAuthenticate } from "../middleware/auth.middleware";
 import multer from "multer";
 import path from "path";
-import fs from "fs";
 
 const router = Router();
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = process.env.UPLOAD_DIR || "./uploads";
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, "product-" + uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
+// Configure multer for file uploads - using memory storage for Supabase
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: parseInt(process.env.MAX_FILE_SIZE || "5242880"), // 5MB
   },

@@ -134,6 +134,7 @@ export default function MyBidsPage() {
       </div>
 
       {/* Search and Filters */}
+      {bids.length !== 0 && (
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
         <div className="flex-1 space-y-2">
           <Label htmlFor="search">Search</Label>
@@ -191,6 +192,7 @@ export default function MyBidsPage() {
           </Select>
         </div>
       </div>
+      )}
 
       {bids.length === 0 && !loading ? (
         <div className="text-center py-12">

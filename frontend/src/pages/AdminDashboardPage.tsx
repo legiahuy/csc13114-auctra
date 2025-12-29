@@ -165,6 +165,7 @@ export default function AdminDashboardPage() {
     userId: number | null;
   }>({ open: false, userId: null });
 
+  // Initial page load
   useEffect(() => {
     if (!user || user.role !== "admin") {
       navigate("/");
@@ -172,7 +173,15 @@ export default function AdminDashboardPage() {
     }
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, navigate, period]);
+  }, [user, navigate]);
+
+  // Refetch stats when period changes (without full page reload)
+  useEffect(() => {
+    if (stats) {
+      fetchStats();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period]);
 
   const fetchData = async () => {
     try {
@@ -201,6 +210,16 @@ export default function AdminDashboardPage() {
       toast.error("Unable to load data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const dashboardRes = await apiClient.get("/admin/dashboard", { params: { period } });
+      setStats(dashboardRes.data.data);
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      toast.error("Unable to load stats");
     }
   };
 
@@ -431,7 +450,7 @@ export default function AdminDashboardPage() {
 
         <div className="flex items-center gap-2">
           <Select value={period} onValueChange={(value: any) => setPeriod(value)}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-40 bg-background hover:bg-accent h-10">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
