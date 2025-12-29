@@ -241,9 +241,6 @@ export default function ProfilePage() {
   const ratingPercentage = getRatingPercentage(user.rating, user.totalRatings);
   const positiveCount = user.rating;
   const negativeCount = Math.max(user.totalRatings - user.rating, 0);
-  const mockReviews: Review[] = [
-
-  ];
 
   return (
     <div className="space-y-6">
@@ -526,14 +523,16 @@ export default function ProfilePage() {
                 {/* Reviews Tab */}
                 <TabsContent value="reviews" className="mt-4">
                   <div ref={reviewsRef} className="space-y-4">
-                    {reviews.length === 0 && (
-                      <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                        <AlertCircle className="h-4 w-4 mt-0.5" />
-                        <p>No reviews yet. Sample data is shown below.</p>
+                    {reviews.length === 0 ? (
+                      <div className="flex items-center justify-center py-12 text-muted-foreground">
+                        <div className="text-center space-y-2">
+                          <Star className="h-12 w-12 mx-auto opacity-50" />
+                          <p>No reviews yet</p>
+                        </div>
                       </div>
-                    )}
+                    ) : (
                     <div className="space-y-3">
-                      {(reviews.length ? reviews : mockReviews).map((review) => (
+                      {reviews.map((review) => (
                         <Card key={review.id}>
                           <CardContent className="p-4 space-y-3">
                             <div className="flex items-start justify-between">
@@ -570,6 +569,7 @@ export default function ProfilePage() {
                         </Card>
                       ))}
                     </div>
+                    )}
                   </div>
                 </TabsContent>
 

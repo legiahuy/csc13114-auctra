@@ -13,6 +13,7 @@ import {
   Gavel,
   X,
   Star,
+  LoaderIcon,
 } from "lucide-react";
 import { useFormik } from "formik";
 import * as yup from "yup";
@@ -363,32 +364,31 @@ export default function SellerDashboardPage() {
       }
 
       try {
-        const imageUrls: string[] = [];
-        for (const image of selectedImages) {
-          const uploadFormData = new FormData();
-          uploadFormData.append("file", image);
-          const uploadRes = await apiClient.post("/upload", uploadFormData, {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          });
-          imageUrls.push(uploadRes.data.data.url);
+        formik.setSubmitting(true);
+        
+        // Create FormData with all product data and images
+        const formData = new FormData();
+        formData.append("name", values.name);
+        formData.append("description", values.description);
+        formData.append("startingPrice", values.startingPrice);
+        formData.append("bidStep", values.bidStep);
+        if (values.buyNowPrice) {
+          formData.append("buyNowPrice", values.buyNowPrice);
         }
+        formData.append("categoryId", values.categoryId);
+        formData.append("endDate", values.endDate);
+        formData.append("autoExtend", values.autoExtend.toString());
+        formData.append("allowUnratedBidders", values.allowUnratedBidders.toString());
+        
+        // Append all images
+        selectedImages.forEach((image) => {
+          formData.append("images", image);
+        });
 
-        await apiClient.post("/products", {
-          name: values.name,
-          description: values.description,
-          startingPrice: parseFloat(values.startingPrice),
-          bidStep: parseFloat(values.bidStep),
-          buyNowPrice: values.buyNowPrice
-            ? parseFloat(values.buyNowPrice)
-            : undefined,
-          categoryId: parseInt(values.categoryId),
-          mainImage: imageUrls[0],
-          images: imageUrls.slice(1),
-          endDate: values.endDate,
-          autoExtend: values.autoExtend,
-          allowUnratedBidders: values.allowUnratedBidders,
+        await apiClient.post("/products", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
         });
 
         toast.success("Product created successfully");
@@ -1219,8 +1219,18 @@ export default function SellerDashboardPage() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={selectedImages.length < 3}>
-                Create Product
+              <Button 
+                type="submit" 
+                disabled={selectedImages.length < 3 || formik.isSubmitting}
+              >
+                {formik.isSubmitting ? (
+                  <>
+                    <LoaderIcon className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Product"
+                )}
               </Button>
             </DialogFooter>
           </form>

@@ -436,21 +436,17 @@ export const createProduct = async (
       bidStep,
       buyNowPrice,
       categoryId,
-      mainImage,
-      images,
       endDate,
       autoExtend,
       allowUnratedBidders,
     } = req.body;
 
-    // Validate images - need at least 3 images total (mainImage + at least 2 more)
-    if (!mainImage) {
-      return next(new AppError("Main image is required", 400));
-    }
-    const imageArray = images || [];
-    // Need at least 2 additional images (mainImage + 2 images = 3 total)
-    if (imageArray.length < 2) {
-      return next(new AppError("At least 3 images are required (1 main image + 2 additional images)", 400));
+    // Get uploaded files from multer
+    const files = req.files as Express.Multer.File[];
+    
+    // Validate images - need at least 3 images total
+    if (!files || files.length < 3) {
+      return next(new AppError("At least 3 images are required", 400));
     }
 
     // Validate category
@@ -465,6 +461,14 @@ export const createProduct = async (
       return next(new AppError("Product with this name already exists", 400));
     }
 
+    // Upload images to Supabase Storage
+    const { uploadMultipleToSupabase } = await import("../utils/storage.util");
+    const imageUrls = await uploadMultipleToSupabase(files, "products");
+
+    // First image is the main image, rest are additional images
+    const mainImage = imageUrls[0];
+    const images = imageUrls.slice(1);
+
     const product = await Product.create({
       name,
       slug,
@@ -478,7 +482,7 @@ export const createProduct = async (
       categoryId,
       sellerId: req.user.id,
       mainImage,
-      images: imageArray,
+      images: images,
       startDate: new Date(),
       endDate: new Date(endDate),
       autoExtend: autoExtend || false,

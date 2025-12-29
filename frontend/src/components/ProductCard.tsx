@@ -105,12 +105,12 @@ export function ProductCard({
               className={`h-5 w-5 transition-colors ${
                 isInWatchlist
                   ? "text-red-500 fill-red-500"
-                  : "text-gray-600 dark:text-gray-400"
+                  : "text-gray-300 dark:text-gray-400"
               }`}
             />
           </button>
           {product.isNew && (
-            <Badge className="absolute top-2 left-2 rounded-full border dark:border-border/20 text-xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 gap-2 px-2.5 py-1 border-brand/30 text-brand">
+            <Badge className="absolute top-2 left-2 rounded-full border dark:border-border/20 text-xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 gap-2 px-2.5 py-1 border-brand/30 text-white">
               New
             </Badge>
           )}
