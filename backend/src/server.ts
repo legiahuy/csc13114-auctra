@@ -47,9 +47,9 @@ const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Online Auction API',
+      title: 'Auctra API',
       version: '1.0.0',
-      description: 'RESTful API for Online Auction Platform',
+      description: 'RESTful API for Auctra Platform',
     },
     servers: [
       {
@@ -67,7 +67,7 @@ const swaggerOptions = {
       },
     },
   },
-  apis: ['./src/routes/*.ts', './src/controllers/*.ts'],
+  apis: ['./src/routes/*.ts', './src/controllers/*.ts', './src/docs/*.ts'],
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
