@@ -649,7 +649,10 @@ export default function AdminDashboardPage() {
                                   try {
                                     await apiClient.put(`/admin/upgrade-requests/${u.id}/approve`);
                                     toast.success("Approved");
-                                    fetchData();
+                                    await Promise.all([
+                                      fetchUsers(usersPage, usersSearch, usersRole),
+                                      fetchStats()
+                                    ]);
                                   } catch (error: any) {
                                     toast.error(error.response?.data?.error?.message || "Failed to approve");
                                   }
@@ -1114,7 +1117,10 @@ export default function AdminDashboardPage() {
                   toast.success("Request rejected");
                   setRejectDialog({ open: false, userId: null });
                   setRejectReason("");
-                  fetchData();
+                  await Promise.all([
+                    fetchUsers(usersPage, usersSearch, usersRole),
+                    fetchStats()
+                  ]);
                 } catch (error: any) {
                   toast.error(error.response?.data?.error?.message || "Failed to reject request");
                 }
