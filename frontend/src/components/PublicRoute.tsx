@@ -14,7 +14,7 @@ export function PublicRoute({ children }: PublicRouteProps) {
   const { user } = useAuthStore();
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/profile" replace />;
   }
 
   return <>{children}</>;

@@ -219,7 +219,7 @@ export default function Layout({ children }: LayoutProps) {
                         </DropdownMenuItem>
                       )}
                       <Separator />
-                      <DropdownMenuItem onSelect={handleLogout}>
+                      <DropdownMenuItem onSelect={handleLogout} className="text-red-500">
                         Logout
                       </DropdownMenuItem>
                     </DropdownMenuContent>
