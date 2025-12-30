@@ -120,7 +120,7 @@ export const approveUpgrade = async (req: AuthRequest, res: Response, next: Next
     }
 
     const expireAt = new Date();
-    expireAt.setMinutes(expireAt.getMinutes() + 1); // test 1 phút
+    expireAt.setDate(expireAt.getDate() + 7);
 
     user.role = 'seller';
     user.upgradeRequestStatus = 'approved';
@@ -129,7 +129,7 @@ export const approveUpgrade = async (req: AuthRequest, res: Response, next: Next
 
     res.json({
       success: true,
-      message: 'Upgrade approved successfully (seller for 1 minute)',
+      message: 'Upgrade approved successfully (seller for 7 days)',
       data: user,
     });
   } catch (error) {
