@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Carousel } from "@/components/ui/carousel";
 import apiClient from "../api/client";
-import { Gavel, TrendingUp, Users, Sparkles } from "lucide-react";
 import { ProductCard, type ProductCardProduct } from "@/components/ProductCard";
 import Loading from "@/components/Loading";
 import { useAuthStore } from "../store/authStore";
@@ -16,11 +15,7 @@ export default function HomePage() {
   const [mostBids, setMostBids] = useState<Product[]>([]);
   const [highestPrice, setHighestPrice] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalProducts: 0,
-    activeBidders: 0,
-    totalBids: 0,
-  });
+
   const statsRef = useRef<HTMLDivElement>(null);
   const [hasAnimated, setHasAnimated] = useState(false);
 
@@ -36,23 +31,6 @@ export default function HomePage() {
         setMostBids(data.mostBids || []);
         setHighestPrice(data.highestPrice || []);
 
-        // Calculate stats
-        const allProducts = [
-          ...(data.endingSoon || []),
-          ...(data.mostBids || []),
-          ...(data.highestPrice || []),
-        ];
-        const uniqueProducts = new Set(allProducts.map((p: Product) => p.id));
-        const totalBids = allProducts.reduce(
-          (sum: number, p: Product) => sum + (p.bidCount || 0),
-          0
-        );
-
-        setStats({
-          totalProducts: uniqueProducts.size,
-          activeBidders: Math.floor(totalBids / 2), // Estimate
-          totalBids: totalBids,
-        });
       } catch (error) {
         console.error("Error fetching homepage data:", error);
       } finally {
@@ -120,63 +98,6 @@ export default function HomePage() {
     };
   }, [hasAnimated]);
 
-  const StatCard = ({
-    icon: Icon,
-    value,
-    label,
-    delay = 0,
-  }: {
-    icon: React.ElementType;
-    value: number;
-    label: string;
-    delay?: number;
-  }) => {
-    const [count, setCount] = useState(0);
-
-    useEffect(() => {
-      if (hasAnimated) {
-        const duration = 2000;
-        const steps = 60;
-        const increment = value / steps;
-        const stepDuration = duration / steps;
-        let current = 0;
-
-        const timer = setInterval(() => {
-          current += increment;
-          if (current >= value) {
-            setCount(value);
-            clearInterval(timer);
-          } else {
-            setCount(Math.floor(current));
-          }
-        }, stepDuration);
-
-        return () => clearInterval(timer);
-      }
-    }, [hasAnimated, value]);
-
-    return (
-      <div
-        className="text-center p-6  transition-all duration-300"
-        style={{
-          animationDelay: `${delay}ms`,
-        }}
-      >
-        <div className="flex justify-center mb-3">
-          <div className="text-muted-foreground text-sm font-semibold">
-            <Icon className="h-6 w-6" />
-          </div>
-        </div>
-        <div className="from-foreground to-foreground dark:to-brand bg-linear-to-r bg-clip-text text-4xl font-medium text-transparent drop-shadow-[2px_1px_24px_var(--brand-foreground)] transition-all duration-300 sm:text-5xl md:text-6xl">
-          {count.toLocaleString("en-US")}
-        </div>
-        <div className="text-muted-foreground text-sm font-semibold text-pretty">
-          {label}
-        </div>
-      </div>
-    );
-  };
-
   if (loading) {
     return <Loading />;
   }
@@ -188,7 +109,6 @@ export default function HomePage() {
         <div className="container mx-auto px-4 py-20 md:py-28 relative">
           <div className="max-w-4xl mx-auto text-center space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-1000">
             <div className="inline-flex items-center rounded-full border dark:border-border/20 text-xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 gap-2 px-2.5 py-1 border-brand/30 text-brand">
-              <Sparkles className="h-4 w-4" />
               <span>Leading Online Auction Platform</span>
             </div>
             <h1 className="from-foreground to-foreground dark:to-muted-foreground relative z-10 inline-block max-w-[920px] bg-linear-to-r bg-clip-text text-3xl font-semibold text-balance text-transparent drop-shadow-2xl sm:text-5xl sm:leading-tight md:text-7xl md:leading-tight">

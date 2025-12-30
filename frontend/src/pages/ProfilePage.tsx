@@ -10,6 +10,8 @@ import {
   Trophy,
   Edit,
   Lock,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { useFormik } from "formik";
 import * as yup from "yup";
@@ -351,36 +353,13 @@ export default function ProfilePage() {
 
               <Separator />
 
-              <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-                  <h3 className="text-sm font-semibold">Rating</h3>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-brand">
-                    {ratingPercentage.toFixed(1)}%
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Total: {user.totalRatings} ratings
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-green-600 font-medium">
-                      + {positiveCount}
-                    </span>{" "}
-                    <span className="text-muted-foreground">positive</span>
-                  </div>
-                  <div>
-                    <span className="text-red-600 font-medium">
-                      - {negativeCount}
-                    </span>{" "}
-                    <span className="text-muted-foreground">negative</span>
-                  </div>
-                </div>
-              </div>
-
+             
               <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Role</span>
+                </div>
                 <Badge
                   variant={
                     user.role === "admin"
@@ -389,7 +368,6 @@ export default function ProfilePage() {
                       ? "default"
                       : "secondary"
                   }
-                  className="w-full justify-center py-2"
                 >
                   {user.role === "admin"
                     ? "Admin"
@@ -397,9 +375,10 @@ export default function ProfilePage() {
                     ? "Seller"
                     : "Bidder"}
                 </Badge>
+              </div>
 
                 {user.role === "bidder" && (
-                  <Card className="bg-muted/50">
+                  <Card className="bg-muted/50 shadow-none">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm">
                         Upgrade to Seller
@@ -472,7 +451,39 @@ export default function ProfilePage() {
                     </CardContent>
                   </Card>
                 )}
+
               </div>
+              
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+                 <div className="flex items-center gap-3">
+                   <div className="flex items-center justify-center h-10 w-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30">
+                     <Star className="h-5 w-5 text-yellow-600 dark:text-yellow-500 fill-yellow-600 dark:fill-yellow-500" />
+                   </div>
+                   <div>
+                     <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Rating</p>
+                     <div className="flex items-baseline gap-2">
+                       <span className="text-xl font-bold text-foreground">
+                         {ratingPercentage.toFixed(0)}%
+                       </span>
+                       <span className="text-xs text-muted-foreground">
+                         ({user.totalRatings} total)
+                       </span>
+                     </div>
+                   </div>
+                 </div>
+                 
+                 <div className="flex flex-col items-end gap-1">
+                   <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-500 bg-emerald-100/50 dark:bg-emerald-900/20 px-2 py-1 rounded-md">
+                     <ThumbsUp className="h-3.5 w-3.5" />
+                     <span className="text-xs font-semibold">{positiveCount}</span>
+                   </div>
+                   <div className="flex items-center gap-2 text-rose-600 dark:text-rose-500 bg-rose-100/50 dark:bg-rose-900/20 px-2 py-1 rounded-md">
+                     <ThumbsDown className="h-3.5 w-3.5" />
+                     <span className="text-xs font-semibold">{negativeCount}</span>
+                   </div>
+                 </div>
+               </div>
+
             </CardContent>
           </Card>
         </div>
