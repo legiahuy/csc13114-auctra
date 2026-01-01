@@ -13,6 +13,10 @@ import { logger } from './config/logger';
 import { errorHandler } from './middleware/errorHandler';
 import { rateLimiter } from './middleware/rateLimiter';
 import { startAuctionProcessor } from './services/auction.service';
+import { register, collectDefaultMetrics } from 'prom-client';
+
+// Initialize Prometheus metrics
+collectDefaultMetrics();
 
 // Import models to initialize associations
 import './models';
@@ -92,6 +96,16 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Prometheus metrics endpoint
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
+  } catch (err) {
+    res.status(500).end(err);
+  }
 });
 
 // Routes
