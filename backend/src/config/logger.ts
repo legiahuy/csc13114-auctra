@@ -26,3 +26,15 @@ if (process.env.NODE_ENV !== 'production') {
   }));
 }
 
+// Add Loki transport if configured
+if (process.env.LOKI_HOST) {
+  const LokiTransport = require('winston-loki');
+  logger.add(new LokiTransport({
+    host: process.env.LOKI_HOST,
+    basicAuth: process.env.LOKI_USER && process.env.LOKI_PASSWORD ? `${process.env.LOKI_USER}:${process.env.LOKI_PASSWORD}` : undefined,
+    json: true,
+    labels: { job: 'auction-api' },
+    onConnectionError: (err: any) => console.error('Loki connection error:', err)
+  }));
+}
+
