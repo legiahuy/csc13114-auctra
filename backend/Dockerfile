@@ -41,7 +41,7 @@ RUN npm ci --only=production && \
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 
 # Copy necessary files
-COPY --chown=nodejs:nodejs src/templates ./src/templates
+COPY --chown=nodejs:nodejs src/templates ./dist/templates
 
 # Copy startup script
 COPY --chown=nodejs:nodejs start.sh ./start.sh
