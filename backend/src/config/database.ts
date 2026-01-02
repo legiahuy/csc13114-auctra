@@ -59,36 +59,36 @@ if (process.env.DATABASE_URL) {
       }
     });
   }
-} else {
-  // Use individual environment variables (backward compatible)
-  const isCloudDB = process.env.DB_HOST && !process.env.DB_HOST.includes('localhost') && process.env.DB_HOST !== '127.0.0.1';
+} // else {
+//   // Use individual environment variables (backward compatible)
+//   const isCloudDB = process.env.DB_HOST && !process.env.DB_HOST.includes('localhost') && process.env.DB_HOST !== '127.0.0.1';
   
-  sequelize = new Sequelize(
-    process.env.DB_NAME || 'online_auction',
-    process.env.DB_USER || 'postgres',
-    process.env.DB_PASSWORD || 'postgres',
-    {
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '5432'),
-      dialect: 'postgres',
-      logging: process.env.NODE_ENV === 'development' ? console.log : false,
-      dialectOptions: {
-        // Enable SSL for cloud databases (Supabase, AWS RDS, etc.)
-        ssl: (isCloudDB || process.env.DB_SSL === 'true') ? {
-          require: true,
-          rejectUnauthorized: false
-        } : false,
-        family: 4 // Force IPv4
-      },
-      pool: {
-        max: 5,
-        min: 0,
-        acquire: 30000,
-        idle: 10000
-      }
-    }
-  );
-}
+//   sequelize = new Sequelize(
+//     process.env.DB_NAME || 'online_auction',
+//     process.env.DB_USER || 'postgres',
+//     process.env.DB_PASSWORD || 'postgres',
+//     {
+//       host: process.env.DB_HOST || 'localhost',
+//       port: parseInt(process.env.DB_PORT || '5432'),
+//       dialect: 'postgres',
+//       logging: process.env.NODE_ENV === 'development' ? console.log : false,
+//       dialectOptions: {
+//         // Enable SSL for cloud databases (Supabase, AWS RDS, etc.)
+//         ssl: (isCloudDB || process.env.DB_SSL === 'true') ? {
+//           require: true,
+//           rejectUnauthorized: false
+//         } : false,
+//         family: 4 // Force IPv4
+//       },
+//       pool: {
+//         max: 5,
+//         min: 0,
+//         acquire: 30000,
+//         idle: 10000
+//       }
+//     }
+//   );
+// }
 
 export { sequelize };
 
