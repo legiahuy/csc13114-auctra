@@ -41,7 +41,9 @@ async function resolveDbUrl() {
     }
 
     // Final fallback: return original
-    console.error('Could not resolve IPv4 address, outputting original URL');
+    console.error(`⚠️  WARNING: Could not resolve ANY IPv4 address for ${hostname}.`);
+    console.error(`ℹ️  This likely means your database is IPv6-only (common with new Supabase projects).`);
+    console.error(`💡 SOLUTION: Get the "Transaction Pooler" connection string (port 6543) from Supabase dashboard, which supports IPv4.`);
     console.log(process.env.DATABASE_URL);
 
   } catch (error) {
