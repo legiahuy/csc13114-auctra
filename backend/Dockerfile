@@ -45,6 +45,7 @@ COPY --chown=nodejs:nodejs src/templates ./src/templates
 
 # Copy startup script
 COPY --chown=nodejs:nodejs start.sh ./start.sh
+COPY --chown=nodejs:nodejs resolve-db.js ./resolve-db.js
 RUN chmod +x ./start.sh
 
 # Create logs directory and set permissions
