@@ -6,7 +6,7 @@ import { Op } from 'sequelize';
 export const getAllCategories = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const categories = await Category.findAll({
-      where: { parentId: null },
+      where: { parentId: null } as any,
       include: [
         {
           model: Category,

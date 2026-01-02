@@ -1,4 +1,4 @@
-# 🏛️ Online Auction Platform - Sàn Đấu Giá Trực Tuyến
+# 🏛️ Auctra - Sàn Đấu Giá Trực Tuyến
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)

@@ -124,7 +124,7 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
             parseFloat(maxAmount),
             highestMaxAmount + parseFloat(product.bidStep.toString())
           );
-          previousHighestBidder = highestAutoBid.bidder;
+          previousHighestBidder = (highestAutoBid as any).bidder;
         } else {
           finalAmount = Math.min(
             parseFloat(maxAmount),
@@ -164,26 +164,25 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
       });
 
       if (previousBid) {
-        previousHighestBidder = previousBid.bidder;
+        previousHighestBidder = (previousBid as any).bidder;
       }
     }
 
     // Send notifications
-    // NOTE: choose one consistent signature:
-    // Using (email, productName, amount, productId, isOutbid)
-    await sendBidNotificationEmail(req.user.email, product.name, finalAmount, productId, false);
+    // Signature: (email, productName, amount, isOutbid, productId)
+    await sendBidNotificationEmail(req.user.email, product.name, finalAmount, false, productId);
 
     if (previousHighestBidder) {
       await sendBidNotificationEmail(
         previousHighestBidder.email,
         product.name,
         finalAmount,
-        productId,
-        true
+        true,
+        productId
       );
     }
 
-    await sendBidNotificationEmail(product.seller.email, product.name, finalAmount, productId, false);
+    await sendBidNotificationEmail(product.seller.email, product.name, finalAmount, false, productId);
 
     res.status(201).json({
       success: true,
@@ -227,19 +226,19 @@ export const getBidHistory = async (req: AuthRequest, res: Response, next: NextF
 
     // Mask bidder names for non-sellers, show full names for seller
     const processedBids = bids.map((bid) => {
-      const bidData = bid.toJSON();
+      const bidData = bid.toJSON() as any;
       if (isSeller) {
         // Seller sees full names and rejected status
         return {
           ...bidData,
           bidder: {
             ...bidData.bidder,
-            fullName: bidData.bidder.fullName,
+            fullName: bidData.bidder?.fullName || 'Unknown',
           },
         };
       } else {
         // Others see masked names
-        const fullName = bid.bidder.fullName;
+        const fullName = bidData.bidder?.fullName || 'Unknown';
         const maskedName = fullName.length > 4 ? '****' + fullName.slice(-4) : '****' + fullName;
         return {
           ...bidData,
@@ -273,7 +272,7 @@ export const rejectBid = async (req: AuthRequest, res: Response, next: NextFunct
         { model: Product, as: 'product' },
         { model: User, as: 'bidder' },
       ],
-    });
+    }) as any; // Type assertion to access associations
 
     if (!bid) {
       return next(new AppError('Bid not found', 404));
@@ -321,3 +320,4 @@ export const rejectBid = async (req: AuthRequest, res: Response, next: NextFunct
     next(error);
   }
 };
+
