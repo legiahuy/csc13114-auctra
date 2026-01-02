@@ -20,15 +20,15 @@ SequelizeConnectionError: connect ENETUNREACH 2406:da1a:6b0:...
 ```
 
 ### Root Cause
-Railway containers were trying to connect to Supabase via IPv6. The previous fix (adding `family: 4` to dialectOptions) was not being respected because Sequelize prioritizes the connection string parameters over options in some cases.
+Railway containers persist in resolving Supabase domains to IPv6 addresses, which fail to connect (ENETUNREACH). Neither Sequelize options nor node settings were sufficient to override the OS-level DNS preference.
 
 ### Solution
-Completely refactored `backend/src/config/database.ts` to:
-1. Manually parse the `DATABASE_URL` into components (host, port, user, password, database).
-2. Pass these components explicitly to Sequelize.
-3. Strict enforcement of `dialectOptions: { family: 4 }`.
+Implemented a **Hard Force IPv4** strategy:
+1. Created `backend/resolve-db.js`: A script that uses Node's `dns.resolve4()` to resolve the Supabase hostname to an explicit IPv4 address.
+2. Updated `backend/start.sh`: execution script now runs `resolve-db.js` first, and rewrites the `DATABASE_URL` environment variable with the resolved IPv4 address.
+3. Updated `backend/Dockerfile` to include the new script.
 
-This ensures the node process resolves the database hostname to an IPv4 address, creating a stable connection.
+This guarantees that the main application receives a connection string with an IPv4 address (e.g., `postgresql://...142.x.x.x:5432/...`) instead of a hostname, bypassing any DNS ambiguity.
 
 ## Frontend Issue: auctra.svg Not Found (404)
 
@@ -44,12 +44,12 @@ Copied `auctra.svg` to `public/auctra.svg`.
 
 ```bash
 # Verify changes
-git diff backend/src/config/database.ts
+git diff backend/start.sh backend/resolve-db.js
 
 # Commit and push
 git add .
-git commit -m "fix: robust database config for ipv4"
+git commit -m "fix: hard resolve database hostname to ipv4"
 git push origin main
 ```
 
-Railway will auto-deploy.
+Result: Network reachable. 🚀

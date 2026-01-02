@@ -25,6 +25,18 @@ if [ -z "$JWT_REFRESH_SECRET" ]; then
 fi
 
 echo "✅ Environment variables validated"
+
+# Resolve Database Hostname to IPv4
+echo "🔄 Resolving Database Host to IPv4..."
+RESOLVED_DB_URL=$(node resolve-db.js)
+
+if [ ! -z "$RESOLVED_DB_URL" ]; then
+    export DATABASE_URL=$RESOLVED_DB_URL
+    echo "✅ Database URL updated with IPv4 address"
+else
+    echo "⚠️ Could not resolve IPv4, using original URL"
+fi
+
 echo "🔄 Starting application..."
 
 # Start the application
