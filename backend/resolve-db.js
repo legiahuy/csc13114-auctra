@@ -4,7 +4,6 @@ const { URL } = require('url');
 async function resolveDbUrl() {
   try {
     if (!process.env.DATABASE_URL) {
-      console.log('');
       return;
     }
 
@@ -17,22 +16,38 @@ async function resolveDbUrl() {
       return;
     }
 
-    // Resolve IPv4
-    const addresses = await dns.promises.resolve4(hostname);
-    if (addresses.length > 0) {
-      dbUrl.hostname = addresses[0];
-      console.log(dbUrl.toString());
-    } else {
-      // Fallback
-      console.log(process.env.DATABASE_URL);
+    // Try resolve4 first
+    try {
+      const addresses = await dns.promises.resolve4(hostname);
+      if (addresses.length > 0) {
+        dbUrl.hostname = addresses[0];
+        console.log(dbUrl.toString());
+        return;
+      }
+    } catch (e) {
+      console.error(`dns.resolve4 failed for ${hostname}: ${e.message}`);
     }
+
+    // Fallback to lookup (uses getaddrinfo, might work better in Alpine)
+    try {
+      const { address } = await dns.promises.lookup(hostname, { family: 4 });
+      if (address) {
+        dbUrl.hostname = address;
+        console.log(dbUrl.toString());
+        return;
+      }
+    } catch (e) {
+      console.error(`dns.lookup failed for ${hostname}: ${e.message}`);
+    }
+
+    // Final fallback: return original
+    console.error('Could not resolve IPv4 address, outputting original URL');
+    console.log(process.env.DATABASE_URL);
+
   } catch (error) {
-    // If resolution fails, output original URL
-    // console.error('DNS Resolution failed:', error);
+    console.error('Fatal error in resolve-db.js:', error);
     if (process.env.DATABASE_URL) {
         console.log(process.env.DATABASE_URL);
-    } else {
-        console.log('');
     }
   }
 }
