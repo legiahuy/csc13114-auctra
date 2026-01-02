@@ -32,7 +32,10 @@ RESOLVED_DB_URL=$(node resolve-db.js)
 
 if [ ! -z "$RESOLVED_DB_URL" ]; then
     export DATABASE_URL=$RESOLVED_DB_URL
-    echo "✅ Database URL updated with IPv4 address"
+    # Extract host for logging (don't log credentials)
+    # Using simple sed to verify update
+    SAFE_HOST=$(echo $RESOLVED_DB_URL | sed 's/.*@//' | sed 's/:.*//')
+    echo "✅ Database URL updated. Host: $SAFE_HOST"
 else
     echo "⚠️ Could not resolve IPv4, using original URL"
 fi
