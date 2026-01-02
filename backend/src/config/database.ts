@@ -17,7 +17,8 @@ if (process.env.DATABASE_URL) {
       ssl: process.env.DB_SSL !== 'false' ? {
         require: true,
         rejectUnauthorized: false // Supabase uses self-signed certificates
-      } : false
+      } : false,
+      family: 4 // Force IPv4 to avoid ENETUNREACH errors
     },
     pool: {
       max: 5,
@@ -44,7 +45,8 @@ if (process.env.DATABASE_URL) {
         ssl: (isCloudDB || process.env.DB_SSL === 'true') ? {
           require: true,
           rejectUnauthorized: false
-        } : false
+        } : false,
+        family: 4 // Force IPv4
       },
       pool: {
         max: 5,
