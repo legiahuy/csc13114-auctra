@@ -1,26 +1,29 @@
 # Deployment Fixes Summary
 
-## Backend Issue: Permission Denied on Logs Directory
+## Backend Issue 1: Permission Denied on Logs Directory
 
 ### Problem
 ```
 Error: EACCES: permission denied, mkdir 'logs'
 ```
 
-### Root Cause
-1. The application tries to write logs to `logs/` directory if `NODE_ENV` is not explicitly set to `production` (defaults to development mode).
-2. The Docker container runs as non-root user `nodejs`, which does not have permission to create directories in `/app`.
-3. The `logs` directory didn't exist in the image.
-
 ### Solution
 Updated `backend/Dockerfile` to:
-1. Explicitly create the `logs` directory: `RUN mkdir -p logs && chown -R nodejs:nodejs logs`
-2. Force production mode: `ENV NODE_ENV=production`
-3. Re-enable the `HEALTHCHECK` instruction.
+1. Explicitly create the `logs` directory and grant permissions to `nodejs` user.
+2. Force `NODE_ENV=production` to ensure console logging is used.
 
-This ensures that:
-- The `logs` directory exists and is writable by the application user.
-- The application defaults to production mode (using console logging) even if Railway variables are missing.
+## Backend Issue 2: Supabase Connection Failure (ENETUNREACH)
+
+### Problem
+```
+SequelizeConnectionError: connect ENETUNREACH 2406:da1a:6b0:...
+```
+
+### Root Cause
+Railway containers were trying to connect to Supabase via IPv6, which is not fully supported or properly configured in the container network stack, causing connection timeout/unreachable errors.
+
+### Solution
+Updated `backend/src/config/database.ts` to add `family: 4` to dialectOptions. This forces the application to resolve and connect using IPv4 only, which is stable.
 
 ## Frontend Issue: auctra.svg Not Found (404)
 
@@ -29,21 +32,18 @@ This ensures that:
 GET /auctra.svg - 404 Not Found
 ```
 
-### Root Cause
-The `auctra.svg` file was in the frontend root directory but not in the `public/` directory. Vite only serves files from the `public/` directory in production builds.
-
 ### Solution
-Copied `auctra.svg` to `public/auctra.svg` so Vite includes it in the build output.
+Copied `auctra.svg` to `public/auctra.svg`.
 
-## Deployment Steps
+## Final Deployment Steps
 
 ```bash
 # Verify changes
-git diff backend/Dockerfile
+git diff backend/src/config/database.ts
 
 # Commit and push
 git add .
-git commit -m "fix: docker permissions and node_env"
+git commit -m "fix: force ipv4 for database connection"
 git push origin main
 ```
 
