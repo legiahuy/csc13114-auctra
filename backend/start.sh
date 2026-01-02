@@ -40,6 +40,19 @@ else
     echo "⚠️ Could not resolve IPv4, using original URL"
 fi
 
+# Resolve Email Host to IPv4 (fixes Connection Timeout)
+if [ ! -z "$EMAIL_HOST" ]; then
+    echo "🔄 Resolving Email Host ($EMAIL_HOST)..."
+    RESOLVED_EMAIL_HOST=$(node resolve-db.js email)
+    if [ ! -z "$RESOLVED_EMAIL_HOST" ]; then
+        # Check if it's different
+        if [ "$RESOLVED_EMAIL_HOST" != "$EMAIL_HOST" ]; then
+             export EMAIL_HOST=$RESOLVED_EMAIL_HOST
+             echo "✅ EMAIL_HOST updated to IPv4: $RESOLVED_EMAIL_HOST"
+        fi
+    fi
+fi
+
 echo "🔄 Starting application..."
 
 # Start the application
