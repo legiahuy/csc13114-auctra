@@ -8,6 +8,7 @@ export interface AuthRequest extends Request {
     id: number;
     email: string;
     role: string;
+    fullName?: string;
   };
 }
 
@@ -48,6 +49,7 @@ export const authenticate = async (
       id: user.id,
       email: user.email,
       role: user.role, // Use role from database, not from JWT
+      fullName: user.fullName,
     };
     
     next();

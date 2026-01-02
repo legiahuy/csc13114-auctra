@@ -36,7 +36,7 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const { refreshToken, logout } = useAuthStore.getState();
+        const { refreshToken } = useAuthStore.getState();
         if (refreshToken) {
           const response = await axios.post('/api/auth/refresh-token', {
             refreshToken,
@@ -53,6 +53,7 @@ apiClient.interceptors.response.use(
           return apiClient(originalRequest);
         }
       } catch (refreshError) {
+        const { logout } = useAuthStore.getState();
         logout();
         window.location.href = '/login';
       }

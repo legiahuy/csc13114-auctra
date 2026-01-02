@@ -74,7 +74,7 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
     }
 
     const chatMessage = await ChatMessage.create({
-      orderId,
+      orderId: parseInt(orderId),
       senderId: req.user.id,
       message,
     });
