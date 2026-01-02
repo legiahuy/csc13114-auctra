@@ -25,7 +25,9 @@ const transporter = nodemailer.createTransport({
   // Thêm options để debug
   debug: process.env.NODE_ENV === 'development',
   logger: process.env.NODE_ENV === 'development',
-});
+  // Force IPv4 to avoid Railway IPv6 timeout issues
+  family: 4,
+} as nodemailer.TransportOptions);
 
 // Helper to render MJML template with variables
 const renderMJMLTemplate = (
