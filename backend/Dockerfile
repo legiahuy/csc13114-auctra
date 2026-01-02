@@ -43,6 +43,10 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 # Copy necessary files
 COPY --chown=nodejs:nodejs src/templates ./src/templates
 
+# Copy startup script
+COPY --chown=nodejs:nodejs start.sh ./start.sh
+RUN chmod +x ./start.sh
+
 # Switch to non-root user
 USER nodejs
 
@@ -56,5 +60,5 @@ EXPOSE 3000
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start application
-CMD ["node", "dist/server.js"]
+# Start application with validation script
+CMD ["./start.sh"]
