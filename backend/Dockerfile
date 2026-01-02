@@ -47,6 +47,12 @@ COPY --chown=nodejs:nodejs src/templates ./src/templates
 COPY --chown=nodejs:nodejs start.sh ./start.sh
 RUN chmod +x ./start.sh
 
+# Create logs directory and set permissions
+RUN mkdir -p logs && chown -R nodejs:nodejs logs
+
+# Set production environment
+ENV NODE_ENV=production
+
 # Switch to non-root user
 USER nodejs
 
@@ -54,8 +60,8 @@ USER nodejs
 EXPOSE 3000
 
 # Health check
-# HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-#     CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]

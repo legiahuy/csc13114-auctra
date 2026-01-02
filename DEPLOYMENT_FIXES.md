@@ -8,14 +8,19 @@ Error: EACCES: permission denied, mkdir 'logs'
 ```
 
 ### Root Cause
-Winston logger was trying to create a `logs` directory, but the Docker container runs as non-root user `nodejs` who doesn't have write permissions to `/app`.
+1. The application tries to write logs to `logs/` directory if `NODE_ENV` is not explicitly set to `production` (defaults to development mode).
+2. The Docker container runs as non-root user `nodejs`, which does not have permission to create directories in `/app`.
+3. The `logs` directory didn't exist in the image.
 
 ### Solution
-Updated `backend/src/config/logger.ts` to:
-- **Production**: Use console transport (Railway captures stdout/stderr)
-- **Development**: Use file transports to `logs/` directory
+Updated `backend/Dockerfile` to:
+1. Explicitly create the `logs` directory: `RUN mkdir -p logs && chown -R nodejs:nodejs logs`
+2. Force production mode: `ENV NODE_ENV=production`
+3. Re-enable the `HEALTHCHECK` instruction.
 
-This is best practice for cloud deployments where logs are captured by the platform.
+This ensures that:
+- The `logs` directory exists and is writable by the application user.
+- The application defaults to production mode (using console logging) even if Railway variables are missing.
 
 ## Frontend Issue: auctra.svg Not Found (404)
 
@@ -30,29 +35,16 @@ The `auctra.svg` file was in the frontend root directory but not in the `public/
 ### Solution
 Copied `auctra.svg` to `public/auctra.svg` so Vite includes it in the build output.
 
-## Files Changed
-
-### Backend
-- `src/config/logger.ts` - Updated to use console transport in production
-
-### Frontend
-- Created `public/auctra.svg` - Moved SVG to public directory for Vite
-
 ## Deployment Steps
 
 ```bash
-# Rebuild backend
-cd backend
-npm run build
-
-# Rebuild frontend  
-cd frontend
-npm run build
+# Verify changes
+git diff backend/Dockerfile
 
 # Commit and push
 git add .
-git commit -m "fix: logger permissions and SVG asset path"
+git commit -m "fix: docker permissions and node_env"
 git push origin main
 ```
 
-Railway and Vercel will auto-deploy the fixes.
+Railway will auto-deploy.
