@@ -39,7 +39,37 @@ transporter.verify(function (error, success) {
 });
 
 // Helper to render MJML template with variables
-// ... (omitted)
+const renderMJMLTemplate = (
+  templatePath: string,
+  variables: Record<string, string>
+): string => {
+  try {
+    // Read MJML template
+    let mjmlContent = fs.readFileSync(templatePath, "utf-8");
+
+    // Replace variables
+    Object.entries(variables).forEach(([key, value]) => {
+      mjmlContent = mjmlContent.replace(new RegExp(`{{${key}}}`, "g"), value);
+    });
+
+    // Compile MJML to HTML
+    const { html, errors } = mjml2html(mjmlContent);
+
+    if (errors && errors.length > 0) {
+      logger.error("MJML compilation errors:", errors);
+      throw new Error(
+        `MJML compilation failed: ${errors
+          .map((e: any) => e.message)
+          .join(", ")}`
+      );
+    }
+
+    return html;
+  } catch (error) {
+    logger.error(`Failed to render MJML template ${templatePath}:`, error);
+    throw error;
+  }
+};
 
 export const sendEmail = async (
   to: string,
@@ -57,7 +87,9 @@ export const sendEmail = async (
   const startTime = Date.now();
   try {
     logger.info(`🚀 [${startTime}] Đang gửi email đến ${to}...`);
-    logger.info(`📧 Config: HOST=${process.env.EMAIL_HOST}, PORT=${process.env.EMAIL_PORT}, USER=${process.env.EMAIL_USER}, SECURE=${transporter.options.secure}`);
+    // Safe access to secure option
+    const isSecure = (transporter.options as any).secure; // Cast to any to avoid type error
+    logger.info(`📧 Config: HOST=${process.env.EMAIL_HOST}, PORT=${process.env.EMAIL_PORT}, USER=${process.env.EMAIL_USER}, SECURE=${isSecure}`);
 
     const result = await transporter.sendMail({
       from: process.env.EMAIL_FROM,
