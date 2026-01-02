@@ -29,38 +29,17 @@ const transporter = nodemailer.createTransport({
   family: 4,
 } as nodemailer.TransportOptions);
 
-// Helper to render MJML template with variables
-const renderMJMLTemplate = (
-  templatePath: string,
-  variables: Record<string, string>
-): string => {
-  try {
-    // Read MJML template
-    let mjmlContent = fs.readFileSync(templatePath, "utf-8");
-
-    // Replace variables
-    Object.entries(variables).forEach(([key, value]) => {
-      mjmlContent = mjmlContent.replace(new RegExp(`{{${key}}}`, "g"), value);
-    });
-
-    // Compile MJML to HTML
-    const { html, errors } = mjml2html(mjmlContent);
-
-    if (errors && errors.length > 0) {
-      logger.error("MJML compilation errors:", errors);
-      throw new Error(
-        `MJML compilation failed: ${errors
-          .map((e: any) => e.message)
-          .join(", ")}`
-      );
-    }
-
-    return html;
-  } catch (error) {
-    logger.error(`Failed to render MJML template ${templatePath}:`, error);
-    throw error;
+// Verify connection configuration
+transporter.verify(function (error, success) {
+  if (error) {
+    logger.error('❌ Email Transporter Connection Error:', error);
+  } else {
+    logger.info('✅ Email Transporter is ready to send messages');
   }
-};
+});
+
+// Helper to render MJML template with variables
+// ... (omitted)
 
 export const sendEmail = async (
   to: string,
@@ -75,9 +54,10 @@ export const sendEmail = async (
     return; // Không throw error để không làm crash app
   }
 
+  const startTime = Date.now();
   try {
-    logger.info(`Đang gửi email đến ${to}...`);
-    logger.info(`Email config: HOST=${process.env.EMAIL_HOST}, PORT=${process.env.EMAIL_PORT}, USER=${process.env.EMAIL_USER}`);
+    logger.info(`🚀 [${startTime}] Đang gửi email đến ${to}...`);
+    logger.info(`📧 Config: HOST=${process.env.EMAIL_HOST}, PORT=${process.env.EMAIL_PORT}, USER=${process.env.EMAIL_USER}, SECURE=${transporter.options.secure}`);
 
     const result = await transporter.sendMail({
       from: process.env.EMAIL_FROM,
@@ -86,17 +66,24 @@ export const sendEmail = async (
       html,
     });
 
-    logger.info(`Email đã được gửi thành công đến ${to}`);
-    logger.info(`Message ID: ${result.messageId}`);
+    const duration = Date.now() - startTime;
+    logger.info(`✅ [${duration}ms] Email đã được gửi thành công đến ${to}`);
+    logger.info(`🆔 Message ID: ${result.messageId}`);
+    logger.info(`📝 Response: ${result.response}`);
   } catch (error: any) {
-    logger.error(`Lỗi khi gửi email đến ${to}:`);
-    logger.error(`Error message: ${error.message}`);
-    logger.error(`Error code: ${error.code}`);
+    const duration = Date.now() - startTime;
+    logger.error(`❌ [${duration}ms] Lỗi khi gửi email đến ${to}:`);
+    logger.error(`❌ Error Name: ${error.name}`);
+    logger.error(`❌ Error Message: ${error.message}`);
+    logger.error(`❌ Error Code: ${error.code}`);
+    logger.error(`❌ Error Command: ${error.command}`);
     if (error.response) {
-      logger.error(`SMTP Response: ${error.response}`);
+      logger.error(`❌ SMTP Response: ${error.response}`);
     }
-    // Không throw error để không làm crash app, chỉ log
-    // throw error;
+    logger.error(`❌ Full Error Stack: ${error.stack}`);
+    
+    // Log connection details if available
+    if (error.address) logger.error(`❌ Connected to: ${error.address}:${error.port}`);
   }
 };
 
