@@ -77,6 +77,7 @@ const swaggerOptions = {
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 // Middleware
+app.set('trust proxy', 1); // Trust first proxy (required for Railway/Vercel/Heroku)
 app.use(helmet());
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3001',
