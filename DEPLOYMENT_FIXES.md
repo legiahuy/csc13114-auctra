@@ -20,10 +20,15 @@ SequelizeConnectionError: connect ENETUNREACH 2406:da1a:6b0:...
 ```
 
 ### Root Cause
-Railway containers were trying to connect to Supabase via IPv6, which is not fully supported or properly configured in the container network stack, causing connection timeout/unreachable errors.
+Railway containers were trying to connect to Supabase via IPv6. The previous fix (adding `family: 4` to dialectOptions) was not being respected because Sequelize prioritizes the connection string parameters over options in some cases.
 
 ### Solution
-Updated `backend/src/config/database.ts` to add `family: 4` to dialectOptions. This forces the application to resolve and connect using IPv4 only, which is stable.
+Completely refactored `backend/src/config/database.ts` to:
+1. Manually parse the `DATABASE_URL` into components (host, port, user, password, database).
+2. Pass these components explicitly to Sequelize.
+3. Strict enforcement of `dialectOptions: { family: 4 }`.
+
+This ensures the node process resolves the database hostname to an IPv4 address, creating a stable connection.
 
 ## Frontend Issue: auctra.svg Not Found (404)
 
@@ -43,7 +48,7 @@ git diff backend/src/config/database.ts
 
 # Commit and push
 git add .
-git commit -m "fix: force ipv4 for database connection"
+git commit -m "fix: robust database config for ipv4"
 git push origin main
 ```
 
