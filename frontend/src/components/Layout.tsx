@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Menu } from "lucide-react";
 import SellerCountdownTimer from "./SellerCountdownTimer";
 
 interface LayoutProps {
@@ -123,7 +125,108 @@ export default function Layout({ children }: LayoutProps) {
               />
               <div className="text-xl font-bold text-foreground">Auctra</div>
             </Link>
-            <nav className="flex items-center gap-4">
+            <div className="md:hidden flex items-center gap-2">
+              {user && user.role === "seller" && <SellerCountdownTimer />}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Menu className="h-6 w-6" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="overflow-y-auto">
+                  <div className="flex flex-col gap-4 mt-8">
+                    {user ? (
+                      <div className="flex items-center gap-2 mb-4">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback>
+                            {user.fullName.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-semibold">{user.fullName}</span>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 w-full">
+                        <Button variant="ghost" className="flex-1" asChild>
+                          <Link to="/login">Login</Link>
+                        </Button>
+                        <Button className="flex-1" asChild>
+                          <Link to="/register">Register</Link>
+                        </Button>
+                      </div>
+                    )}
+                    <Separator />
+                    <Link to="/products" className="text-lg font-medium py-2">
+                      Products
+                    </Link>
+                    <div className="flex flex-col gap-2">
+                      <p className="text-sm text-muted-foreground font-semibold">
+                        Categories
+                      </p>
+                      {categories.map((category) => (
+                        <div key={category.id} className="ml-2">
+                          <div
+                            className="font-medium cursor-pointer py-1"
+                            onClick={() => handleCategoryClick(category.slug)}
+                          >
+                            {category.name}
+                          </div>
+                          {category.children &&
+                            category.children.map((child) => (
+                              <div
+                                key={child.id}
+                                className="ml-4 text-sm text-muted-foreground cursor-pointer py-1"
+                                onClick={() => handleCategoryClick(child.slug)}
+                              >
+                                {child.name}
+                              </div>
+                            ))}
+                        </div>
+                      ))}
+                    </div>
+                    {user && (
+                      <>
+                        <Link
+                          to="/watchlist"
+                          className="text-lg font-medium py-2"
+                        >
+                          Watchlist
+                        </Link>
+                        <Link to="/my-bids" className="text-lg font-medium py-2">
+                          My Bids
+                        </Link>
+                        <Link to="/profile" className="text-lg font-medium py-2">
+                          Profile
+                        </Link>
+                        {user.role === "seller" && (
+                          <Link
+                            to="/seller/dashboard"
+                            className="text-lg font-medium py-2"
+                          >
+                            Seller Dashboard
+                          </Link>
+                        )}
+                        {user.role === "admin" && (
+                          <Link
+                            to="/admin/dashboard"
+                            className="text-lg font-medium py-2"
+                          >
+                            Admin Dashboard
+                          </Link>
+                        )}
+                        <Button
+                          variant="ghost"
+                          onClick={handleLogout}
+                          className="justify-start px-0 text-red-500 hover:text-red-600 hover:bg-transparent text-lg font-medium"
+                        >
+                          Logout
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
+            <nav className="hidden md:flex items-center gap-4">
               <Button variant="ghost" asChild>
                 <Link to="/products">Products</Link>
               </Button>
