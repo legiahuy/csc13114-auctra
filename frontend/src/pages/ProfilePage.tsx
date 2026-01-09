@@ -12,6 +12,7 @@ import {
   Lock,
   ThumbsUp,
   ThumbsDown,
+  Loader2,
 } from "lucide-react";
 import { useFormik } from "formik";
 import * as yup from "yup";
@@ -21,12 +22,7 @@ import toast from "react-hot-toast";
 import Loading from "@/components/Loading";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,12 +33,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 
 interface User {
@@ -67,6 +58,12 @@ interface Review {
     fullName: string;
   };
   createdAt: string;
+  order: {
+    product: {
+      id: number;
+      name: string;
+    };
+  };
 }
 
 interface WatchlistItem {
@@ -132,7 +129,11 @@ export default function ProfilePage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [bids, setBids] = useState<Bid[]>([]);
-  const [bidsPagination, setBidsPagination] = useState({ page: 1, totalPages: 1, total: 0 });
+  const [bidsPagination, setBidsPagination] = useState({
+    page: 1,
+    totalPages: 1,
+    total: 0,
+  });
   const [wonProducts, setWonProducts] = useState<WonProduct[]>([]);
   const [activeTab, setActiveTab] = useState("reviews");
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -154,7 +155,9 @@ export default function ProfilePage() {
           apiClient.get("/users/profile"),
           apiClient.get("/users/reviews"),
           apiClient.get("/users/watchlist"),
-          apiClient.get("/users/bids", { params: { page: bidsPagination.page, limit: 9 } }),
+          apiClient.get("/users/bids", {
+            params: { page: bidsPagination.page, limit: 9 },
+          }),
           apiClient.get("/users/won"),
         ]);
 
@@ -162,7 +165,9 @@ export default function ProfilePage() {
       setReviews(reviewsRes.data.data || []);
       setWatchlist(watchlistRes.data.data || []);
       setBids(bidsRes.data.data?.bids || bidsRes.data.data || []);
-      setBidsPagination(bidsRes.data.data?.pagination || { page: 1, totalPages: 1, total: 0 });
+      setBidsPagination(
+        bidsRes.data.data?.pagination || { page: 1, totalPages: 1, total: 0 }
+      );
       setWonProducts(wonRes.data.data || []);
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -186,12 +191,15 @@ export default function ProfilePage() {
     onSubmit: async (values) => {
       try {
         await apiClient.put("/users/profile", values);
+
+        // Update global auth store particularly for the header
+        const { updateUser } = useAuthStore.getState();
+        updateUser({ fullName: values.fullName, email: values.email });
+
         toast.success("Profile updated successfully");
         fetchData();
       } catch (error: any) {
-        toast.error(
-          error.response?.data?.error?.message || "Failed to update"
-        );
+        toast.error(error.response?.data?.error?.message || "Failed to update");
       }
     },
   });
@@ -334,9 +342,23 @@ export default function ProfilePage() {
                     )}
                 </div>
 
-                <Button type="submit" className="w-full">
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={
+                    profileFormik.isSubmitting ||
+                    profileFormik.isValid === false
+                  }
+                >
                   <Edit className="h-4 w-4 mr-2" />
-                  Update Information
+                  {profileFormik.isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Information"
+                  )}
                 </Button>
               </form>
 
@@ -353,29 +375,28 @@ export default function ProfilePage() {
 
               <Separator />
 
-             
               <div className="space-y-2">
-              <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Role</span>
-                </div>
-                <Badge
-                  variant={
-                    user.role === "admin"
-                      ? "destructive"
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Role</span>
+                  </div>
+                  <Badge
+                    variant={
+                      user.role === "admin"
+                        ? "destructive"
+                        : user.role === "seller"
+                        ? "default"
+                        : "secondary"
+                    }
+                  >
+                    {user.role === "admin"
+                      ? "Admin"
                       : user.role === "seller"
-                      ? "default"
-                      : "secondary"
-                  }
-                >
-                  {user.role === "admin"
-                    ? "Admin"
-                    : user.role === "seller"
-                    ? "Seller"
-                    : "Bidder"}
-                </Badge>
-              </div>
+                      ? "Seller"
+                      : "Bidder"}
+                  </Badge>
+                </div>
 
                 {user.role === "bidder" && (
                   <Card className="bg-muted/50 shadow-none">
@@ -438,7 +459,7 @@ export default function ProfilePage() {
                             fetchData();
                           } catch (error: any) {
                             toast.error(
-                                error.response?.data?.error?.message ||
+                              error.response?.data?.error?.message ||
                                 "Failed to submit upgrade request"
                             );
                           }
@@ -451,39 +472,37 @@ export default function ProfilePage() {
                     </CardContent>
                   </Card>
                 )}
-
               </div>
-              
-              <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
-                 <div className="flex items-center gap-3">
-                   <div className="flex items-center justify-center h-10 w-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30">
-                     <Star className="h-5 w-5 text-yellow-600 dark:text-yellow-500 fill-yellow-600 dark:fill-yellow-500" />
-                   </div>
-                   <div>
-                     <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Rating</p>
-                     <div className="flex items-baseline gap-2">
-                       <span className="text-xl font-bold text-foreground">
-                         {ratingPercentage.toFixed(0)}%
-                       </span>
-                       <span className="text-xs text-muted-foreground">
-                         ({user.totalRatings} total)
-                       </span>
-                     </div>
-                   </div>
-                 </div>
-                 
-                 <div className="flex flex-col items-end gap-1">
-                   <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-500 bg-emerald-100/50 dark:bg-emerald-900/20 px-2 py-1 rounded-md">
-                     <ThumbsUp className="h-3.5 w-3.5" />
-                     <span className="text-xs font-semibold">{positiveCount}</span>
-                   </div>
-                   <div className="flex items-center gap-2 text-rose-600 dark:text-rose-500 bg-rose-100/50 dark:bg-rose-900/20 px-2 py-1 rounded-md">
-                     <ThumbsDown className="h-3.5 w-3.5" />
-                     <span className="text-xs font-semibold">{negativeCount}</span>
-                   </div>
-                 </div>
-               </div>
 
+              <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 border">
+                <div className="flex flex-col items-center justify-center h-20 w-20 rounded-full bg-background border-2 border-primary/20">
+                  <span className="text-xl font-bold">
+                    {ratingPercentage.toFixed(0)}%
+                  </span>
+                  <span className="text-[10px] text-muted-foreground uppercase">
+                    Positive
+                  </span>
+                </div>
+
+                <div className="space-y-2 flex-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-500">
+                      <ThumbsUp className="h-4 w-4" /> Positive
+                    </span>
+                    <span className="font-semibold">{positiveCount}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5 text-rose-600 dark:text-rose-500">
+                      <ThumbsDown className="h-4 w-4" /> Negative
+                    </span>
+                    <span className="font-semibold">{negativeCount}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground text-right pt-1">
+                    Based on {user.totalRatings} total ratings
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -501,14 +520,20 @@ export default function ProfilePage() {
                 className="w-full"
               >
                 <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="reviews" className="flex items-center gap-2">
+                  <TabsTrigger
+                    value="reviews"
+                    className="flex items-center gap-2"
+                  >
                     <Star className="h-4 w-4" />
                     <span className="hidden sm:inline">Reviews</span>
                     <Badge variant="secondary" className="ml-1">
                       {reviews.length}
                     </Badge>
                   </TabsTrigger>
-                  <TabsTrigger value="watchlist" className="flex items-center gap-2">
+                  <TabsTrigger
+                    value="watchlist"
+                    className="flex items-center gap-2"
+                  >
                     <Heart className="h-4 w-4" />
                     <span className="hidden sm:inline">Watchlist</span>
                     <Badge variant="secondary" className="ml-1">
@@ -542,44 +567,68 @@ export default function ProfilePage() {
                         </div>
                       </div>
                     ) : (
-                    <div className="space-y-3">
-                      {reviews.map((review) => (
-                        <Card key={review.id}>
-                          <CardContent className="p-4 space-y-3">
-                            <div className="flex items-start justify-between">
-                              <div className="space-y-1">
-                                <p className="text-sm font-semibold">
-                                  {review.reviewer.fullName}
-                                </p>
-                                <div className="flex items-center gap-2">
-                                  {review.rating === 1 ? (
-                                    <Badge
-                                      variant="default"
-                                      className="bg-green-500 hover:bg-green-600"
-                                    >
-                                      +1
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="destructive">-1</Badge>
-                                  )}
-                                  <span className="text-xs text-muted-foreground">
+                      <div className="space-y-4">
+                        {reviews.map((review) => (
+                          <div
+                            key={review.id}
+                            className="border-b last:border-0 pb-4 last:pb-0 space-y-2"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-center gap-2">
+                                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold uppercase">
+                                  {review.reviewer.fullName.charAt(0)}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-semibold">
+                                    {review.reviewer.fullName}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
                                     {format(
                                       new Date(review.createdAt),
-                                      "dd/MM/yyyy HH:mm"
+                                      "dd MMM yyyy, HH:mm"
                                     )}
-                                  </span>
+                                  </p>
                                 </div>
                               </div>
+                              {review.rating === 1 ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-emerald-600 border-emerald-200 bg-emerald-50"
+                                >
+                                  <ThumbsUp className="h-3 w-3 mr-1" /> Positive
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="text-rose-600 border-rose-200 bg-rose-50"
+                                >
+                                  <ThumbsDown className="h-3 w-3 mr-1" />{" "}
+                                  Negative
+                                </Badge>
+                              )}
                             </div>
+
                             {review.comment && (
-                              <p className="text-sm text-foreground">
+                              <p className="text-sm text-foreground bg-muted/30 p-3 rounded-md">
                                 {review.comment}
                               </p>
                             )}
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>Product:</span>
+                              <span className="font-medium text-foreground">
+                                <Link
+                                  to={`/products/${review.order?.product?.id}`}
+                                  className="hover:underline hover:text-primary"
+                                >
+                                  {review.order?.product?.name ||
+                                    "Product unavailable"}
+                                </Link>
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </TabsContent>
@@ -662,83 +711,93 @@ export default function ProfilePage() {
                               to={`/products/${bid.product.id}`}
                               className="group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow"
                             >
-                            <div className="aspect-video overflow-hidden">
-                              <img
-                                src={bid.product.mainImage}
-                                alt={bid.product.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
-                            </div>
-                            <div className="p-3 space-y-2">
-                              <p className="text-sm font-medium line-clamp-2">
-                                {bid.product.name}
-                              </p>
-                              <div>
-                                <p className="text-xs text-muted-foreground">
-                                  Your bid amount
-                                </p>
-                                <p className="text-sm font-semibold text-brand">
-                                  {Number(bid.amount).toLocaleString("vi-VN")}{" "}
-                                  VNĐ
-                                </p>
+                              <div className="aspect-video overflow-hidden">
+                                <img
+                                  src={bid.product.mainImage}
+                                  alt={bid.product.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
                               </div>
-                              <p className="text-xs text-muted-foreground">
-                                {format(
-                                  new Date(bid.createdAt),
-                                  "dd/MM/yyyy HH:mm"
-                                )}
-                              </p>
-                              <Badge
-                                variant={
-                                  bid.product.status === "active"
-                                    ? "default"
+                              <div className="p-3 space-y-2">
+                                <p className="text-sm font-medium line-clamp-2">
+                                  {bid.product.name}
+                                </p>
+                                <div>
+                                  <p className="text-xs text-muted-foreground">
+                                    Your bid amount
+                                  </p>
+                                  <p className="text-sm font-semibold text-brand">
+                                    {Number(bid.amount).toLocaleString("vi-VN")}{" "}
+                                    VNĐ
+                                  </p>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(
+                                    new Date(bid.createdAt),
+                                    "dd/MM/yyyy HH:mm"
+                                  )}
+                                </p>
+                                <Badge
+                                  variant={
+                                    bid.product.status === "active"
+                                      ? "default"
+                                      : bid.product.status === "cancelled"
+                                      ? "destructive"
+                                      : "outline"
+                                  }
+                                  className={
+                                    bid.product.status === "active"
+                                      ? "text-xs bg-emerald-500 hover:bg-emerald-600 text-white"
+                                      : "text-xs bg-red-500 hover:bg-red-600 text-white"
+                                  }
+                                >
+                                  {bid.product.status === "active"
+                                    ? "Active"
                                     : bid.product.status === "cancelled"
-                                    ? "destructive"
-                                    : "outline"
-                                }
-                                className={
-                                  bid.product.status === "active"
-                                    ? "text-xs bg-emerald-500 hover:bg-emerald-600 text-white"
-                                    : "text-xs"
-                                }
-                              >
-                                {bid.product.status === "active"
-                                  ? "Active"
-                                  : bid.product.status === "cancelled"
-                                  ? "Cancelled"
-                                  : "Ended"}
-                              </Badge>
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                      {bidsPagination.totalPages > 1 && (
-                        <div className="flex justify-center items-center gap-2 mt-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setBidsPagination(prev => ({ ...prev, page: prev.page - 1 }));
-                            }}
-                            disabled={bidsPagination.page === 1}
-                          >
-                            Previous
-                          </Button>
-                          <span className="text-sm text-muted-foreground">
-                            Page {bidsPagination.page} / {bidsPagination.totalPages}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setBidsPagination(prev => ({ ...prev, page: prev.page + 1 }));
-                            }}
-                            disabled={bidsPagination.page === bidsPagination.totalPages}
-                          >
-                            Next
-                          </Button>
+                                    ? "Cancelled"
+                                    : "Ended"}
+                                </Badge>
+                              </div>
+                            </Link>
+                          ))}
                         </div>
-                      )}
+                        {bidsPagination.totalPages > 1 && (
+                          <div className="flex justify-center items-center gap-2 mt-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setBidsPagination((prev) => ({
+                                  ...prev,
+                                  page: prev.page - 1,
+                                }));
+                              }}
+                              disabled={bidsPagination.page === 1}
+                            >
+                              Previous
+                            </Button>
+                            <span className="text-sm text-muted-foreground">
+                              Page {bidsPagination.page} /{" "}
+                              {bidsPagination.totalPages}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setBidsPagination((prev) => ({
+                                  ...prev,
+                                  page: prev.page + 1,
+                                }));
+                              }}
+                              disabled={
+                                bidsPagination.page ===
+                                bidsPagination.totalPages
+                              }
+                            >
+                              Next
+                            </Button>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -792,7 +851,13 @@ export default function ProfilePage() {
                                     ? "destructive"
                                     : "secondary"
                                 }
-                                className="text-xs"
+                                className={`text-xs ${
+                                    order.status === "completed"
+                                      ? "bg-emerald-500 hover:bg-emerald-600"
+                                      : order.status === "cancelled"
+                                      ? "bg-red-500 hover:bg-red-600"
+                                      : "bg-amber-500 hover:bg-amber-600"
+                                  }`}
                               >
                                 {order.status === "pending_payment"
                                   ? "Pending Payment"
@@ -884,7 +949,22 @@ export default function ProfilePage() {
               >
                 Cancel
               </Button>
-              <Button type="submit">Change Password</Button>
+              <Button
+                type="submit"
+                disabled={
+                  passwordFormik.isSubmitting ||
+                  passwordFormik.isValid === false
+                }
+              >
+                {passwordFormik.isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Change Password"
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
