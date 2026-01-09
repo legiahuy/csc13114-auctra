@@ -204,12 +204,13 @@ export default function PaymentPage() {
     const handleSuccess = async () => {
         try {
             await apiClient.put(`/orders/${orderId}`, {
-                status: 'pending_address',
+                // status: 'pending_address', // REMOVED: Wait for seller confirmation
                 paymentMethod: 'Stripe',
                 paymentTransactionId: 'stripe_confirmed', // We might get real ID but flow is complex
             });
             toast.success('Payment Successful!');
-            navigate(`/orders/${orderId}`);
+            // Navigate to payment success page to show receipt
+            navigate(`/payment-success/${orderId}`);
         } catch (error) {
             console.error(error);
             toast.error('Failed to update order status');

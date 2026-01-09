@@ -131,7 +131,7 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response, next: N
     }
 
     const { orderId } = req.params;
-    const { status, paymentMethod, paymentTransactionId, paymentProof, shippingAddress, shippingInvoice } = req.body;
+    const { status, paymentMethod, paymentTransactionId, paymentProof, shippingAddress, shippingInvoice, trackingNumber, carrierName } = req.body;
 
     const order = await Order.findByPk(orderId);
     if (!order) {
@@ -143,8 +143,8 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response, next: N
       return next(new AppError('Only buyer can reset order steps', 403));
     }
 
-    if (status === 'pending_address' && order.buyerId !== req.user.id) {
-      return next(new AppError('Only buyer can update shipping address', 403));
+    if (status === 'pending_address' && order.sellerId !== req.user.id) {
+      return next(new AppError('Only seller can confirm payment', 403));
     }
 
     // Chỉ seller mới có thể chuyển từ pending_address → pending_shipping (xác nhận đã gửi hàng)
@@ -161,9 +161,9 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response, next: N
       }
     }
 
-    // Bidder xác nhận đã nhận hàng, chuyển từ pending_shipping → completed
+    // Bidder xác nhận đã nhận hàng, chuyển từ pending_shipping/pending_delivery → completed
     if (status === 'completed') {
-      if (order.status !== 'pending_shipping') {
+      if (order.status !== 'pending_shipping' && order.status !== 'pending_delivery') {
         return next(new AppError('Chỉ có thể xác nhận nhận hàng khi đơn hàng đang ở trạng thái đã gửi hàng', 400));
       }
       if (order.buyerId !== req.user.id) {
@@ -215,6 +215,8 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response, next: N
     if (paymentProof !== undefined) order.paymentProof = paymentProof;
     if (shippingAddress !== undefined) order.shippingAddress = shippingAddress;
     if (shippingInvoice !== undefined) order.shippingInvoice = shippingInvoice;
+    if (trackingNumber !== undefined) order.trackingNumber = trackingNumber;
+    if (carrierName !== undefined) order.carrierName = carrierName;
 
     await order.save();
 
