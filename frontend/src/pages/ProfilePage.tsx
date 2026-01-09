@@ -409,14 +409,14 @@ export default function ProfilePage() {
                       {user.upgradeRequestStatus === "pending" && (
                         <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
                           <AlertCircle className="h-4 w-4 mt-0.5" />
-                          <p>Upgrade request is pending approval.</p>
+                          <p className="text-xs my-0">Upgrade request is pending approval.</p>
                         </div>
                       )}
                       {user.upgradeRequestStatus === "approved" &&
                         user.upgradeExpireAt && (
                           <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-900">
                             <AlertCircle className="h-4 w-4 mt-0.5" />
-                            <p>
+                            <p className="text-xs my-0">
                               You have seller privileges until{" "}
                               {format(
                                 new Date(user.upgradeExpireAt),
@@ -429,7 +429,7 @@ export default function ProfilePage() {
                       {user.upgradeRequestStatus === "rejected" && (
                         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                           <AlertCircle className="h-4 w-4 mt-0.5" />
-                          <p>
+                          <p className="text-xs my-0">
                             Previous upgrade request was rejected. You can
                             request again now.
                           </p>
@@ -439,7 +439,7 @@ export default function ProfilePage() {
                         new Date(user.upgradeExpireAt) < new Date() && (
                           <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                             <AlertCircle className="h-4 w-4 mt-0.5" />
-                            <p>
+                            <p className="text-xs my-0">
                               Your seller privileges have expired. You can
                               request an upgrade again now.
                             </p>

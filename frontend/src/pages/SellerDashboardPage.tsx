@@ -13,7 +13,7 @@ import {
   Gavel,
   X,
   Star,
-  LoaderIcon,
+  Loader2,
 } from "lucide-react";
 import { useFormik } from "formik";
 import * as yup from "yup";
@@ -1234,7 +1234,7 @@ export default function SellerDashboardPage() {
               >
                 {formik.isSubmitting ? (
                   <>
-                    <LoaderIcon className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Creating...
                   </>
                 ) : (

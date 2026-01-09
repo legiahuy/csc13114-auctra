@@ -675,8 +675,8 @@ export default function AdminDashboardPage() {
                               </Button>
                               <Button
                                 size="sm"
-                                variant="outline"
-                                className="h-7 px-2 text-xs"
+                                variant="default"
+                                className="h-7 px-2 text-xs bg-red-600 hover:bg-red-700"
                                 onClick={() => {
                                   setRejectDialog({ open: true, userId: u.id });
                                   setRejectReason("");
@@ -915,7 +915,8 @@ export default function AdminDashboardPage() {
                                   : "secondary"
                               }
                               className={`text-xs ${
-                                status === "approved" ? "bg-green-500 hover:bg-green-600" : ""
+                                status === "approved" ? "bg-green-500 hover:bg-green-600" : 
+                                status === "rejected" ? "bg-red-500 hover:bg-red-600" : ""
                               }`}
                             >
                               {status ? status.charAt(0).toUpperCase() + status.slice(1) : "-"}

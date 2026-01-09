@@ -138,6 +138,7 @@ export default function ProductDetailPage() {
   );
 
   const [question, setQuestion] = useState("");
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   const [order, setOrder] = useState<any>(null);
 
@@ -174,15 +175,15 @@ export default function ProductDetailPage() {
         setBidHistory(bidHistoryRes.data.data || []);
         setIsRejectedBidder(productRes.data.data.isRejectedBidder || false);
 
+        
+
         // Suggested max amount (auto-bidding only)
         if (productData.bids && productData.bids[0]) {
-          const suggestedMax =
-            Number(productData.currentPrice) + Number(productData.bidStep) * 2;
-          setMaxAmount(String(suggestedMax));
+          const suggestedMax = Number(productData.currentPrice) + Number(productData.bidStep);
+          setMaxAmount(String(Math.floor(suggestedMax)));
         } else {
-          setMaxAmount(String(productData.startingPrice));
+          setMaxAmount(String(Math.floor(Number(productData.startingPrice))));
         }
-
         // Watchlist + order info (only if logged in)
         if (user) {
           try {
@@ -252,7 +253,7 @@ export default function ProductDetailPage() {
         apiClient.get(`/products/${id}`),
         apiClient.get(`/bids/history/${id}`),
       ]);
-      setProduct(productRes.data.data);
+      setProduct(productRes.data.data.product);
       setBidHistory(bidHistoryRes.data.data);
     } catch (error: any) {
       console.error("Error placing bid:", error);
@@ -615,11 +616,34 @@ export default function ProductDetailPage() {
               {/* Description */}
               <div className="space-y-3">
                 <h2 className="text-base font-semibold">Product Description</h2>
-                <div className="rounded-lg border border-border bg-card p-4 md:p-6">
+                <div className="rounded-lg border border-border bg-card p-4 md:p-6 relative">
                   <div
-                    className="text-sm leading-relaxed text-muted-foreground [&_h1]:text-xl [&_h1]:font-bold [&_h1]:text-foreground [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-foreground [&_h3]:mt-3 [&_h3]:mb-2 [&_p]:my-2 [&_p]:text-muted-foreground [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-foreground [&_em]:italic [&_u]:underline [&_s]:line-through [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:space-y-1 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:space-y-1 [&_ol]:my-3 [&_li]:my-1 [&_a]:text-foreground [&_a]:underline [&_a:hover]:text-foreground/80 [&_img]:max-w-full [&_img]:max-h-96 [&_img]:w-auto [&_img]:h-auto [&_img]:object-contain [&_img]:rounded-md [&_img]:my-4 [&_img]:mx-auto [&_img]:block [&_.ql-align-left]:text-left [&_.ql-align-center]:text-center [&_.ql-align-right]:text-right [&_.ql-align-justify]:text-justify"
+                    className={`text-sm leading-relaxed text-muted-foreground transition-all duration-300 ${
+                      !isDescriptionExpanded ? "max-h-[300px] overflow-hidden" : ""
+                    } [&_h1]:text-xl [&_h1]:font-bold [&_h1]:text-foreground [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-foreground [&_h3]:mt-3 [&_h3]:mb-2 [&_p]:my-2 [&_p]:text-muted-foreground [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-foreground [&_em]:italic [&_u]:underline [&_s]:line-through [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:space-y-1 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:space-y-1 [&_ol]:my-3 [&_li]:my-1 [&_a]:text-foreground [&_a]:underline [&_a:hover]:text-foreground/80 [&_img]:max-w-full [&_img]:max-h-96 [&_img]:w-auto [&_img]:h-auto [&_img]:object-contain [&_img]:rounded-md [&_img]:my-4 [&_img]:mx-auto [&_img]:block [&_.ql-align-left]:text-left [&_.ql-align-center]:text-center [&_.ql-align-right]:text-right [&_.ql-align-justify]:text-justify`}
                     dangerouslySetInnerHTML={{ __html: product.description }}
                   />
+                  {!isDescriptionExpanded && (
+                    <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-card to-transparent pointer-events-none" />
+                  )}
+                </div>
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                  >
+                    {isDescriptionExpanded ? (
+                      <>
+                        Show less <ChevronUp className="h-4 w-4" />
+                      </>
+                    ) : (
+                      <>
+                        Show more <ChevronDown className="h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
 
