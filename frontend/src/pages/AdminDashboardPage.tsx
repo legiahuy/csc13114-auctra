@@ -146,7 +146,7 @@ export default function AdminDashboardPage() {
     open: false,
     title: "",
     description: "",
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   // Rejection Reason Dialog State
@@ -296,6 +296,15 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const refreshCategories = async () => {
+    try {
+      const res = await apiClient.get("/categories");
+      setCategories(res.data.data);
+    } catch (error) {
+      console.error("Error refreshing categories:", error);
+    }
+  };
+
   const handleCreateCategory = async () => {
     if (!categoryName.trim()) {
       toast.error("Please enter category name");
@@ -314,7 +323,7 @@ export default function AdminDashboardPage() {
       setCategoryDialogOpen(false);
       setCategoryName("");
       setParentCategoryId("0");
-      fetchData();
+      refreshCategories();
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || "Failed to create category");
     }
@@ -339,7 +348,7 @@ export default function AdminDashboardPage() {
       setSelectedCategory(null);
       setCategoryName("");
       setParentCategoryId("0");
-      fetchData();
+      refreshCategories();
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || "Failed to update");
     }
@@ -355,7 +364,7 @@ export default function AdminDashboardPage() {
         try {
           await apiClient.delete(`/categories/${id}`);
           toast.success("Category deleted successfully");
-          fetchData();
+          refreshCategories();
         } catch (error: any) {
           toast.error(error.response?.data?.error?.message || "Failed to delete");
         }
@@ -373,7 +382,8 @@ export default function AdminDashboardPage() {
         try {
           await apiClient.delete(`/products/${id}`);
           toast.success("Product deleted successfully");
-          fetchData();
+          fetchProducts(productsPage, productsSearch, productsStatus);
+          fetchStats();
         } catch (error: any) {
           toast.error(error.response?.data?.error?.message || "Failed to delete");
         }
@@ -896,14 +906,13 @@ export default function AdminDashboardPage() {
                                 status === "pending"
                                   ? "outline"
                                   : status === "approved"
-                                  ? "default"
-                                  : status === "rejected"
-                                  ? "destructive"
-                                  : "secondary"
+                                    ? "default"
+                                    : status === "rejected"
+                                      ? "destructive"
+                                      : "secondary"
                               }
-                              className={`text-xs ${
-                                status === "approved" ? "bg-green-500 hover:bg-green-600" : ""
-                              }`}
+                              className={`text-xs ${status === "approved" ? "bg-green-500 hover:bg-green-600" : ""
+                                }`}
                             >
                               {status ? status.charAt(0).toUpperCase() + status.slice(1) : "-"}
                             </Badge>
