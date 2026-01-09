@@ -6,7 +6,6 @@ import {
   User,
   Star,
   Heart,
-  Gavel,
   Trophy,
   Edit,
   Lock,
@@ -81,20 +80,6 @@ interface WatchlistItem {
   };
 }
 
-interface Bid {
-  id: number;
-  amount: number;
-  product: {
-    id: number;
-    name: string;
-    mainImage: string;
-    currentPrice: number;
-    endDate: string;
-    status: string;
-  };
-  createdAt: string;
-}
-
 interface WonProduct {
   id: number;
   finalPrice: number;
@@ -131,8 +116,6 @@ export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
-  const [bids, setBids] = useState<Bid[]>([]);
-  const [bidsPagination, setBidsPagination] = useState({ page: 1, totalPages: 1, total: 0 });
   const [wonProducts, setWonProducts] = useState<WonProduct[]>([]);
   const [activeTab, setActiveTab] = useState("reviews");
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -145,24 +128,21 @@ export default function ProfilePage() {
       return;
     }
     fetchData();
-  }, [authUser, navigate, bidsPagination.page]);
+  }, [authUser, navigate]);
 
   const fetchData = async () => {
     try {
-      const [profileRes, reviewsRes, watchlistRes, bidsRes, wonRes] =
+      const [profileRes, reviewsRes, watchlistRes, wonRes] =
         await Promise.all([
           apiClient.get("/users/profile"),
           apiClient.get("/users/reviews"),
           apiClient.get("/users/watchlist"),
-          apiClient.get("/users/bids", { params: { page: bidsPagination.page, limit: 9 } }),
           apiClient.get("/users/won"),
         ]);
 
       setUser(profileRes.data.data);
       setReviews(reviewsRes.data.data || []);
       setWatchlist(watchlistRes.data.data || []);
-      setBids(bidsRes.data.data?.bids || bidsRes.data.data || []);
-      setBidsPagination(bidsRes.data.data?.pagination || { page: 1, totalPages: 1, total: 0 });
       setWonProducts(wonRes.data.data || []);
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -353,29 +333,29 @@ export default function ProfilePage() {
 
               <Separator />
 
-             
+
               <div className="space-y-2">
-              <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Role</span>
-                </div>
-                <Badge
-                  variant={
-                    user.role === "admin"
-                      ? "destructive"
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Role</span>
+                  </div>
+                  <Badge
+                    variant={
+                      user.role === "admin"
+                        ? "destructive"
+                        : user.role === "seller"
+                          ? "default"
+                          : "secondary"
+                    }
+                  >
+                    {user.role === "admin"
+                      ? "Admin"
                       : user.role === "seller"
-                      ? "default"
-                      : "secondary"
-                  }
-                >
-                  {user.role === "admin"
-                    ? "Admin"
-                    : user.role === "seller"
-                    ? "Seller"
-                    : "Bidder"}
-                </Badge>
-              </div>
+                        ? "Seller"
+                        : "Bidder"}
+                  </Badge>
+                </div>
 
                 {user.role === "bidder" && (
                   <Card className="bg-muted/50 shadow-none">
@@ -438,8 +418,8 @@ export default function ProfilePage() {
                             fetchData();
                           } catch (error: any) {
                             toast.error(
-                                error.response?.data?.error?.message ||
-                                "Failed to submit upgrade request"
+                              error.response?.data?.error?.message ||
+                              "Failed to submit upgrade request"
                             );
                           }
                         }}
@@ -453,36 +433,36 @@ export default function ProfilePage() {
                 )}
 
               </div>
-              
+
               <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
-                 <div className="flex items-center gap-3">
-                   <div className="flex items-center justify-center h-10 w-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30">
-                     <Star className="h-5 w-5 text-yellow-600 dark:text-yellow-500 fill-yellow-600 dark:fill-yellow-500" />
-                   </div>
-                   <div>
-                     <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Rating</p>
-                     <div className="flex items-baseline gap-2">
-                       <span className="text-xl font-bold text-foreground">
-                         {ratingPercentage.toFixed(0)}%
-                       </span>
-                       <span className="text-xs text-muted-foreground">
-                         ({user.totalRatings} total)
-                       </span>
-                     </div>
-                   </div>
-                 </div>
-                 
-                 <div className="flex flex-col items-end gap-1">
-                   <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-500 bg-emerald-100/50 dark:bg-emerald-900/20 px-2 py-1 rounded-md">
-                     <ThumbsUp className="h-3.5 w-3.5" />
-                     <span className="text-xs font-semibold">{positiveCount}</span>
-                   </div>
-                   <div className="flex items-center gap-2 text-rose-600 dark:text-rose-500 bg-rose-100/50 dark:bg-rose-900/20 px-2 py-1 rounded-md">
-                     <ThumbsDown className="h-3.5 w-3.5" />
-                     <span className="text-xs font-semibold">{negativeCount}</span>
-                   </div>
-                 </div>
-               </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center h-10 w-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30">
+                    <Star className="h-5 w-5 text-yellow-600 dark:text-yellow-500 fill-yellow-600 dark:fill-yellow-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Rating</p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xl font-bold text-foreground">
+                        {ratingPercentage.toFixed(0)}%
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        ({user.totalRatings} total)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end gap-1">
+                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-500 bg-emerald-100/50 dark:bg-emerald-900/20 px-2 py-1 rounded-md">
+                    <ThumbsUp className="h-3.5 w-3.5" />
+                    <span className="text-xs font-semibold">{positiveCount}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-rose-600 dark:text-rose-500 bg-rose-100/50 dark:bg-rose-900/20 px-2 py-1 rounded-md">
+                    <ThumbsDown className="h-3.5 w-3.5" />
+                    <span className="text-xs font-semibold">{negativeCount}</span>
+                  </div>
+                </div>
+              </div>
 
             </CardContent>
           </Card>
@@ -500,7 +480,7 @@ export default function ProfilePage() {
                 onValueChange={setActiveTab}
                 className="w-full"
               >
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="reviews" className="flex items-center gap-2">
                     <Star className="h-4 w-4" />
                     <span className="hidden sm:inline">Reviews</span>
@@ -513,13 +493,6 @@ export default function ProfilePage() {
                     <span className="hidden sm:inline">Watchlist</span>
                     <Badge variant="secondary" className="ml-1">
                       {watchlist.length}
-                    </Badge>
-                  </TabsTrigger>
-                  <TabsTrigger value="bids" className="flex items-center gap-2">
-                    <Gavel className="h-4 w-4" />
-                    <span className="hidden sm:inline">Bids</span>
-                    <Badge variant="secondary" className="ml-1">
-                      {bidsPagination.total}
                     </Badge>
                   </TabsTrigger>
                   <TabsTrigger value="won" className="flex items-center gap-2">
@@ -542,44 +515,44 @@ export default function ProfilePage() {
                         </div>
                       </div>
                     ) : (
-                    <div className="space-y-3">
-                      {reviews.map((review) => (
-                        <Card key={review.id}>
-                          <CardContent className="p-4 space-y-3">
-                            <div className="flex items-start justify-between">
-                              <div className="space-y-1">
-                                <p className="text-sm font-semibold">
-                                  {review.reviewer.fullName}
-                                </p>
-                                <div className="flex items-center gap-2">
-                                  {review.rating === 1 ? (
-                                    <Badge
-                                      variant="default"
-                                      className="bg-green-500 hover:bg-green-600"
-                                    >
-                                      +1
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="destructive">-1</Badge>
-                                  )}
-                                  <span className="text-xs text-muted-foreground">
-                                    {format(
-                                      new Date(review.createdAt),
-                                      "dd/MM/yyyy HH:mm"
+                      <div className="space-y-3">
+                        {reviews.map((review) => (
+                          <Card key={review.id}>
+                            <CardContent className="p-4 space-y-3">
+                              <div className="flex items-start justify-between">
+                                <div className="space-y-1">
+                                  <p className="text-sm font-semibold">
+                                    {review.reviewer.fullName}
+                                  </p>
+                                  <div className="flex items-center gap-2">
+                                    {review.rating === 1 ? (
+                                      <Badge
+                                        variant="default"
+                                        className="bg-green-500 hover:bg-green-600"
+                                      >
+                                        +1
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="destructive">-1</Badge>
                                     )}
-                                  </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {format(
+                                        new Date(review.createdAt),
+                                        "dd/MM/yyyy HH:mm"
+                                      )}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                            {review.comment && (
-                              <p className="text-sm text-foreground">
-                                {review.comment}
-                              </p>
-                            )}
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                              {review.comment && (
+                                <p className="text-sm text-foreground">
+                                  {review.comment}
+                                </p>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </TabsContent>
@@ -639,107 +612,6 @@ export default function ProfilePage() {
                   </div>
                 </TabsContent>
 
-                {/* Bids Tab */}
-                <TabsContent value="bids" className="mt-4">
-                  <div className="space-y-4">
-                    {bids.length === 0 ? (
-                      <div className="flex items-center justify-center py-12 text-muted-foreground">
-                        <div className="text-center space-y-2">
-                          <Gavel className="h-12 w-12 mx-auto opacity-50" />
-                          <p>No bids yet</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {bids.map((bid) => (
-                            <Link
-                              key={bid.id}
-                              to={`/products/${bid.product.id}`}
-                              className="group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow"
-                            >
-                            <div className="aspect-video overflow-hidden">
-                              <img
-                                src={bid.product.mainImage}
-                                alt={bid.product.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
-                            </div>
-                            <div className="p-3 space-y-2">
-                              <p className="text-sm font-medium line-clamp-2">
-                                {bid.product.name}
-                              </p>
-                              <div>
-                                <p className="text-xs text-muted-foreground">
-                                  Your bid amount
-                                </p>
-                                <p className="text-sm font-semibold text-brand">
-                                  {Number(bid.amount).toLocaleString("vi-VN")}{" "}
-                                  VNĐ
-                                </p>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                {format(
-                                  new Date(bid.createdAt),
-                                  "dd/MM/yyyy HH:mm"
-                                )}
-                              </p>
-                              <Badge
-                                variant={
-                                  bid.product.status === "active"
-                                    ? "default"
-                                    : bid.product.status === "cancelled"
-                                    ? "destructive"
-                                    : "outline"
-                                }
-                                className={
-                                  bid.product.status === "active"
-                                    ? "text-xs bg-emerald-500 hover:bg-emerald-600 text-white"
-                                    : "text-xs"
-                                }
-                              >
-                                {bid.product.status === "active"
-                                  ? "Active"
-                                  : bid.product.status === "cancelled"
-                                  ? "Cancelled"
-                                  : "Ended"}
-                              </Badge>
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                      {bidsPagination.totalPages > 1 && (
-                        <div className="flex justify-center items-center gap-2 mt-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setBidsPagination(prev => ({ ...prev, page: prev.page - 1 }));
-                            }}
-                            disabled={bidsPagination.page === 1}
-                          >
-                            Previous
-                          </Button>
-                          <span className="text-sm text-muted-foreground">
-                            Page {bidsPagination.page} / {bidsPagination.totalPages}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setBidsPagination(prev => ({ ...prev, page: prev.page + 1 }));
-                            }}
-                            disabled={bidsPagination.page === bidsPagination.totalPages}
-                          >
-                            Next
-                          </Button>
-                        </div>
-                      )}
-                      </>
-                    )}
-                  </div>
-                </TabsContent>
-
                 {/* Won Products Tab */}
                 <TabsContent value="won" className="mt-4">
                   <div className="space-y-4">
@@ -785,21 +657,21 @@ export default function ProfilePage() {
                                   order.status === "completed"
                                     ? "default"
                                     : order.status === "cancelled"
-                                    ? "destructive"
-                                    : "secondary"
+                                      ? "destructive"
+                                      : "secondary"
                                 }
                                 className="text-xs"
                               >
                                 {order.status === "pending_payment"
                                   ? "Pending Payment"
                                   : order.status === "pending_address"
-                                  ? "Pending Address"
-                                  : order.status === "pending_shipping" ||
-                                    order.status === "pending_delivery"
-                                  ? "Shipping"
-                                  : order.status === "completed"
-                                  ? "Completed"
-                                  : "Cancelled"}
+                                    ? "Pending Address"
+                                    : order.status === "pending_shipping" ||
+                                      order.status === "pending_delivery"
+                                      ? "Shipping"
+                                      : order.status === "completed"
+                                        ? "Completed"
+                                        : "Cancelled"}
                               </Badge>
                             </div>
                           </Link>

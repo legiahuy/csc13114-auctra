@@ -201,9 +201,35 @@ export const getMyBids = async (req: AuthRequest, res: Response, next: NextFunct
     const limitNum = parseInt(limit as string);
     const offset = (pageNum - 1) * limitNum;
 
-    const where: any = { bidderId: req.user.id };
+    // 1. Get IDs of the latest bid for each product by the user
+    // We use a subquery approach or simply fetch all bids (if volume is low) or use distinct on
+    // Since Sequelize with Postgres supports DISTINCT ON:
 
-    // Build product filter for nested query
+    // However, keeping it simple and standard:
+    // Fetch all bids references for this user, ordered by date desc
+    const allUserBids = await Bid.findAll({
+      where: { bidderId: req.user.id },
+      attributes: ['id', 'productId', 'createdAt'],
+      order: [['createdAt', 'DESC']],
+    });
+
+    // 2. Filter to get unique product IDs (keep first occurrence -> latest bid)
+    const seenProductIds = new Set<number>();
+    const latestBidIds: number[] = [];
+
+    for (const bid of allUserBids) {
+      if (!seenProductIds.has(bid.productId)) {
+        seenProductIds.add(bid.productId);
+        latestBidIds.push(bid.id);
+      }
+    }
+
+    // 3. Build query for the actual data with these IDs
+    const where: any = {
+      id: { [Op.in]: latestBidIds }
+    };
+
+    // Build product filter
     const productWhere: any = {};
     if (search) {
       productWhere.name = { [Op.iLike]: `%${search}%` };
@@ -212,6 +238,7 @@ export const getMyBids = async (req: AuthRequest, res: Response, next: NextFunct
       productWhere.status = status;
     }
 
+    // 4. Fetch final data with pagination
     const { count, rows: bids } = await Bid.findAndCountAll({
       where,
       include: [
@@ -228,7 +255,7 @@ export const getMyBids = async (req: AuthRequest, res: Response, next: NextFunct
       limit: limitNum,
       offset,
       order: [['createdAt', 'DESC']],
-      distinct: true, // Important for accurate count with includes
+      distinct: true,
     });
 
     res.json({

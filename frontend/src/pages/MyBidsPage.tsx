@@ -135,63 +135,63 @@ export default function MyBidsPage() {
 
       {/* Search and Filters */}
       {bids.length !== 0 && (
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
-        <div className="flex-1 space-y-2">
-          <Label htmlFor="search">Search</Label>
-          <div className="flex gap-2 relative">
-            <Input
-              id="search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search by product name..."
-              className="pr-10 bg-background"
-            />
-            {isSearching && (
-              <LoaderIcon
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors animate-spin size-4"
-                role="status"
-                aria-label="Loading"
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+          <div className="flex-1 space-y-2">
+            <Label htmlFor="search">Search</Label>
+            <div className="flex gap-2 relative">
+              <Input
+                id="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search by product name..."
+                className="pr-10 bg-background"
               />
-            )}
-            {searchInput && !isSearching && (
-              <button
-                onClick={handleClear}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Clear search"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+              {isSearching && (
+                <LoaderIcon
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors animate-spin size-4"
+                  role="status"
+                  aria-label="Loading"
+                />
+              )}
+              {searchInput && !isSearching && (
+                <button
+                  onClick={handleClear}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Clear search"
                 >
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-            )}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={statusFilter || "all"} onValueChange={handleStatusChange}>
+              <SelectTrigger className="w-[180px] bg-background">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="ended">Ended</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
-
-        <div className="space-y-2">
-          <Label>Status</Label>
-          <Select value={statusFilter || "all"} onValueChange={handleStatusChange}>
-            <SelectTrigger className="w-[180px] bg-background">
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="ended">Ended</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
       )}
 
       {bids.length === 0 && !loading ? (
@@ -213,14 +213,24 @@ export default function MyBidsPage() {
             {bids.map((bid) => (
               <Card
                 key={bid.id}
-                className="h-full flex flex-col hover:shadow-lg transition-shadow"
+                className={`h-full flex flex-col hover:shadow-lg transition-all ${bid.product.status === "active" &&
+                  Number(bid.amount) === Number(bid.product.currentPrice)
+                  ? "ring-2 ring-green-500 shadow-md transform scale-[1.02]"
+                  : ""
+                  }`}
               >
-                <div className="aspect-video overflow-hidden rounded-t-xl">
+                <div className="aspect-video overflow-hidden rounded-t-xl relative">
                   <img
                     src={bid.product.mainImage}
                     alt={bid.product.name}
                     className="w-full h-full object-cover"
                   />
+                  {bid.product.status === "active" &&
+                    Number(bid.amount) === Number(bid.product.currentPrice) && (
+                      <Badge className="absolute top-2 left-2 bg-green-500 hover:bg-green-600 text-white border-none">
+                        Leading Bid
+                      </Badge>
+                    )}
                 </div>
 
                 <CardContent className="p-6 space-y-4 flex-1 flex flex-col">
@@ -237,7 +247,9 @@ export default function MyBidsPage() {
 
                   <div className="space-y-2 flex-1">
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Your bid</p>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Your bid
+                      </p>
                       <p className="text-xl font-bold text-brand">
                         {Number(bid.amount).toLocaleString("vi-VN")} VNĐ
                       </p>
@@ -248,15 +260,25 @@ export default function MyBidsPage() {
                         <p className="text-xs text-muted-foreground mb-1">
                           Current price
                         </p>
-                        <p className="text-lg font-semibold text-foreground">
-                          {Number(bid.product.currentPrice).toLocaleString("vi-VN")}{" "}
+                        <p
+                          className={`text-lg font-semibold ${Number(bid.amount) ===
+                            Number(bid.product.currentPrice)
+                            ? "text-green-600 dark:text-green-500"
+                            : "text-foreground"
+                            }`}
+                        >
+                          {Number(bid.product.currentPrice).toLocaleString(
+                            "vi-VN"
+                          )}{" "}
                           VNĐ
                         </p>
                       </div>
                     )}
 
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Bid placed</p>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Bid placed
+                      </p>
                       <p className="text-sm text-foreground">
                         {format(new Date(bid.createdAt), "dd/MM/yyyy HH:mm")}
                       </p>
@@ -277,7 +299,9 @@ export default function MyBidsPage() {
                     </div>
 
                     <Button variant="outline" size="sm" asChild>
-                      <Link to={`/products/${bid.product.id}`}>View details</Link>
+                      <Link to={`/products/${bid.product.id}`}>
+                        View details
+                      </Link>
                     </Button>
                   </div>
                 </CardContent>
