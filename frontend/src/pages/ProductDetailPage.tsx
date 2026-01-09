@@ -367,14 +367,23 @@ export default function ProductDetailPage() {
   const handleRejectBid = async () => {
     if (!selectedBidId) return;
 
-    try {
-      await apiClient.put(`/bids/${selectedBidId}/reject`);
-      setRejectResult({
-        success: true,
-        message:
-          "Bid has been rejected successfully. The bidder will be notified.",
-      });
+    // 1. Immediately close dialog and show feedback
+    setRejectDialogOpen(false);
+    toast.success("Details updated");
 
+    // 2. Optimistic Update: Mark locally as rejected immediately
+    const previousBidHistory = [...bidHistory];
+    setBidHistory((prev) =>
+      prev.map((bid) =>
+        bid.id === selectedBidId ? { ...bid, isRejected: true } : bid
+      )
+    );
+
+    try {
+      // 3. Perform API call in background
+      await apiClient.put(`/bids/${selectedBidId}/reject`);
+
+      // 4. Silently re-validate data to ensure consistency
       const [productRes, bidHistoryRes] = await Promise.all([
         apiClient.get(`/products/${id}`),
         apiClient.get(`/bids/history/${id}`),
@@ -383,11 +392,14 @@ export default function ProductDetailPage() {
       setProduct(productRes.data.data.product);
       setBidHistory(bidHistoryRes.data.data);
       setIsRejectedBidder(productRes.data.data.isRejectedBidder || false);
+
     } catch (error: any) {
-      setRejectResult({
-        success: false,
-        message: error.response?.data?.error?.message || "Failed to reject bid",
-      });
+      // 5. Revert on failure
+      setBidHistory(previousBidHistory);
+      toast.error(error.response?.data?.error?.message || "Failed to reject bid");
+    } finally {
+      setSelectedBidId(null);
+      setRejectResult(null);
     }
   };
 
@@ -456,9 +468,9 @@ export default function ProductDetailPage() {
   const highestBidderRating =
     highestBidder && highestBidder.bidder.totalRatings > 0
       ? getRatingPercentage(
-          highestBidder.bidder.rating,
-          highestBidder.bidder.totalRatings
-        )
+        highestBidder.bidder.rating,
+        highestBidder.bidder.totalRatings
+      )
       : 0;
 
   const allImages = [product.mainImage, ...(product.images || [])];
@@ -508,11 +520,10 @@ export default function ProductDetailPage() {
                     key={idx}
                     type="button"
                     onClick={() => setSelectedImage(idx)}
-                    className={`h-16 w-16 rounded-md overflow-hidden border ${
-                      selectedImage === idx
-                        ? "border-primary ring-2 ring-primary/40"
-                        : "border-border"
-                    }`}
+                    className={`h-16 w-16 rounded-md overflow-hidden border ${selectedImage === idx
+                      ? "border-primary ring-2 ring-primary/40"
+                      : "border-border"
+                      }`}
                   >
                     <img
                       src={img}
@@ -544,9 +555,8 @@ export default function ProductDetailPage() {
                     className="h-8 w-8"
                   >
                     <Heart
-                      className={`h-5 w-5 transition-colors ${
-                        isInWatchlist ? "text-red-500 fill-red-500" : ""
-                      }`}
+                      className={`h-5 w-5 transition-colors ${isInWatchlist ? "text-red-500 fill-red-500" : ""
+                        }`}
                     />
                   </Button>
                 </div>
@@ -555,8 +565,8 @@ export default function ProductDetailPage() {
               <CardDescription className="flex flex-wrap gap-2">
                 {product.status !== "cancelled" && (
                   <div className="inline-flex items-center rounded-full border dark:border-border/20 text-xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 gap-2 px-2.5 py-1 border-brand/30 text-brand">
-                   <Clock className="h-3.5 w-3.5" />
-                  <span>Ends: {formatRelativeTime(product.endDate)}</span>
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>Ends: {formatRelativeTime(product.endDate)}</span>
                   </div>
                 )}
                 <Badge variant="outline" className="flex items-center gap-1">
@@ -1126,7 +1136,8 @@ export default function ProductDetailPage() {
                       <TableCell>
                         <Button
                           size="sm"
-                          variant="destructive"
+                          className={bid.isRejected ? "" : "bg-red-600 hover:bg-red-700 text-white"}
+                          variant={bid.isRejected ? "ghost" : "destructive"}
                           onClick={() => handleOpenRejectDialog(bid.id)}
                           disabled={bid.isRejected}
                         >
@@ -1167,11 +1178,10 @@ export default function ProductDetailPage() {
           ) : (
             <div className="space-y-4">
               <div
-                className={`flex items-start gap-3 p-4 rounded-lg border ${
-                  rejectResult.success
-                    ? "bg-green-50 border-green-200 text-green-900"
-                    : "bg-red-50 border-red-200 text-red-900"
-                }`}
+                className={`flex items-start gap-3 p-4 rounded-lg border ${rejectResult.success
+                  ? "bg-green-50 border-green-200 text-green-900"
+                  : "bg-red-50 border-red-200 text-red-900"
+                  }`}
               >
                 <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                 <p className="text-sm">{rejectResult.message}</p>
@@ -1191,7 +1201,11 @@ export default function ProductDetailPage() {
                 >
                   Cancel
                 </Button>
-                <Button variant="destructive" onClick={handleRejectBid}>
+                <Button
+                  variant="destructive"
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  onClick={handleRejectBid}
+                >
                   Reject
                 </Button>
               </div>
