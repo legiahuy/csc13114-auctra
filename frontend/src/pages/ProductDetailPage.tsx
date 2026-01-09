@@ -1,12 +1,12 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { ProductImageCarousel } from "@/components/ProductImageCarousel";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   AlertCircle,
   Clock,
   Gavel,
   Heart,
-  Image as ImageIcon,
   User,
   ChevronDown,
   ChevronUp,
@@ -136,7 +136,6 @@ export default function ProductDetailPage() {
   );
 
   const [question, setQuestion] = useState("");
-  const [selectedImage, setSelectedImage] = useState(0);
 
   const [order, setOrder] = useState<any>(null);
 
@@ -477,7 +476,7 @@ export default function ProductDetailPage() {
       {product.status === "ended" && !order && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <AlertCircle className="h-4 w-4 mt-0.5" />
-          <p>Product has ended</p>
+          <p className="font-medium my-0">Product has ended</p>
         </div>
       )}
 
@@ -486,42 +485,8 @@ export default function ProductDetailPage() {
         <div className="space-y-6">
           {/* Gallery */}
           <Card>
-            <CardContent className="p-4 space-y-4">
-              <div className="relative rounded-xl bg-muted flex items-center justify-center overflow-hidden">
-                {allImages[selectedImage] ? (
-                  <img
-                    src={allImages[selectedImage]}
-                    alt={product.name}
-                    className="max-h-[420px] w-full object-contain bg-background"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                    <ImageIcon className="h-10 w-10 mb-2" />
-                    <p>No image</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {allImages.map((img, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setSelectedImage(idx)}
-                    className={`h-16 w-16 rounded-md overflow-hidden border ${
-                      selectedImage === idx
-                        ? "border-primary ring-2 ring-primary/40"
-                        : "border-border"
-                    }`}
-                  >
-                    <img
-                      src={img}
-                      alt={`${product.name} ${idx + 1}`}
-                      className="h-full w-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
+            <CardContent className="p-0">
+               <ProductImageCarousel images={allImages} productName={product.name} />
             </CardContent>
           </Card>
 
@@ -610,7 +575,9 @@ export default function ProductDetailPage() {
                   <div className="flex justify-between">
                     <span>Highest bidder</span>
                     <span className="font-medium text-foreground">
-                      {highestBidder.bidder.fullName}
+                      <Link to={`/users/${highestBidder.bidder.id}`} className="hover:underline hover:text-primary">
+                        {highestBidder.bidder.fullName}
+                      </Link>
                       {highestBidderRating > 0 &&
                         ` (${highestBidderRating.toFixed(1)}%)`}
                     </span>
@@ -624,7 +591,7 @@ export default function ProductDetailPage() {
               <div className="space-y-2">
                 <p className="text-sm font-semibold flex items-center gap-2">
                   <User className="h-4 w-4" />
-                  Seller: {product.seller.fullName}
+                  Seller: <Link to={`/users/${product.seller.id}`} className="hover:underline hover:text-primary">{product.seller.fullName}</Link>
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Rating:{" "}

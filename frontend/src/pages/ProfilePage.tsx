@@ -625,7 +625,11 @@ export default function ProfilePage() {
                                     ? "default"
                                     : "secondary"
                                 }
-                                className="text-xs"
+                                className={`text-xs ${
+                                  item.product.status === "active"
+                                    ? "bg-emerald-500 hover:bg-emerald-600"
+                                    : "bg-red-500 hover:bg-red-600"
+                                }`}
                               >
                                 {item.product.status === "active"
                                   ? "Active"

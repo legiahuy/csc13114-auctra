@@ -18,6 +18,11 @@ const isProductNew = (product: any) => {
   return now.getTime() - created.getTime() < NEW_PRODUCT_MINUTES * 60 * 1000;
 };
 
+const maskName = (name: string) => {
+  if (!name) return "";
+  return name.split('').map((char, index) => index % 2 === 0 ? char : '*').join('');
+};
+
 export const getHomepageProducts = async (
   req: Request,
   res: Response,
@@ -251,12 +256,18 @@ export const getProducts = async (
     // Mark isNew based on creation time and config
     rows.forEach((p) => {
       p.setDataValue("isNew", isProductNew(p));
+      // Mask bidder name if present
+      const product = p as any; 
+      if (product.bids && product.bids.length > 0 && product.bids[0].bidder) {
+        product.bids[0].bidder.fullName = maskName(product.bids[0].bidder.fullName);
+      }
     });
 
     res.json({
       success: true,
       data: {
         products: rows,
+
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -269,6 +280,7 @@ export const getProducts = async (
     next(error);
   }
 };
+
 
 export const getProductById = async (
   req: AuthRequest,
@@ -308,7 +320,7 @@ export const getProductById = async (
             },
           ],
           order: [["amount", "DESC"]],
-          limit: 1,
+          limit: 5, // Just get top 5 bids for display if needed, but UI seems to show history
         },
         {
           model: Question,
@@ -380,6 +392,19 @@ export const getProductById = async (
       isRejectedBidder = !!rejectedBid;
     }
 
+    // MASK BIDDER NAMES if not seller
+    // req.user might be undefined (unauthenticated)
+    const isSeller = req.user && req.user.id === product.sellerId;
+    if (!isSeller) {
+      if (product.bids && product.bids.length > 0) {
+        product.bids.forEach((bid: any) => {
+           if (bid.bidder) {
+             bid.bidder.fullName = maskName(bid.bidder.fullName);
+           }
+        });
+      }
+    }
+
     // Increment view count
     product.viewCount += 1;
     await product.save();
@@ -418,6 +443,7 @@ export const getProductById = async (
     next(error);
   }
 };
+
 
 export const createProduct = async (
   req: AuthRequest,

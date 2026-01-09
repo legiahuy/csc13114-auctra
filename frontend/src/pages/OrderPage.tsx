@@ -627,7 +627,7 @@ export default function OrderPage() {
               {order.status === 'cancelled' && (
                 <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive mb-4">
                   <XCircle className="h-4 w-4 mt-0.5" />
-                  <p>Order has been cancelled</p>
+                  <p className="text-sm my-0">Order has been cancelled</p>
                 </div>
               )}
 
@@ -639,7 +639,7 @@ export default function OrderPage() {
                       <h3 className="text-lg font-semibold">Step 1: Confirm Payment</h3>
 
                       <div className="rounded-lg border bg-card p-6 text-center space-y-4">
-                        <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <div className="mx-auto h-12 w-12 rounded-full bg-emerald/10 flex items-center justify-center">
                           <CreditCard className="h-6 w-6 text-primary" />
                         </div>
                         <div>
@@ -713,7 +713,7 @@ export default function OrderPage() {
                   {((activeStep === 1 && order?.status === 'pending_address' && order?.shippingAddress) || activeStep === 2) && isBuyer && order?.status !== 'pending_shipping' && order?.status !== 'pending_delivery' && (
                     <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                       <AlertCircle className="h-4 w-4 mt-0.5" />
-                      <p>You have sent the address. Please wait for the seller to confirm and ship.</p>
+                      <p className="text-sm my-0">You have sent the address. Please wait for the seller to confirm and ship.</p>
                     </div>
                   )}
 
@@ -726,7 +726,7 @@ export default function OrderPage() {
                           <AlertCircle className="h-4 w-4 mt-0.5" />
                           <div>
                             <p className="font-medium mb-1">Shipping Address:</p>
-                            <p>{order.shippingAddress}</p>
+                            <p >{order.shippingAddress}</p>
                           </div>
                         </div>
                       )}
@@ -762,7 +762,7 @@ export default function OrderPage() {
                     <div className="space-y-4">
                       <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
                         <CheckCircle2 className="h-4 w-4 mt-0.5" />
-                        <p>Order completed successfully!</p>
+                        <p className="text-sm my-0">Order completed successfully!</p>
                       </div>
 
                       {/* Step 5: Review */}
@@ -801,12 +801,12 @@ export default function OrderPage() {
                             {myReview ? (
                               <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                                 <AlertCircle className="h-4 w-4 mt-0.5" />
-                                <p>You have already reviewed. You can change your review at any time.</p>
+                                <p className="text-sm my-0">You have already reviewed. You can change your review at any time.</p>
                               </div>
                             ) : (
                               <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                                 <AlertCircle className="h-4 w-4 mt-0.5" />
-                                <p>Please review the {isBuyer ? 'seller' : 'buyer'} to complete the transaction.</p>
+                                <p className="text-sm my-0">Please review the {isBuyer ? 'seller' : 'buyer'} to complete the transaction.</p>
                               </div>
                             )}
 
@@ -1039,7 +1039,7 @@ export default function OrderPage() {
                   }`}
               >
                 <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                <p className="text-sm">{cancelResult.message}</p>
+                <p className="text-sm my-0">{cancelResult.message}</p>
               </div>
             </div>
           )}

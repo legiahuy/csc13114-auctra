@@ -1,5 +1,5 @@
 import { sequelize } from "../config/database";
-import { User, Category, Product, Bid } from "../models/index";
+import { User, Category, Product, Bid, Order, Review, Question } from "../models/index";
 import {
   createSlug,
   removeVietnameseDiacritics,
@@ -26,672 +26,394 @@ const seed = async () => {
       totalRatings: 0,
     });
 
+    // Helper to generic random rating stats
+    const generateRating = () => {
+        const total = Math.floor(Math.random() * 30) + 5;
+        const positive = Math.floor(Math.random() * (total + 1)); // 0 to total
+        return { rating: positive, totalRatings: total };
+    };
+
     // Create seller users
-    const seller1 = await User.create({
-      email: "seller1@auction.com",
-      password: "seller123",
-      fullName: "Alex Nguyen",
-      address: "123 Seller Street",
-      role: "seller",
-      isEmailVerified: true,
-      rating: 8,
-      totalRatings: 10,
-    });
+    const sellersData = [
+      { email: "seller1@auction.com", name: "Alex Nguyen", address: "123 Seller Street" },
+      { email: "seller2@auction.com", name: "Bella Tran", address: "456 Seller Avenue" },
+      { email: "seller3@auction.com", name: "David Vo", address: "789 Seller Boulevard" },
+      { email: "seller4@auction.com", name: "Emma Do", address: "321 Seller Way" },
+      { email: "seller5@auction.com", name: "Frank Luu", address: "654 Seller Drive" },
+    ];
 
-    const seller2 = await User.create({
-      email: "seller2@auction.com",
-      password: "seller123",
-      fullName: "Bella Tran",
-      address: "456 Seller Avenue",
-      role: "seller",
-      isEmailVerified: true,
-      rating: 9,
-      totalRatings: 10,
-    });
-
-    const seller3 = await User.create({
-      email: "seller3@auction.com",
-      password: "seller123",
-      fullName: "David Vo",
-      address: "789 Seller Boulevard",
-      role: "seller",
-      isEmailVerified: true,
-      rating: 6, // 6 out of 8 = 75%
-      totalRatings: 8,
-    });
-
-    const seller4 = await User.create({
-      email: "seller4@auction.com",
-      password: "seller123",
-      fullName: "Emma Do",
-      address: "321 Seller Way",
-      role: "seller",
-      isEmailVerified: true,
-      rating: 11, // 11 out of 12 = ~92%
-      totalRatings: 12,
-    });
-
-    const seller5 = await User.create({
-      email: "seller5@auction.com",
-      password: "seller123",
-      fullName: "Frank Luu",
-      address: "654 Seller Drive",
-      role: "seller",
-      isEmailVerified: true,
-      rating: 13, // 13 out of 15 = ~87%
-      totalRatings: 15,
-    });
-   
+    const sellers = [];
+    for (const s of sellersData) {
+      const stats = generateRating();
+      const seller = await User.create({
+        email: s.email,
+        password: "seller123",
+        fullName: s.name,
+        address: s.address,
+        role: "seller",
+        isEmailVerified: true,
+        rating: stats.rating,
+        totalRatings: stats.totalRatings,
+      });
+      sellers.push(seller);
+    }
 
     // Create bidder users
-    const bidder1 = await User.create({
-      email: "bidder1@auction.com",
-      password: "bidder123",
-      fullName: "Chris Le",
-      address: "789 Bidder Road",
-      role: "bidder",
-      isEmailVerified: true,
-      rating: 8,
-      totalRatings: 10,
-    });
+    const biddersData = [
+      { email: "bidder1@auction.com", name: "Chris Le", address: "789 Bidder Road" },
+      { email: "bidder2@auction.com", name: "Diana Pham", address: "321 Bidder Lane" },
+      { email: "bidder3@auction.com", name: "Ethan Hoang", address: "654 Bidder Street" },
+      { email: "bidder4@auction.com", name: "Fiona Bui", address: "987 Bidder Court" },
+      { email: "bidder5@auction.com", name: "George Dang", address: "147 Bidder Plaza" },
+      { email: "bidder6@auction.com", name: "Hannah Nguyen", address: "258 Bidder Cir" },
+      { email: "bidder7@auction.com", name: "Ian Tran", address: "369 Bidder Dr" },
+    ];
 
-    const bidder2 = await User.create({
-      email: "bidder2@auction.com",
-      password: "bidder123",
-      fullName: "Diana Pham",
-      address: "321 Bidder Lane",
-      role: "bidder",
-      isEmailVerified: true,
-      rating: 9,
-      totalRatings: 10,
-    });
-
-    const bidder3 = await User.create({
-      email: "bidder3@auction.com",
-      password: "bidder123",
-      fullName: "Ethan Hoang",
-      address: "654 Bidder Street",
-      role: "bidder",
-      isEmailVerified: true,
-      rating: 7,
-      totalRatings: 10,
-    });
-
-    const bidder4 = await User.create({
-      email: "bidder4@auction.com",
-      password: "bidder123",
-      fullName: "Fiona Bui",
-      address: "987 Bidder Court",
-      role: "bidder",
-      isEmailVerified: true,
-      rating: 10, // 10 out of 12 = ~83%
-      totalRatings: 12,
-    });
-
-    const bidder5 = await User.create({
-      email: "bidder5@auction.com",
-      password: "bidder123",
-      fullName: "George Dang",
-      address: "147 Bidder Plaza",
-      role: "bidder",
-      isEmailVerified: true,
-      rating: 10, // 10 out of 11 = ~91%
-      totalRatings: 11,
-    });
+    const bidders = [];
+    for (const b of biddersData) {
+      const stats = generateRating();
+      const bidder = await User.create({
+        email: b.email,
+        password: "bidder123",
+        fullName: b.name,
+        address: b.address,
+        role: "bidder",
+        isEmailVerified: true,
+        rating: stats.rating,
+        totalRatings: stats.totalRatings,
+      });
+      bidders.push(bidder);
+    }
 
     // Create categories
-    const electronics = await Category.create({
-      name: "Electronics",
-      slug: "electronics",
-    });
+    const electronics = await Category.create({ name: "Electronics", slug: "electronics" });
+    const phones = await Category.create({ name: "Mobile Phones", slug: "mobile-phones", parentId: electronics.id });
+    const laptops = await Category.create({ name: "Laptops", slug: "laptops", parentId: electronics.id });
 
-    const phones = await Category.create({
-      name: "Mobile Phones",
-      slug: "mobile-phones",
-      parentId: electronics.id,
-    });
+    const fashion = await Category.create({ name: "Fashion", slug: "fashion" });
+    const shoes = await Category.create({ name: "Shoes", slug: "shoes", parentId: fashion.id });
+    const watches = await Category.create({ name: "Watches", slug: "watches", parentId: fashion.id });
+    
+    const home = await Category.create({ name: "Home & Living", slug: "home-living" });
+    const furniture = await Category.create({ name: "Furniture", slug: "furniture", parentId: home.id });
 
-    const laptops = await Category.create({
-      name: "Laptops",
-      slug: "laptops",
-      parentId: electronics.id,
-    });
+    // Review comments pool
+    const positiveReviews = [
+      "Great product, fast shipping!",
+      "Item exactly as described. Highly recommended.",
+      "Excellent seller, very responsive.",
+      "Good quality, worth the price.",
+      "Fast delivery and good packaging.",
+      "Trustworthy seller, will buy again.",
+    ];
 
-    const fashion = await Category.create({
-      name: "Fashion",
-      slug: "fashion",
-    });
+    const negativeReviews = [
+      "Shipping was a bit slow.",
+      "Product description wasn't 100% accurate, but okay.",
+      "Packaging could be better.",
+    ];
 
-    const shoes = await Category.create({
-      name: "Shoes",
-      slug: "shoes",
-      parentId: fashion.id,
-    });
+    // Questions pool
+    const questions = [
+      "Is this authentic?",
+      "Do you have the original receipt?",
+      "Can you ship to Hanoi instantly?",
+      "Is the warranty still valid?",
+      "Any scratches on the screen?",
+      "Does it come with the original box?",
+      "Can I pick it up personally?",
+    ];
 
-    const watches = await Category.create({
-      name: "Watches",
-      slug: "watches",
-      parentId: fashion.id,
-    });
+    const answers = [
+      "Yes, 100% authentic.",
+      "Yes, I can provide the receipt.",
+      "Shipping takes 2-3 days typically.",
+      "Yes, warranty is valid until next year.",
+      "No scratches, it is like new.",
+      "Yes, full box included.",
+      "Sorry, shipping only.",
+    ];
 
     // Create products
-    const sellers = [seller1, seller2, seller3, seller4, seller5];
-    const products = [
-      {
-        name: "iPhone 15 Pro Max 256GB",
-        description:
-          "Brand new iPhone 15 Pro Max, unused with active Apple warranty. Pristine condition, full box with all accessories.",
-        startingPrice: 25000000,
-        bidStep: 500000,
-        buyNowPrice: 30000000,
-        categoryId: phones.id,
-        sellerId: seller1.id,
-        mainImage: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1695048064449-dc4b5a5d2e0f?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1696446702183-cbd0673c251f?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1678652197831-2d180705cd2c?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-        autoExtend: true,
+    const productTemplates = [
+      // Phones
+      { 
+          name: "iPhone 15 Pro Max 256GB", 
+          cat: phones.id, 
+          price: 25000000, 
+          img: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&h=600&fit=crop",
+          additionalImgs: [
+              "https://images.unsplash.com/photo-1696446702183-cbd0673c251f?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1678652197831-2d180705cd2c?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1695048064449-dc4b5a5d2e0f?w=800&h=600&fit=crop"
+          ]
       },
-      {
-        name: "Samsung Galaxy S24 Ultra 512GB",
-        description:
-          "Samsung Galaxy S24 Ultra in black, 99% new with official warranty. Full box with all accessories.",
-        startingPrice: 22000000,
-        bidStep: 500000,
-        buyNowPrice: 28000000,
-        categoryId: phones.id,
-        sellerId: seller2.id,
-        mainImage: "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1585060544812-6b45742d762f?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-        autoExtend: false,
+      { 
+          name: "Samsung Galaxy S24 Ultra", 
+          cat: phones.id, 
+          price: 22000000, 
+          img: "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&h=600&fit=crop",
+          additionalImgs: [
+               "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&h=600&fit=crop",
+               "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop",
+               "https://images.unsplash.com/photo-1585060544812-6b45742d762f?w=800&h=600&fit=crop"
+          ] 
       },
-      {
-        name: "MacBook Pro 14 inch M3 Pro",
-        description:
-          "MacBook Pro 14-inch with M3 Pro, 18GB RAM, 512GB SSD. Brand new, unused, with active Apple warranty.",
-        startingPrice: 45000000,
-        bidStep: 1000000,
-        buyNowPrice: 55000000,
-        categoryId: laptops.id,
-        sellerId: seller1.id,
-        mainImage: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1541807084-5c52b6b3adef?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
-        autoExtend: true,
+      { 
+          name: "Xiaomi 14 Pro", 
+          cat: phones.id, 
+          price: 18000000, 
+          img: "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&h=600&fit=crop",
+          additionalImgs: [
+              "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1584006682522-dc17d6c0d9ac?w=800&h=600&fit=crop"
+          ] 
       },
-      {
-        name: "Nike Air Jordan 1 Retro High OG",
-        description:
-          "Nike Air Jordan 1 shoes size 42 in red/black/white. Authentic, 100% new with box.",
-        startingPrice: 5000000,
-        bidStep: 200000,
-        buyNowPrice: 7000000,
-        categoryId: shoes.id,
-        sellerId: seller2.id,
-        mainImage: "https://images.unsplash.com/photo-1556906781-9a412961c28c?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1600185365926-3a2ce3cdb9eb?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1612902376799-0c5e0b7e8c22?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
-        autoExtend: false,
+      
+      // Laptops
+      { 
+          name: "MacBook Pro 14 M3", 
+          cat: laptops.id, 
+          price: 45000000, 
+          img: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&h=600&fit=crop",
+          additionalImgs: [
+              "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1541807084-5c52b6b3adef?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&h=600&fit=crop"
+          ]
       },
-      {
-        name: "Rolex Submariner Date 126610LN",
-        description:
-          "Rolex Submariner Date automatic watch with stainless steel bracelet. Authentic with remaining warranty.",
-        startingPrice: 800000000,
-        bidStep: 10000000,
-        buyNowPrice: 950000000,
-        categoryId: watches.id,
-        sellerId: seller1.id,
-        mainImage: "https://images.unsplash.com/photo-1594534475808-b18fc33b045e?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1587836374828-4dbafa94cf0e?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1614164185128-e4ec99c436d7?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1622434641406-a158123450f9?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-        autoExtend: true,
+      { 
+          name: "Dell XPS 15", 
+          cat: laptops.id, 
+          price: 40000000, 
+          img: "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?w=800&h=600&fit=crop",
+          additionalImgs: [
+              "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=800&h=600&fit=crop"
+          ]
       },
-      // Additional products
-      {
-        name: "Xiaomi 14 Pro 512GB",
-        description:
-          "Xiaomi 14 Pro flagship smartphone with Leica camera, 512GB storage. Brand new, sealed box with warranty.",
-        startingPrice: 18000000,
-        bidStep: 400000,
-        buyNowPrice: 23000000,
-        categoryId: phones.id,
-        sellerId: seller3.id,
-        mainImage: "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000),
-        autoExtend: true,
+      
+      // Shoes
+      { 
+          name: "Nike Air Jordan 1", 
+          cat: shoes.id, 
+          price: 5000000, 
+          img: "https://images.unsplash.com/photo-1556906781-9a412961c28c?w=800&h=600&fit=crop",
+           additionalImgs: [
+              "https://images.unsplash.com/photo-1600185365926-3a2ce3cdb9eb?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1612902376799-0c5e0b7e8c22?w=800&h=600&fit=crop"
+          ] 
       },
-      {
-        name: "OnePlus 12 256GB",
-        description:
-          "OnePlus 12 with Snapdragon 8 Gen 3, 256GB storage. 95% new, excellent condition with original charger.",
-        startingPrice: 15000000,
-        bidStep: 300000,
-        buyNowPrice: 20000000,
-        categoryId: phones.id,
-        sellerId: seller4.id,
-        mainImage: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1585060544812-6b45742d762f?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
-        autoExtend: false,
+      { 
+          name: "Yeezy Boost 350", 
+          cat: shoes.id, 
+          price: 8000000, 
+          img: "https://images.unsplash.com/photo-1622656237207-4c80f36b5f3f?w=800&h=600&fit=crop",
+          additionalImgs: [
+              "https://images.unsplash.com/photo-1600269452121-4f2416e55c28?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1605348532760-6753d2c43329?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1584735175315-9d5df23860e6?w=800&h=600&fit=crop"
+          ]
       },
-      {
-        name: "Dell XPS 15 OLED 2024",
-        description:
-          "Dell XPS 15 with OLED display, Intel i7, 32GB RAM, 1TB SSD. Like new condition, used for 2 months only.",
-        startingPrice: 40000000,
-        bidStep: 800000,
-        buyNowPrice: 48000000,
-        categoryId: laptops.id,
-        sellerId: seller2.id,
-        mainImage: "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 9 * 24 * 60 * 60 * 1000),
-        autoExtend: true,
+
+      // Watches
+      { 
+          name: "Rolex Submariner", 
+          cat: watches.id, 
+          price: 800000000, 
+          img: "https://images.unsplash.com/photo-1594534475808-b18fc33b045e?w=800&h=600&fit=crop",
+           additionalImgs: [
+              "https://images.unsplash.com/photo-1587836374828-4dbafa94cf0e?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1614164185128-e4ec99c436d7?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1622434641406-a158123450f9?w=800&h=600&fit=crop"
+          ]
       },
-      {
-        name: "ASUS ROG Zephyrus G16",
-        description:
-          "ASUS ROG gaming laptop with RTX 4070, Intel i9, 16GB RAM, 512GB SSD. Brand new, unopened box.",
-        startingPrice: 35000000,
-        bidStep: 700000,
-        buyNowPrice: 42000000,
-        categoryId: laptops.id,
-        sellerId: seller5.id,
-        mainImage: "https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1625948515291-69613efd103f?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1587202372634-32705e3bf49c?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000),
-        autoExtend: true,
+      { 
+          name: "Omega Seamaster", 
+          cat: watches.id, 
+          price: 120000000, 
+          img: "https://images.unsplash.com/photo-1547996160-81dfa63595aa?w=800&h=600&fit=crop",
+          additionalImgs: [
+              "https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1620625515032-6081316dff75?w=800&h=600&fit=crop"
+          ]
       },
-      {
-        name: "Lenovo ThinkPad X1 Carbon Gen 11",
-        description:
-          "Lenovo ThinkPad X1 Carbon ultrabook, Intel i7, 16GB RAM, 512GB SSD. Business laptop in excellent condition.",
-        startingPrice: 32000000,
-        bidStep: 600000,
-        buyNowPrice: 38000000,
-        categoryId: laptops.id,
-        sellerId: seller3.id,
-        mainImage: "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 11 * 24 * 60 * 60 * 1000),
-        autoExtend: false,
+      
+      // Furniture (New)
+      { 
+          name: "Herman Miller Aeron", 
+          cat: furniture.id, 
+          price: 25000000, 
+          img: "https://images.unsplash.com/photo-1505843490538-5133c6c7d0e1?w=800&h=600&fit=crop",
+          additionalImgs: [
+              "https://images.unsplash.com/photo-1544207240-8b1025eb7aeb?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1580480055273-228ff5388ef8?w=800&h=600&fit=crop",
+              "https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?w=800&h=600&fit=crop"
+          ]
       },
-      {
-        name: "Adidas Yeezy Boost 350 V2",
-        description:
-          "Adidas Yeezy Boost 350 V2 size 43 in Zebra colorway. Authentic, 100% new with original box and tags.",
-        startingPrice: 8000000,
-        bidStep: 300000,
-        buyNowPrice: 12000000,
-        categoryId: shoes.id,
-        sellerId: seller3.id,
-        mainImage: "https://images.unsplash.com/photo-1622656237207-4c80f36b5f3f?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1600269452121-4f2416e55c28?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1605348532760-6753d2c43329?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        autoExtend: true,
-      },
-      {
-        name: "Nike Dunk Low Panda",
-        description:
-          "Nike Dunk Low Panda size 41, black and white. Brand new, never worn, with original box.",
-        startingPrice: 4000000,
-        bidStep: 150000,
-        buyNowPrice: 6000000,
-        categoryId: shoes.id,
-        sellerId: seller4.id,
-        mainImage: "https://images.unsplash.com/photo-1605408499391-6368c628ef42?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-        autoExtend: false,
-      },
-      {
-        name: "Converse Chuck 70 High Top",
-        description:
-          "Converse Chuck 70 High Top size 42 in classic black. Authentic, 95% new, excellent condition.",
-        startingPrice: 2000000,
-        bidStep: 100000,
-        buyNowPrice: 3000000,
-        categoryId: shoes.id,
-        sellerId: seller5.id,
-        mainImage: "https://images.unsplash.com/photo-1607522370275-f14206abe5d3?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1628253747716-0c4f5c90fdda?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
-        autoExtend: true,
-      },
-      {
-        name: "Omega Seamaster Professional 300M",
-        description:
-          "Omega Seamaster Professional 300M automatic dive watch, stainless steel. Authentic with box and papers.",
-        startingPrice: 120000000,
-        bidStep: 5000000,
-        buyNowPrice: 150000000,
-        categoryId: watches.id,
-        sellerId: seller2.id,
-        mainImage: "https://images.unsplash.com/photo-1547996160-81dfa63595aa?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 13 * 24 * 60 * 60 * 1000),
-        autoExtend: true,
-      },
-      {
-        name: "TAG Heuer Carrera Chronograph",
-        description:
-          "TAG Heuer Carrera automatic chronograph watch, black dial. Pre-owned but excellent condition, with box.",
-        startingPrice: 60000000,
-        bidStep: 2000000,
-        buyNowPrice: 75000000,
-        categoryId: watches.id,
-        sellerId: seller4.id,
-        mainImage: "https://images.unsplash.com/photo-1614164185128-e4ec99c436d7?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1609587312208-cea54be969e7?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
-        autoExtend: false,
-      },
-      {
-        name: "Apple Watch Series 9 45mm",
-        description:
-          "Apple Watch Series 9 GPS + Cellular, 45mm, aluminum case. Brand new, sealed box with warranty.",
-        startingPrice: 12000000,
-        bidStep: 400000,
-        buyNowPrice: 15000000,
-        categoryId: watches.id,
-        sellerId: seller1.id,
-        mainImage: "https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1510017803434-a899398421b3?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000),
-        autoExtend: true,
-      },
-      {
-        name: "Samsung Galaxy Watch 6 Classic",
-        description:
-          "Samsung Galaxy Watch 6 Classic 47mm, LTE version. Like new, used for 1 month, with all accessories.",
-        startingPrice: 8000000,
-        bidStep: 300000,
-        buyNowPrice: 11000000,
-        categoryId: watches.id,
-        sellerId: seller3.id,
-        mainImage: "https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1617043786394-f977fa12eddf?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 9 * 24 * 60 * 60 * 1000),
-        autoExtend: false,
-      },
-      {
-        name: "iPhone 14 Pro 128GB",
-        description:
-          "iPhone 14 Pro 128GB in Deep Purple. 90% new, excellent condition, with original charger and box.",
-        startingPrice: 18000000,
-        bidStep: 400000,
-        buyNowPrice: 23000000,
-        categoryId: phones.id,
-        sellerId: seller5.id,
-        mainImage: "https://images.unsplash.com/photo-1678652197831-2d180705cd2c?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1663499482523-1c0d8c17d8fc?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1678911820864-e5c67c32f3e7?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
-        autoExtend: true,
-      },
-      {
-        name: "Google Pixel 8 Pro 256GB",
-        description:
-          "Google Pixel 8 Pro with Tensor G3, 256GB storage. Brand new, unopened, with Google warranty.",
-        startingPrice: 20000000,
-        bidStep: 450000,
-        buyNowPrice: 25000000,
-        categoryId: phones.id,
-        sellerId: seller1.id,
-        mainImage: "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
-        autoExtend: true,
-      },
-      {
-        name: "HP Spectre x360 14",
-        description:
-          "HP Spectre x360 2-in-1 laptop, Intel i7, 16GB RAM, 1TB SSD, OLED touchscreen. Excellent condition.",
-        startingPrice: 28000000,
-        bidStep: 500000,
-        buyNowPrice: 35000000,
-        categoryId: laptops.id,
-        sellerId: seller4.id,
-        mainImage: "https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        autoExtend: false,
-      },
-      {
-        name: "Microsoft Surface Laptop Studio 2",
-        description:
-          "Microsoft Surface Laptop Studio 2, Intel i7, 32GB RAM, 1TB SSD. Brand new, sealed box.",
-        startingPrice: 55000000,
-        bidStep: 1000000,
-        buyNowPrice: 65000000,
-        categoryId: laptops.id,
-        sellerId: seller1.id,
-        mainImage: "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-        autoExtend: true,
-      },
-      {
-        name: "New Balance 550 White Grey",
-        description:
-          "New Balance 550 retro sneakers size 42, white and grey colorway. Brand new with box.",
-        startingPrice: 3500000,
-        bidStep: 150000,
-        buyNowPrice: 5000000,
-        categoryId: shoes.id,
-        sellerId: seller1.id,
-        mainImage: "https://images.unsplash.com/photo-1539185441755-769473a23570?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1584735175315-9d5df23860e6?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-        autoExtend: false,
-      },
-      {
-        name: "Vans Old Skool Black White",
-        description:
-          "Vans Old Skool classic skate shoes size 41, black and white. Authentic, 98% new, excellent condition.",
-        startingPrice: 1500000,
-        bidStep: 80000,
-        buyNowPrice: 2500000,
-        categoryId: shoes.id,
-        sellerId: seller2.id,
-        mainImage: "https://images.unsplash.com/photo-1543508282-6319a3e2621f?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1588099768531-a72d4a198538?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
-        autoExtend: true,
-      },
-      {
-        name: "Casio G-Shock GA-2100",
-        description:
-          "Casio G-Shock GA-2100 'CasiOak' digital-analog watch, black. Brand new, unopened box.",
-        startingPrice: 3000000,
-        bidStep: 100000,
-        buyNowPrice: 4500000,
-        categoryId: watches.id,
-        sellerId: seller5.id,
-        mainImage: "https://images.unsplash.com/photo-1618404725115-c7c3e8d5c6d9?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1526045431048-f857369baa09?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1587836374828-4dbafa94cf0e?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
-        autoExtend: false,
-      },
-      {
-        name: "Oppo Find X7 Ultra 512GB",
-        description:
-          "Oppo Find X7 Ultra flagship with dual periscope cameras, 512GB storage. Brand new, sealed box.",
-        startingPrice: 19000000,
-        bidStep: 400000,
-        buyNowPrice: 24000000,
-        categoryId: phones.id,
-        sellerId: seller2.id,
-        mainImage: "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1585060544812-6b45742d762f?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 11 * 24 * 60 * 60 * 1000),
-        autoExtend: true,
-      },
-      {
-        name: "Acer Predator Helios 16",
-        description:
-          "Acer Predator gaming laptop, RTX 4060, Intel i7, 16GB RAM, 512GB SSD. Like new, used for gaming only.",
-        startingPrice: 30000000,
-        bidStep: 600000,
-        buyNowPrice: 37000000,
-        categoryId: laptops.id,
-        sellerId: seller3.id,
-        mainImage: "https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=800&h=600&fit=crop",
-        images: [
-          "https://images.unsplash.com/photo-1625948515291-69613efd103f?w=800&h=600&fit=crop",
-          "https://images.unsplash.com/photo-1587202372634-32705e3bf49c?w=800&h=600&fit=crop",
-        ],
-        endDate: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000),
-        autoExtend: false,
-      },
+      
+      // More random fills
+      { name: "Google Pixel 8 Pro", cat: phones.id, price: 20000000, img: "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=800&h=600&fit=crop"] },
+      { name: "Oppo Find X7 Ultra", cat: phones.id, price: 19000000, img: "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&h=600&fit=crop"] },
+      { name: "OnePlus 12", cat: phones.id, price: 15000000, img: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=800&h=600&fit=crop"] },
+      { name: "iPhone 14 Pro", cat: phones.id, price: 18000000, img: "https://images.unsplash.com/photo-1678652197831-2d180705cd2c?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1696446702183-cbd0673c251f?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1678652197831-2d180705cd2c?w=800&h=600&fit=crop"] },
+      { name: "ASUS ROG Zephyrus", cat: laptops.id, price: 35000000, img: "https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1625948515291-69613efd103f?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1587202372634-32705e3bf49c?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?w=800&h=600&fit=crop"] },
+      { name: "ThinkPad X1 Carbon", cat: laptops.id, price: 32000000, img: "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?w=800&h=600&fit=crop"] },
+      { name: "HP Spectre x360", cat: laptops.id, price: 28000000, img: "https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1593642632823-8f785ba67e45?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=800&h=600&fit=crop"] },
+      { name: "Surface Laptop Studio", cat: laptops.id, price: 55000000, img: "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1541807084-5c52b6b3adef?w=800&h=600&fit=crop"] },
+      { name: "Nike Dunk Low", cat: shoes.id, price: 4000000, img: "https://images.unsplash.com/photo-1605408499391-6368c628ef42?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1556906781-9a412961c28c?w=800&h=600&fit=crop"] },
+      { name: "New Balance 550", cat: shoes.id, price: 3500000, img: "https://images.unsplash.com/photo-1539185441755-769473a23570?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1584735175315-9d5df23860e6?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1605348532760-6753d2c43329?w=800&h=600&fit=crop"] },
+      { name: "Vans Old Skool", cat: shoes.id, price: 1500000, img: "https://images.unsplash.com/photo-1543508282-6319a3e2621f?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1588099768531-a72d4a198538?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1607522370275-f14206abe5d3?w=800&h=600&fit=crop"] },
+      { name: "Converse Chuck 70", cat: shoes.id, price: 2000000, img: "https://images.unsplash.com/photo-1607522370275-f14206abe5d3?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1628253747716-0c4f5c90fdda?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1543508282-6319a3e2621f?w=800&h=600&fit=crop"] },
+      { name: "TAG Heuer Carrera", cat: watches.id, price: 60000000, img: "https://images.unsplash.com/photo-1614164185128-e4ec99c436d7?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1609587312208-cea54be969e7?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1594534475808-b18fc33b045e?w=800&h=600&fit=crop"] },
+      { name: "Apple Watch S9", cat: watches.id, price: 12000000, img: "https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1510017803434-a899398421b3?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1617043786394-f977fa12eddf?w=800&h=600&fit=crop"] },
+      { name: "Galaxy Watch 6", cat: watches.id, price: 8000000, img: "https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1617043786394-f977fa12eddf?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=800&h=600&fit=crop"] },
+      { name: "Casio G-Shock", cat: watches.id, price: 3000000, img: "https://images.unsplash.com/photo-1618404725115-c7c3e8d5c6d9?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1526045431048-f857369baa09?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1587836374828-4dbafa94cf0e?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1614164185128-e4ec99c436d7?w=800&h=600&fit=crop"] },
+      { name: "Standing Desk Electric", cat: furniture.id, price: 8000000, img: "https://images.unsplash.com/photo-1595515106969-1ce29566ff1c?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1595515106918-024845582f34?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1510137600163-2729bc6999ae?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1505843490538-5133c6c7d0e1?w=800&h=600&fit=crop"] },
+      { name: "Leather Sofa 3-Seater", cat: furniture.id, price: 15000000, img: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&h=600&fit=crop", additionalImgs: ["https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1540574163026-643ea20ade25?w=800&h=600&fit=crop", "https://images.unsplash.com/photo-1550226891-ef816aed4a98?w=800&h=600&fit=crop"] },
     ];
 
     const createdProducts = [];
-    for (const productData of products) {
-      const product = await Product.create({
-        ...productData,
-        slug: createSlug(productData.name),
-        nameNoDiacritics: removeVietnameseDiacritics(productData.name),
-        descriptionNoDiacritics: removeVietnameseDiacritics(
-          productData.description
-        ),
-        currentPrice: productData.startingPrice,
-        startDate: new Date(),
-        status: "active",
-        bidCount: 0,
-        viewCount: 0,
-        isNew: true,
-        allowUnratedBidders: true,
-      });
-      createdProducts.push(product);
+    
+    // We want ~30 products total, 25 active, 5 ended/completed
+    // The list above has 27 products. I'll use them all.
+    // I'll mark random 5-7 indices as ended.
+    const endedIndices = new Set<number>();
+    while (endedIndices.size < 6) {
+      endedIndices.add(Math.floor(Math.random() * productTemplates.length));
     }
 
-    // Create bids for each product
-    const bidders = [bidder1, bidder2, bidder3, bidder4, bidder5];
-    for (const product of createdProducts) {
-      const numBids = Math.floor(Math.random() * 8) + 5; // 5-13 bids per product
-      let currentPrice = parseFloat(product.startingPrice.toString());
+    for (let i = 0; i < productTemplates.length; i++) {
+        const t = productTemplates[i];
+        const isEnded = endedIndices.has(i);
+        const seller = sellers[Math.floor(Math.random() * sellers.length)];
+        
+        const startingPrice = t.price; // Use base price as starting
+        const bidStep = Math.round(startingPrice * 0.05 / 10000) * 10000; // ~5% step
+        
+        const endDate = isEnded 
+            ? new Date(Date.now() - Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000)) // Ended 0-7 days ago
+            : new Date(Date.now() + Math.floor(Math.random() * 10 * 24 * 60 * 60 * 1000) + 24*60*60*1000); // Ends in 1-11 days
 
-      for (let i = 0; i < numBids; i++) {
-        const bidder = bidders[Math.floor(Math.random() * bidders.length)];
-        currentPrice += parseFloat(product.bidStep.toString());
-
-        await Bid.create({
-          productId: product.id,
-          bidderId: bidder.id,
-          amount: currentPrice,
-          isAutoBid: Math.random() > 0.7, // 30% chance of auto-bid
-          isRejected: false,
+        const product = await Product.create({
+            name: t.name,
+            slug: createSlug(t.name) + "-" + Math.random().toString(36).substring(7),
+            description: `This is a high quality ${t.name}. Authentic and great condition.`,
+            nameNoDiacritics: removeVietnameseDiacritics(t.name),
+            descriptionNoDiacritics: removeVietnameseDiacritics(`This is a high quality ${t.name}. Authentic and great condition.`),
+            startingPrice: startingPrice,
+            currentPrice: startingPrice, // Will update after bids
+            bidStep: bidStep,
+            buyNowPrice: Math.floor(startingPrice * 1.5),
+            categoryId: t.cat,
+            sellerId: seller.id,
+            mainImage: t.img,
+            images: t.additionalImgs || [t.img, t.img, t.img],
+            status: isEnded ? 'ended' : 'active',
+            startDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // Started 10 days ago
+            endDate: endDate,
+            bidCount: 0,
+            viewCount: Math.floor(Math.random() * 1000),
+            isNew: !isEnded && Math.random() > 0.7,
+            allowUnratedBidders: true,
+            autoExtend: true,
         });
 
-        // Update product current price
-        product.currentPrice = currentPrice;
-        product.bidCount += 1;
-      }
+        createdProducts.push(product);
 
-      await product.save();
+        // Generate Bids
+        const numBids = Math.floor(Math.random() * 8) + 5; // 5-13 bids
+        let currentPrice = parseFloat(startingPrice.toString());
+        let lastBidderId = null;
+
+        for (let j = 0; j < numBids; j++) {
+            const bidder = bidders[Math.floor(Math.random() * bidders.length)];
+            // Increase price
+            currentPrice += parseFloat(bidStep.toString());
+            
+            await Bid.create({
+                productId: product.id,
+                bidderId: bidder.id,
+                amount: currentPrice,
+                isAutoBid: Math.random() > 0.8,
+                isRejected: false,
+                createdAt: new Date(Date.now() - (numBids - j) * 3600000), // Spread bids over time
+            });
+            lastBidderId = bidder.id;
+        }
+
+        // Update product with final price and bid count
+        await product.update({
+            currentPrice: currentPrice,
+            bidCount: numBids
+        });
+
+        // Questions Logic
+        if (Math.random() > 0.3) { // 70% products have questions
+           const numQuestions = Math.floor(Math.random() * 3) + 1;
+           for(let q=0; q<numQuestions; q++) {
+             const asker = bidders[Math.floor(Math.random() * bidders.length)];
+             const questionText = questions[Math.floor(Math.random() * questions.length)];
+             
+             const question = await Question.create({
+               productId: product.id,
+               userId: asker.id,
+               question: questionText,
+               createdAt: new Date(Date.now() - Math.floor(Math.random() * 5 * 24 * 3600 * 1000)),
+             });
+
+             // Answer logic
+             if (Math.random() > 0.3) { // 70% questions answered
+               await question.update({
+                 answer: answers[Math.floor(Math.random() * answers.length)],
+                 answeredAt: new Date(question.createdAt.getTime() + 3600000), // Answered 1 hour later
+               });
+             }
+           }
+        }
+
+        // Generate Order & Reviews IF Ended
+        if (isEnded && lastBidderId) {
+            // Create Order
+            const order = await Order.create({
+                productId: product.id,
+                sellerId: seller.id,
+                buyerId: lastBidderId,
+                finalPrice: currentPrice,
+                status: 'completed',
+                shippingAddress: "123 Winner St, Happy City",
+                paymentMethod: "stripe",
+                createdAt: new Date(endDate.getTime() + 3600000), // Created 1 hour after end
+            });
+
+            // Create Review (Buyer reviews Seller/Order)
+            const ratingVal = Math.random() > 0.2 ? 1 : -1; // 80% positive
+            const commentPool = ratingVal === 1 ? positiveReviews : negativeReviews;
+            
+            await Review.create({
+                reviewerId: lastBidderId,
+                revieweeId: seller.id,
+                orderId: order.id,
+                rating: ratingVal,
+                comment: commentPool[Math.floor(Math.random() * commentPool.length)],
+            });
+            
+            // Recalculate seller rating would be complex here, so we skip dynamic recalc 
+            // relying on the initial random rating seeded for users. 
+            // For a real app, strict seed might assume ratings are calculated from reviews.
+            // But for this seed script, random initial ratings + new reviews is acceptable.
+        }
     }
 
+
     console.log("Seed data created successfully!");
-    console.log("\n=== Accounts ===");
-    console.log("Admin: admin@auction.com / admin123");
-    console.log("\nSellers:");
-    console.log("  seller1@auction.com / seller123");
-    console.log("  seller2@auction.com / seller123");
-    console.log("  seller3@auction.com / seller123");
-    console.log("  seller4@auction.com / seller123");
-    console.log("  seller5@auction.com / seller123");
-    console.log("\nBidders:");
-    console.log("  bidder1@auction.com / bidder123");
-    console.log("  bidder2@auction.com / bidder123");
-    console.log("  bidder3@auction.com / bidder123");
-    console.log("  bidder4@auction.com / bidder123");
-    console.log("  bidder5@auction.com / bidder123");
-    console.log(`\n=== Summary ===`);
     console.log(`Total products: ${createdProducts.length}`);
-    console.log(`Total sellers: 5`);
-    console.log(`Total bidders: 5`);
+    console.log(`Ended products (with Orders/Reviews): ${endedIndices.size}`);
+
   } catch (error) {
     console.error("Error seeding database:", error);
   } finally {

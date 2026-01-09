@@ -658,3 +658,51 @@ export const rateUser = async (req: AuthRequest, res: Response, next: NextFuncti
   }
 };
 
+
+export const getPublicProfile = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findByPk(id, {
+      attributes: ['id', 'fullName', 'createdAt', 'rating', 'totalRatings', 'role'],
+    }) as any;
+
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+
+    const reviews = await Review.findAll({
+      where: { revieweeId: id },
+      include: [
+        {
+          model: User,
+          as: 'reviewer',
+          attributes: ['id', 'fullName'],
+        },
+        {
+          model: Order,
+          as: 'order',
+          include: [
+            {
+              model: Product,
+              as: 'product',
+              attributes: ['id', 'name', 'mainImage'],
+            },
+          ],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: 20, // Limit to 20 recent reviews
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ...user.toJSON(),
+        reviews,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};

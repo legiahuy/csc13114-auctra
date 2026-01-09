@@ -18,6 +18,7 @@ import AdminDashboardPage from "./pages/AdminDashboardPage";
 import OrderPage from "./pages/OrderPage";
 import CategoryPage from "./pages/CategoryPage";
 import PaymentPage from "./pages/PaymentPage";
+import PublicProfilePage from "./pages/PublicProfilePage";
 
 function App() {
   const { user } = useAuthStore();
@@ -29,6 +30,8 @@ function App() {
         <Route path="/products" element={<ProductListPage />} />
         <Route path="/products/:id" element={<ProductDetailPage />} />
         <Route path="/category/:slug" element={<CategoryPage />} />
+        <Route path="/users/:id" element={<PublicProfilePage />} />
+
         <Route
           path="/login"
           element={
