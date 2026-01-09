@@ -14,6 +14,7 @@ import {
   getAuctionsChart,
   getUserDistribution,
   getUserDetails,
+  resetUserPassword,
   testEmail,
   getAutoExtendSettings,
   updateAutoExtendSettings,
@@ -281,6 +282,26 @@ router.delete('/users/:id', deleteUser);
  *         description: Detailed user info
  */
 router.get('/users/:id/details', getUserDetails);
+
+/**
+ * @swagger
+ * /api/admin/users/{id}/reset-password:
+ *   post:
+ *     summary: Reset user password (Admin)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ */
+router.post('/users/:id/reset-password', resetUserPassword);
 
 /**
  * @swagger

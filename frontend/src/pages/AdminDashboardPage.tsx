@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Circle,
   Eye,
+  Key,
 } from "lucide-react";
 import apiClient from "../api/client";
 import { useAuthStore } from "../store/authStore";
@@ -386,6 +387,23 @@ export default function AdminDashboardPage() {
           fetchStats();
         } catch (error: any) {
           toast.error(error.response?.data?.error?.message || "Failed to delete");
+        }
+      },
+    });
+  };
+
+  const handleResetPassword = async (id: number) => {
+    setConfirmDialog({
+      open: true,
+      title: "Reset Password",
+      description: "Are you sure you want to reset this user's password? A new password will be generated and sent to their email.",
+      variant: "default",
+      onConfirm: async () => {
+        try {
+          await apiClient.post(`/admin/users/${id}/reset-password`);
+          toast.success("Password reset successfully");
+        } catch (error: any) {
+          toast.error(error.response?.data?.error?.message || "Failed to reset password");
         }
       },
     });
@@ -929,6 +947,15 @@ export default function AdminDashboardPage() {
                             onClick={() => setUserDetailsModal({ open: true, userId: u.id })}
                           >
                             <Eye className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-orange-500 hover:text-orange-700"
+                            onClick={() => handleResetPassword(u.id)}
+                            title="Reset Password"
+                          >
+                            <Key className="h-3 w-3" />
                           </Button>
                           <Button
                             variant="ghost"
