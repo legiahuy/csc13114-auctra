@@ -52,7 +52,9 @@ export const processEndedAuctions = async () => {
         product.name,
         product.id,
         false,
-        undefined
+        parseFloat(winningBid.amount.toString()),
+        true, // isSeller
+        order.id
       );
 
       await sendAuctionEndedEmail(
@@ -60,7 +62,9 @@ export const processEndedAuctions = async () => {
         product.name,
         product.id,
         true,
-        parseFloat(winningBid.amount.toString())
+        parseFloat(winningBid.amount.toString()),
+        false, // isSeller
+        order.id
       );
     } else {
       // No winner
@@ -69,7 +73,8 @@ export const processEndedAuctions = async () => {
         product.name,
         product.id,
         false,
-        undefined
+        undefined,
+        true // isSeller
       );
     }
 

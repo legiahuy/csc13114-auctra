@@ -249,7 +249,9 @@ export const sendAuctionEndedEmail = async (
   productName: string,
   productId: number,
   isWinner: boolean,
-  finalPrice?: number
+  finalPrice?: number,
+  isSeller: boolean = false,
+  orderId?: number
 ): Promise<void> => {
   const templatePath = path.join(__dirname, "../templates/auction-ended.mjml");
 
@@ -263,8 +265,22 @@ export const sendAuctionEndedEmail = async (
     emailTitle = "🎉 Congratulations! You Won the Auction";
     message = "Congratulations! You have won the auction. Please complete your order to finalize the purchase.";
     actionText = "Complete Your Order";
-    actionUrl = `${process.env.FRONTEND_URL}/orders`;
+    actionUrl = orderId 
+      ? `${process.env.FRONTEND_URL}/orders/${orderId}` 
+      : `${process.env.FRONTEND_URL}/orders`;
     additionalInfo = "Please proceed with payment and shipping details to complete your purchase.";
+  } else if (isSeller) {
+    emailTitle = "Auction Ended - Product Sold";
+    message = finalPrice 
+      ? "Congratulations! Your product has been sold."
+      : "The auction for your product has ended.";
+    actionText = finalPrice ? "View Order Details" : "View Product";
+    actionUrl = finalPrice 
+      ? (orderId ? `${process.env.FRONTEND_URL}/orders/${orderId}` : `${process.env.FRONTEND_URL}/orders`)
+      : (productId ? `${process.env.FRONTEND_URL}/products/${productId}` : `${process.env.FRONTEND_URL}/products`);
+    additionalInfo = finalPrice
+      ? "Please prepare the product for shipping once payment is confirmed."
+      : "Unfortunately, there were no bids for this auction.";
   } else {
     emailTitle = "Auction Ended";
     message = "The auction for this product has ended.";
