@@ -190,14 +190,14 @@ export const getProducts = async (
       const searchTerm = removeVietnameseDiacritics(search as string);
       where[Op.or] = [
         sequelize.where(
-          sequelize.fn("LOWER", sequelize.col("Product.nameNoDiacritics")),
+          sequelize.fn("LOWER", sequelize.col("nameNoDiacritics")),
           "LIKE",
           `%${searchTerm}%`
         ),
         sequelize.where(
           sequelize.fn(
             "LOWER",
-            sequelize.col("Product.descriptionNoDiacritics")
+            sequelize.col("descriptionNoDiacritics")
           ),
           "LIKE",
           `%${searchTerm}%`

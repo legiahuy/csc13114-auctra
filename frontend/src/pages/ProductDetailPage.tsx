@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
   Reply,
+  Loader2
 } from "lucide-react";
 
 import apiClient from "../api/client";
@@ -232,7 +233,10 @@ export default function ProductDetailPage() {
     setConfirmOpen(true);
   };
 
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
   const handleConfirmBid = async () => {
+    setConfirmLoading(true);
     try {
       await apiClient.post("/bids", {
         productId: id,
@@ -248,14 +252,17 @@ export default function ProductDetailPage() {
         apiClient.get(`/products/${id}`),
         apiClient.get(`/bids/history/${id}`),
       ]);
-
-      setProduct(productRes.data.data.product);
+      setProduct(productRes.data.data);
       setBidHistory(bidHistoryRes.data.data);
-      setIsRejectedBidder(productRes.data.data.isRejectedBidder || false);
     } catch (error: any) {
+      console.error("Error placing bid:", error);
       toast.error(error.response?.data?.error?.message || "Failed to place bid");
+    } finally {
+        setConfirmLoading(false);
     }
   };
+
+
 
   const handleToggleWatchlist = async () => {
     if (!user) {
@@ -1052,7 +1059,16 @@ export default function ProductDetailPage() {
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleConfirmBid}>Confirm</Button>
+            <Button onClick={handleConfirmBid} disabled={confirmLoading}>
+              {confirmLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Confirming...
+                </>
+              ) : (
+                "Confirm"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
