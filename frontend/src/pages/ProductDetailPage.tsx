@@ -111,6 +111,7 @@ interface BidHistory {
   createdAt: string;
   isRejected?: boolean;
   bidder: {
+    id: number;
     fullName: string;
   };
 }
@@ -575,9 +576,13 @@ export default function ProductDetailPage() {
                   <div className="flex justify-between">
                     <span>Highest bidder</span>
                     <span className="font-medium text-foreground">
-                      <Link to={`/users/${highestBidder.bidder.id}`} className="hover:underline hover:text-primary">
-                        {highestBidder.bidder.fullName}
-                      </Link>
+                      {isSeller ? (
+                        <Link to={`/users/${highestBidder.bidder.id}`} className="hover:underline hover:text-primary">
+                          {highestBidder.bidder.fullName}
+                        </Link>
+                      ) : (
+                        highestBidder.bidder.fullName
+                      )}
                       {highestBidderRating > 0 &&
                         ` (${highestBidderRating.toFixed(1)}%)`}
                     </span>
@@ -1076,7 +1081,18 @@ export default function ProductDetailPage() {
                     <TableCell>
                       {format(new Date(bid.createdAt), "dd/MM/yyyy HH:mm")}
                     </TableCell>
-                    <TableCell>{bid.bidder.fullName}</TableCell>
+                    <TableCell>
+                      {isSeller ? (
+                        <Link
+                          to={`/users/${bid.bidder.id}`}
+                          className="hover:underline hover:text-primary font-medium"
+                        >
+                          {bid.bidder.fullName}
+                        </Link>
+                      ) : (
+                        bid.bidder.fullName
+                      )}
+                    </TableCell>
                     <TableCell>
                       {Number(bid.amount).toLocaleString("vi-VN")} VNĐ
                     </TableCell>
@@ -1085,7 +1101,7 @@ export default function ProductDetailPage() {
                         {bid.isRejected ? (
                           <Badge variant="destructive">Rejected</Badge>
                         ) : (
-                          <Badge variant="default">Active</Badge>
+                          <Badge variant="default" className="bg-emerald-500 hover:bg-emerald-600">Active</Badge>
                         )}
                       </TableCell>
                     )}

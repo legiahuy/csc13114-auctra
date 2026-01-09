@@ -239,7 +239,8 @@ export const getBidHistory = async (req: AuthRequest, res: Response, next: NextF
       } else {
         // Others see masked names
         const fullName = bidData.bidder?.fullName || 'Unknown';
-        const maskedName = fullName.length > 4 ? '****' + fullName.slice(-4) : '****' + fullName;
+
+        const maskedName = fullName.split('').map((char: string, index: number) => index % 2 === 0 ? char : '*').join('');
         return {
           ...bidData,
           bidder: {
