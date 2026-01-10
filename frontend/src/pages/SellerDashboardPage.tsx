@@ -88,6 +88,8 @@ interface Product {
       fullName: string;
     };
     amount: number;
+    maxAmount: number;
+    createdAt: string;
     isRejected?: boolean;
   }>;
 }
@@ -604,7 +606,11 @@ export default function SellerDashboardPage() {
                               );
                               const highestBidder = product.bids && [...product.bids]
                                 .filter((b) => !rejectedBidderIds.has(b.bidder.id))
-                                .sort((a, b) => Number(b.amount) - Number(a.amount))[0];
+                                .sort((a, b) => {
+                                  const diff = Number(b.maxAmount) - Number(a.maxAmount);
+                                  if (diff !== 0) return diff;
+                                  return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                                })[0];
                               
                               return highestBidder ? (
                                 <p className="text-xs text-muted-foreground">
@@ -693,7 +699,11 @@ export default function SellerDashboardPage() {
                             );
                             const winner = product.bids && [...product.bids]
                               .filter((b) => !rejectedBidderIds.has(b.bidder.id))
-                              .sort((a, b) => Number(b.amount) - Number(a.amount))[0];
+                              .sort((a, b) => {
+                                const diff = Number(b.maxAmount) - Number(a.maxAmount);
+                                if (diff !== 0) return diff;
+                                return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                              })[0];
 
                             return winner ? (
                               <p className="text-xs text-muted-foreground">

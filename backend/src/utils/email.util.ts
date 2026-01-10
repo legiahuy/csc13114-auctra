@@ -39,21 +39,22 @@ transporter.verify(function (error, success) {
 });
 
 // Helper to render MJML template with variables
-const renderMJMLTemplate = (
+const renderMJMLTemplate = async (
   templatePath: string,
   variables: Record<string, string>
-): string => {
+): Promise<string> => {
   try {
     // Read MJML template
     let mjmlContent = fs.readFileSync(templatePath, "utf-8");
 
     // Replace variables
     Object.entries(variables).forEach(([key, value]) => {
-      mjmlContent = mjmlContent.replace(new RegExp(`{{${key}}}`, "g"), value);
+      mjmlContent = mjmlContent.replace(new RegExp(`{{\\s*${key}\\s*}}`, "g"), value);
     });
 
     // Compile MJML to HTML
-    const { html, errors } = mjml2html(mjmlContent);
+    const result = await mjml2html(mjmlContent);
+    const { html, errors } = result;
 
     if (errors && errors.length > 0) {
       logger.error("MJML compilation errors:", errors);
@@ -124,7 +125,7 @@ export const sendOTPEmail = async (
   otp: string
 ): Promise<void> => {
   const templatePath = path.join(__dirname, "../templates/otp-email.mjml");
-  const html = renderMJMLTemplate(templatePath, {
+  const html = await renderMJMLTemplate(templatePath, {
     emailType: "Email Verification",
     message: `We received a request to verify your email address. Please enter the verification code below to confirm your account:`,
     codeLabel: "Verification Code",
@@ -139,7 +140,7 @@ export const sendPasswordResetOTPEmail = async (
   otp: string
 ): Promise<void> => {
   const templatePath = path.join(__dirname, "../templates/otp-email.mjml");
-  const html = renderMJMLTemplate(templatePath, {
+  const html = await renderMJMLTemplate(templatePath, {
     emailType: "Password Reset",
     message: `We received a request to reset your password. Please enter the verification code below to proceed with resetting your password:`,
     codeLabel: "Reset Code",
@@ -169,7 +170,7 @@ export const sendBidNotificationEmail = async (
     ? `${process.env.FRONTEND_URL}/products/${productId}`
     : `${process.env.FRONTEND_URL}/products`;
 
-  const html = renderMJMLTemplate(templatePath, {
+  const html = await renderMJMLTemplate(templatePath, {
     notificationType,
     userName,
     message,
@@ -203,7 +204,7 @@ export const sendSellerNewBidNotification = async (
     ? `${process.env.FRONTEND_URL}/products/${productId}`
     : `${process.env.FRONTEND_URL}/products`;
 
-  const html = renderMJMLTemplate(templatePath, {
+  const html = await renderMJMLTemplate(templatePath, {
     notificationType,
     userName: "Seller",
     message,
@@ -237,7 +238,7 @@ export const sendQuestionNotificationEmail = async (
   const notificationType = isReply ? "reply" : "question";
   const subject = isReply ? `New Reply on ${productName}` : `New Question - ${productName}`;
 
-  const html = renderMJMLTemplate(templatePath, {
+  const html = await renderMJMLTemplate(templatePath, {
     title,
     notificationType,
     userName,
@@ -262,7 +263,7 @@ export const sendAnswerNotificationEmail = async (
   const templatePath = path.join(__dirname, "../templates/answer-notification.mjml");
   const productUrl = `${process.env.FRONTEND_URL}/products/${productId}`;
 
-  const html = renderMJMLTemplate(templatePath, {
+  const html = await renderMJMLTemplate(templatePath, {
     userName,
     productName,
     question: question || "Question details unavailable",
@@ -332,7 +333,7 @@ export const sendAuctionEndedEmail = async (
   // Determine price label
   const priceLabel = finalPrice ? "Final Price" : "";
 
-  const html = renderMJMLTemplate(templatePath, {
+  const html = await renderMJMLTemplate(templatePath, {
     emailTitle,
     userName,
     message,
@@ -360,7 +361,7 @@ export const sendBidRejectedEmail = async (
     ? `${process.env.FRONTEND_URL}/products/${productId}`
     : `${process.env.FRONTEND_URL}/products`;
 
-  const html = renderMJMLTemplate(templatePath, {
+  const html = await renderMJMLTemplate(templatePath, {
     notificationType: "Bid Rejected",
     userName,
     message: "The seller has rejected your bid. You are no longer able to bid on this product.",
@@ -379,7 +380,7 @@ export const sendAdminPasswordResetEmail = async (
 ): Promise<void> => {
   const templatePath = path.join(__dirname, "../templates/otp-email.mjml");
   // Using the OTP template but adapting it for password reset notification
-  const html = renderMJMLTemplate(templatePath, {
+  const html = await renderMJMLTemplate(templatePath, {
     emailType: "Password Reset Notification",
     message: `Your password has been reset by an administrator. Please use the following temporary password to log in. We recommend changing your password immediately after logging in.`,
     codeLabel: "New Password",
@@ -387,4 +388,22 @@ export const sendAdminPasswordResetEmail = async (
     expiryText: "This password does not expire, but please change it soon for security.",
   });
   await sendEmail(email, "Your Password Has Been Reset - Auctra", html);
+};
+
+export const sendDescriptionUpdateNotificationEmail = async (
+  email: string,
+  productName: string,
+  userName: string,
+  productId: number
+): Promise<void> => {
+  const templatePath = path.join(__dirname, "../templates/description-update.mjml");
+  const productUrl = `${process.env.FRONTEND_URL}/products/${productId}`;
+
+  const html = await renderMJMLTemplate(templatePath, {
+    userName,
+    productName,
+    productUrl,
+  });
+
+  await sendEmail(email, `Product Update - ${productName}`, html);
 };

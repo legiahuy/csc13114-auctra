@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useState, useRef, type ChangeEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ProductImageCarousel } from "@/components/ProductImageCarousel";
 import { format, formatDistanceToNow } from "date-fns";
@@ -88,6 +88,7 @@ interface Product {
       totalRatings: number;
     };
     amount: number;
+    maxAmount: number;
     createdAt: string;
     isRejected?: boolean;
   }>;
@@ -141,6 +142,31 @@ export default function ProductDetailPage() {
 
   const [question, setQuestion] = useState("");
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isDescriptionOverflowing, setIsDescriptionOverflowing] = useState(false);
+  const descriptionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = descriptionRef.current;
+    if (!el) return;
+
+    const checkOverflow = () => {
+      setIsDescriptionOverflowing(el.scrollHeight > 500);
+    };
+
+    // Check immediately
+    checkOverflow();
+
+    // Use ResizeObserver to check when dimensions change (e.g. images load)
+    const observer = new ResizeObserver(() => {
+      checkOverflow();
+    });
+
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [product?.description]);
 
   const [order, setOrder] = useState<any>(null);
 
@@ -477,7 +503,11 @@ export default function ProductDetailPage() {
 
   const highestBidder = product.bids && [...product.bids]
     .filter((b) => !rejectedBidderIds.has(b.bidder.id))
-    .sort((a, b) => Number(b.amount) - Number(a.amount))[0];
+    .sort((a, b) => {
+      const diff = Number(b.maxAmount) - Number(a.maxAmount);
+      if (diff !== 0) return diff;
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    })[0];
 
   const highestBidderRating =
     highestBidder && highestBidder.bidder.totalRatings > 0
@@ -630,12 +660,13 @@ export default function ProductDetailPage() {
                 <h2 className="text-base font-semibold">Product Description</h2>
                 <div className="rounded-lg border border-border bg-card p-4 md:p-6 relative">
                   <div
-                    className={`text-sm leading-relaxed text-muted-foreground transition-all duration-300 ${
-                      !isDescriptionExpanded ? "max-h-[300px] overflow-hidden" : ""
+                    ref={descriptionRef}
+                    className={`text-sm leading-relaxed text-muted-foreground transition-all duration-300 break-words ${
+                      !isDescriptionExpanded ? "max-h-[500px] overflow-hidden" : ""
                     } [&_h1]:text-xl [&_h1]:font-bold [&_h1]:text-foreground [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-foreground [&_h3]:mt-3 [&_h3]:mb-2 [&_p]:my-2 [&_p]:text-muted-foreground [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-foreground [&_em]:italic [&_u]:underline [&_s]:line-through [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:space-y-1 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:space-y-1 [&_ol]:my-3 [&_li]:my-1 [&_a]:text-foreground [&_a]:underline [&_a:hover]:text-foreground/80 [&_img]:max-w-full [&_img]:max-h-96 [&_img]:w-auto [&_img]:h-auto [&_img]:object-contain [&_img]:rounded-md [&_img]:my-4 [&_img]:mx-auto [&_img]:block [&_.ql-align-left]:text-left [&_.ql-align-center]:text-center [&_.ql-align-right]:text-right [&_.ql-align-justify]:text-justify`}
                     dangerouslySetInnerHTML={{ __html: product.description }}
                   />
-                  {!isDescriptionExpanded && (
+                  {!isDescriptionExpanded && isDescriptionOverflowing && (
                     <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-card to-transparent pointer-events-none" />
                   )}
                 </div>

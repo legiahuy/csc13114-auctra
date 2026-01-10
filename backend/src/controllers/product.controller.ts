@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { sendQuestionNotificationEmail, sendAnswerNotificationEmail, sendDescriptionUpdateNotificationEmail } from '../utils/email.util';
 import { Product, Category, User, Bid, Question, Order } from "../models";
 import { AppError } from "../middleware/errorHandler";
 import { AuthRequest } from "../middleware/auth.middleware";
@@ -560,7 +561,7 @@ export const getMyProducts = async (
               attributes: ["id", "fullName"],
             },
           ],
-          order: [["amount", "DESC"]],
+          order: [["maxAmount", "DESC"], ["createdAt", "ASC"]],
           // limit: 1, // Remove limit to allow finding the true highest after strict filtering
         },
       ],
@@ -673,6 +674,32 @@ export const updateProductDescription = async (
     // Update descriptionNoDiacritics for search
     product.descriptionNoDiacritics = removeVietnameseDiacritics(product.description);
     await product.save();
+
+    // Notify highest bidder
+    const highestBid = await Bid.findOne({
+      where: {
+        productId: product.id,
+        isRejected: false,
+      },
+      include: [
+        {
+          model: User,
+          as: "bidder",
+          attributes: ["id", "email", "fullName"],
+        },
+      ],
+      order: [["maxAmount", "DESC"], ["createdAt", "ASC"]],
+    });
+
+    if (highestBid && (highestBid as any).bidder) {
+      const bidder = (highestBid as any).bidder;
+      sendDescriptionUpdateNotificationEmail(
+        bidder.email,
+        product.name,
+        bidder.fullName,
+        product.id
+      ).catch((err) => console.error("Error sending description update email:", err));
+    }
 
     res.json({
       success: true,
