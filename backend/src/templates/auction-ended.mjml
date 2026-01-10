@@ -82,7 +82,6 @@
         </mj-text>
 
         <!-- Winner Section - Final Price -->
-        {{#if finalPrice}}
         <mj-text
           font-size="12px"
           font-weight="600"
@@ -91,7 +90,7 @@
           letter-spacing="2px"
           padding="0 0 12px 0"
         >
-          Final Price
+          {{priceLabel}}
         </mj-text>
 
         <mj-text
@@ -102,17 +101,13 @@
         >
           {{finalPrice}}
         </mj-text>
-        {{/if}}
 
         <!-- Additional Info -->
-        {{#if additionalInfo}}
         <mj-text color="#6b7280" padding="0 0 24px 0">
           {{additionalInfo}}
         </mj-text>
-        {{/if}}
 
         <!-- Action Button -->
-        {{#if actionText}}
         <mj-button
           background-color="#526ba8"
           color="#ffffff"
@@ -123,7 +118,7 @@
         >
           {{actionText}}
         </mj-button>
-        {{/if}}
+        
       </mj-column>
     </mj-section>
 

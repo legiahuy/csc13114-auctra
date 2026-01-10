@@ -486,12 +486,7 @@ export default function ProductDetailPage() {
         </div>
       )}
 
-      {product.status === "ended" && !order && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <AlertCircle className="h-4 w-4 mt-0.5" />
-          <p className="font-medium my-0">Product has ended</p>
-        </div>
-      )}
+
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {/* Left column */}
@@ -941,8 +936,7 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Right column – bidding panel */}
-        {canSeeAfterEnd && (
-          <div className="space-y-4 lg:sticky lg:top-20 lg:h-fit">
+        <div className="space-y-4 lg:sticky lg:top-20 lg:h-fit">
             <Card className="bg-transparent border-none shadow-none">
               <CardHeader>
                 <CardTitle className="text-base font-semibold">
@@ -1045,7 +1039,6 @@ export default function ProductDetailPage() {
               </CardContent>
             </Card>
           </div>
-        )}
       </div>
 
       {/* Confirm bid dialog */}

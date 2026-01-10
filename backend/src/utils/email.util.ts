@@ -301,17 +301,22 @@ export const sendAuctionEndedEmail = async (
       : `${process.env.FRONTEND_URL}/orders`;
     additionalInfo = "Please proceed with payment and shipping details to complete your purchase.";
   } else if (isSeller) {
-    emailTitle = "Auction Ended - Product Sold";
-    message = finalPrice 
-      ? "Congratulations! Your product has been sold."
-      : "The auction for your product has ended.";
-    actionText = finalPrice ? "View Order Details" : "View Product";
+    if (finalPrice) {
+       emailTitle = "Auction Ended - Product Sold";
+       message = "Congratulations! Your product has been sold.";
+    } else {
+       emailTitle = "Auction Ended";
+       message = "The auction for your product has ended with no bids.";
+    }
+
+    actionText = finalPrice ? "View Order Details" : "View Product Details";
     actionUrl = finalPrice 
       ? (orderId ? `${process.env.FRONTEND_URL}/orders/${orderId}` : `${process.env.FRONTEND_URL}/orders`)
       : (productId ? `${process.env.FRONTEND_URL}/products/${productId}` : `${process.env.FRONTEND_URL}/products`);
+    
     additionalInfo = finalPrice
       ? "Please prepare the product for shipping once payment is confirmed."
-      : "Unfortunately, there were no bids for this auction.";
+      : ""; // No additional info for no bids
   } else {
     emailTitle = "Auction Ended";
     message = "The auction for this product has ended.";
@@ -324,18 +329,22 @@ export const sendAuctionEndedEmail = async (
       : "This auction ended with no bids.";
   }
 
+  // Determine price label
+  const priceLabel = finalPrice ? "Final Price" : "";
+
   const html = renderMJMLTemplate(templatePath, {
     emailTitle,
     userName,
     message,
     productName,
+    priceLabel, // Pass dynamic label
     finalPrice: finalPrice ? `${finalPrice.toLocaleString("en-US")} VND` : "",
     additionalInfo,
     actionText,
     actionUrl,
   });
 
-  await sendEmail(email, `Auction Ended - ${productName}`, html);
+  await sendEmail(email, `${emailTitle} - ${productName}`, html);
 };
 
 
