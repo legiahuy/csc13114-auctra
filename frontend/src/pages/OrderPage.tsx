@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertCircle, CheckCircle2, XCircle, Send, CreditCard, Upload, FileText, Package, Truck, Download, Clock } from 'lucide-react';
+import { AlertCircle, CheckCircle2, XCircle, Send, CreditCard, Upload, FileText, Package, Truck, Download, Clock, ThumbsUp, ThumbsDown } from 'lucide-react';
 
 import apiClient from '../api/client';
 import { useAuthStore } from '../store/authStore';
@@ -822,10 +822,10 @@ export default function OrderPage() {
                           <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 px-4 py-3">
                             <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
                             <div className="flex-1">
-                              <p className="text-sm font-medium text-red-900 dark:text-red-100">
+                              <p className="text-sm font-medium text-red-900 dark:text-red-100 my-0">
                                 Important: Payment Confirmation
                               </p>
-                              <p className="text-xs text-red-800 dark:text-red-200 mt-1">
+                              <p className="text-xs text-red-800 dark:text-red-200 my-0 mt-1">
                                 After paying via Stripe, please take a screenshot of the success screen and upload it here as proof.
                               </p>
                             </div>
@@ -1003,7 +1003,7 @@ export default function OrderPage() {
                     ((activeStep === 1 && order?.status === 'pending_address' && order?.shippingAddress) || activeStep === 2) && isBuyer && order?.status !== 'pending_shipping' && order?.status !== 'pending_delivery' && (
                       <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                         <AlertCircle className="h-4 w-4 mt-0.5" />
-                        <p>You have sent the address. Please wait for the seller to confirm and ship.</p>
+                        <p className='my-0'>You have sent the address. Please wait for the seller to confirm and ship.</p>
                       </div>
                     )
                   }
@@ -1046,7 +1046,7 @@ export default function OrderPage() {
                                 <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 px-4 py-3">
                                   <FileText className="h-4 w-4 text-green-600 mt-0.5" />
                                   <div className="flex-1">
-                                    <p className="text-sm text-green-900 dark:text-green-100">
+                                    <p className="text-sm text-green-900 dark:text-green-100 my-0">
                                       Buyer has uploaded payment proof
                                     </p>
                                     <a
@@ -1055,7 +1055,7 @@ export default function OrderPage() {
                                       rel="noopener noreferrer"
                                       className="text-xs text-blue-600 hover:underline mt-1 inline-block"
                                     >
-                                      Xem hóa đơn / View proof
+                                     View proof
                                     </a>
                                   </div>
                                 </div>
@@ -1271,7 +1271,7 @@ export default function OrderPage() {
                       <div className="space-y-4">
                         <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
                           <CheckCircle2 className="h-4 w-4 mt-0.5" />
-                          <p>Order completed! You can now review each other.</p>
+                          <p className='my-0'>Order completed! You can now review each other.</p>
                         </div>
 
                         {/* Step 5: Review */}
@@ -1290,9 +1290,15 @@ export default function OrderPage() {
                                         {review.reviewer.fullName} reviewed{' '}
                                         {review.reviewerId === order.sellerId ? order.buyer.fullName : order.seller.fullName}
                                       </p>
-                                      <Badge variant={review.rating === 1 ? 'default' : 'destructive'}>
-                                        {review.rating === 1 ? '+1 (Positive)' : '-1 (Negative)'}
-                                      </Badge>
+                                      {review.rating === 1 ? (
+                              <Badge variant="default" className="bg-emerald-500 hover:bg-emerald-600 text-[10px] h-5 px-1.5">
+                                <ThumbsUp className="h-3 w-3 mr-1" /> Recommend
+                              </Badge>
+                            ) : (
+                              <Badge variant="default" className="text-[10px] h-5 px-1.5 bg-red-500 hover:bg-red-600">
+                                <ThumbsDown className="h-3 w-3 mr-1" /> Not Recommend
+                              </Badge>
+                            )}  
                                     </div>
                                     <p className="text-sm text-muted-foreground mb-2">{review.comment}</p>
                                     <p className="text-xs text-muted-foreground">
@@ -1310,12 +1316,12 @@ export default function OrderPage() {
                               {myReview ? (
                                 <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                                   <AlertCircle className="h-4 w-4 mt-0.5" />
-                                  <p>You have already reviewed. You can change your review at any time.</p>
+                                  <p className='my-0'>You have already reviewed. You can change your review at any time.</p>
                                 </div>
                               ) : (
                                 <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                                   <AlertCircle className="h-4 w-4 mt-0.5" />
-                                  <p>Please review the {isBuyer ? 'seller' : 'buyer'} to complete the transaction.</p>
+                                  <p className='my-0'>Please review the {isBuyer ? 'seller' : 'buyer'} to complete the transaction.</p>
                                 </div>
                               )}
 
@@ -1336,9 +1342,8 @@ export default function OrderPage() {
                   <div className="flex gap-2 flex-wrap pt-4 border-t">
                     {canCancel && (
                       <Button
-                        variant="outline"
                         onClick={handleOpenCancelDialog}
-                        className="text-destructive hover:text-destructive"
+                        className="bg-red-500 hover:bg-red-600 text-white"
                       >
                         Cancel Order
                       </Button>
@@ -1494,7 +1499,7 @@ export default function OrderPage() {
               <Separator />
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Status</p>
-                <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
+                <Badge className={`${statusBadge.label === 'Completed' ? 'bg-emerald-500' : statusBadge.label === 'Cancelled' ? 'bg-red-500' : ''  }`} variant={statusBadge.variant}>{statusBadge.label}</Badge>
               </div>
               <Separator />
               <div>
@@ -1567,7 +1572,7 @@ export default function OrderPage() {
                 >
                   Cancel
                 </Button>
-                <Button variant="destructive" onClick={handleCancelOrder}>
+                <Button variant="destructive" onClick={handleCancelOrder} className="bg-red-500 hover:bg-red-600">
                   Cancel Order
                 </Button>
               </div>
@@ -1608,16 +1613,16 @@ export default function OrderPage() {
                 <Button
                   variant={reviewRating === 1 ? 'default' : 'outline'}
                   onClick={() => setReviewRating(1)}
-                  className="flex-1"
+                  className={`flex-1 bg-emerald-500 hover:bg-emerald-600 hover:text-white ${reviewRating === 1 ? 'bg-emerald-500' : 'bg-emerald-50'}`}
                 >
-                  +1 (Positive)
+                  <ThumbsUp className="h-4 w-4" /> Positive
                 </Button>
                 <Button
-                  variant={reviewRating === -1 ? 'destructive' : 'outline'}
+                variant={reviewRating === -1 ? 'destructive' : 'outline'} 
                   onClick={() => setReviewRating(-1)}
-                  className="flex-1"
+                  className={`flex-1 bg-red-500 hover:bg-red-600 hover:text-white ${reviewRating === -1 ? 'bg-red-500' : 'bg-red-50'}`}
                 >
-                  -1 (Negative)
+                  <ThumbsDown className="h-4 w-4" /> Negative
                 </Button>
               </div>
             </div>

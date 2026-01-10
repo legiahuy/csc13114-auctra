@@ -19,7 +19,7 @@ export function Stepper({ activeStep, steps, className }: StepperProps) {
 
           return (
             <React.Fragment key={index}>
-              <div className="flex flex-col items-center flex-1 z-10">
+              <div className="flex flex-col items-center flex-1 z-10 justify-center">
                 <div
                   className={cn(
                     "flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors bg-background",
@@ -50,7 +50,7 @@ export function Stepper({ activeStep, steps, className }: StepperProps) {
               {!isLast && (
                 <div
                   className={cn(
-                    "flex-1 h-0.5 mx-2 -mt-5",
+                    "flex-1 h-0.5 max-h-full mt-5",
                     isCompleted ? "bg-emerald-500" : "bg-muted-foreground/30"
                   )}
                 />

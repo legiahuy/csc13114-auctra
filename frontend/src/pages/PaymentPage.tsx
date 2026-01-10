@@ -233,7 +233,7 @@ export default function PaymentPage() {
                             <div className="space-y-4">
                                 {/* Product Image - Smaller */}
                                 {order.product.images && order.product.images.length > 0 && (
-                                    <div className="h-48 w-full overflow-hidden rounded-lg border bg-muted">
+                                    <div className="h-60 w-full overflow-hidden rounded-lg border bg-muted">
                                         <img
                                             src={order.product.images[0]}
                                             alt={order.product.name}
@@ -246,11 +246,6 @@ export default function PaymentPage() {
                                 <div className="space-y-3">
                                     <div>
                                         <h3 className="font-semibold mb-1">{order.product.name}</h3>
-                                        {order.product.description && (
-                                            <p className="text-xs text-muted-foreground line-clamp-2">
-                                                {order.product.description}
-                                            </p>
-                                        )}
                                     </div>
 
                                     <div className="border-t pt-3 space-y-2">

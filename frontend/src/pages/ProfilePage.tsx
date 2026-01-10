@@ -869,14 +869,14 @@ export default function ProfilePage() {
                                     ? "default"
                                     : order.status === "cancelled"
                                     ? "destructive"
-                                    : "secondary"
+                                    : "outline"
                                 }
                                 className={`text-xs ${
                                     order.status === "completed"
                                       ? "bg-emerald-500 hover:bg-emerald-600"
                                       : order.status === "cancelled"
                                       ? "bg-red-500 hover:bg-red-600"
-                                      : "bg-amber-500 hover:bg-amber-600"
+                                      : ""
                                   }`}
                               >
                                 {order.status === "pending_payment"

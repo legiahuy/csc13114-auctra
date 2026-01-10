@@ -103,14 +103,34 @@ export default function PaymentSuccessPage() {
                 productImgBase64 = await getBase64Image(order.product.mainImage);
             }
 
-            // Create a temporary div with receipt content
-            const receiptDiv = document.createElement('div');
-            receiptDiv.style.position = 'absolute';
-            receiptDiv.style.left = '-9999px';
+            // Create a temporary iframe to isolate styles and avoid Tailwind's modern color formats (lab/oklch)
+            // which are not supported by html2canvas 1.4.1 causing "unsupported color function" errors
+            const iframe = document.createElement('iframe');
+            iframe.style.position = 'absolute';
+            iframe.style.left = '-9999px';
+            iframe.style.top = '0';
+            iframe.style.width = '1000px';
+            iframe.style.height = '2000px';
+            iframe.style.border = 'none';
+            document.body.appendChild(iframe);
+
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+            if (!iframeDoc) {
+                document.body.removeChild(iframe);
+                throw new Error('Failed to create PDF generation context');
+            }
+
+            // Initialize iframe with clean styles
+            iframeDoc.open();
+            iframeDoc.write('<html><head><style>body { margin: 0; padding: 0; background-color: white; font-family: Arial, sans-serif; }</style></head><body></body></html>');
+            iframeDoc.close();
+
+            // Create the container inside the iframe
+            const receiptDiv = iframeDoc.createElement('div');
             receiptDiv.style.width = '800px';
             receiptDiv.style.padding = '40px';
             receiptDiv.style.backgroundColor = 'white';
-            receiptDiv.style.fontFamily = 'Arial, sans-serif';
+            receiptDiv.style.boxSizing = 'border-box';
 
             receiptDiv.innerHTML = `
                 <div style="max-width: 800px; margin: 0 auto;">
@@ -197,16 +217,17 @@ export default function PaymentSuccessPage() {
                 </div>
             `;
 
-            document.body.appendChild(receiptDiv);
+            iframeDoc.body.appendChild(receiptDiv);
 
             const canvas = await html2canvas(receiptDiv, {
                 scale: 2,
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff',
+                windowWidth: 800,
             });
 
-            document.body.removeChild(receiptDiv);
+            document.body.removeChild(iframe);
 
             const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF({
@@ -307,7 +328,7 @@ export default function PaymentSuccessPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 py-12 px-4">
+        <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 py-12 px-4 rounded-2xl">
             <div className="container mx-auto max-w-3xl space-y-6">
                 {/* Success Header */}
                 <div className="text-center">
@@ -447,31 +468,34 @@ export default function PaymentSuccessPage() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6 space-y-4">
-                        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 px-4 py-3">
+                        {
+                            !paymentProofUrl && (
+                                <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 px-4 py-3">
                             <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
                             <div className="flex-1">
-                                <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                                <p className="text-sm font-medium text-amber-900 dark:text-amber-100 my-0">
                                     Required: Upload Screenshot of This Receipt
                                 </p>
-                                <p className="text-xs text-amber-800 dark:text-amber-200 mt-1">
+                                <p className="text-xs text-amber-800 dark:text-amber-200 mt-1 my-0">
                                     Please take a screenshot of the payment receipt above and upload it here. This will be shared with the seller as proof of payment.
                                 </p>
                             </div>
                         </div>
-
+                            )
+                        }
                         {paymentProofUrl ? (
                             <div className="space-y-3">
                                 <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 px-4 py-3">
                                     <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5" />
                                     <div className="flex-1">
-                                        <p className="text-sm text-green-900 dark:text-green-100 font-medium">
+                                        <p className="text-sm text-green-900 dark:text-green-100 font-medium my-0">
                                             Payment proof uploaded successfully!
                                         </p>
                                         <a
                                             href={paymentProofUrl}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-xs text-blue-600 hover:underline mt-1 inline-block"
+                                            className="text-xs text-blue-600 hover:underline inline-block"
                                         >
                                             View uploaded proof
                                         </a>

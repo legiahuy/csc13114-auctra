@@ -797,7 +797,7 @@ export default function SellerDashboardPage() {
                                                 isStepCompleted
                                                   ? "bg-green-500 border-green-500 text-white"
                                                   : isStepActive
-                                                  ? "border-primary text-primary"
+                                                  ? "border-emerald-500 text-primary"
                                                   : "border-muted-foreground text-muted-foreground"
                                               }`}
                                             >
@@ -831,14 +831,14 @@ export default function SellerDashboardPage() {
                                       ? "default"
                                       : isCancelled
                                       ? "destructive"
-                                      : "secondary"
+                                      : "outline"
                                   }
                                   className={`text-xs ${
                                     isCompleted
                                       ? "bg-emerald-500 hover:bg-emerald-600"
                                       : isCancelled
                                       ? "bg-red-500 hover:bg-red-600"
-                                      : "bg-amber-500 hover:bg-amber-600"
+                                      : ""
                                   }`}
                                 >
                                   {order.status === "pending_payment"
@@ -899,6 +899,7 @@ export default function SellerDashboardPage() {
                                   order.status === "pending_address") && (
                                   <Button
                                     variant="destructive"
+                                    className="bg-red-500 hover:bg-red-600 text-white"
                                     size="sm"
                                     onClick={() => handleOpenCancelDialog(order.id)}
                                   >
