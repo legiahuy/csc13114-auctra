@@ -129,6 +129,7 @@ export default function ProductDetailPage() {
   const [maxAmount, setMaxAmount] = useState("");
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [rejectLoading, setRejectLoading] = useState(false);
 
   const [bidHistoryOpen, setBidHistoryOpen] = useState(false);
   const [expandedReplies, setExpandedReplies] = useState<Set<number>>(new Set());
@@ -376,6 +377,7 @@ export default function ProductDetailPage() {
     if (!selectedBidId) return;
 
     try {
+      setRejectLoading(true);
       await apiClient.put(`/bids/${selectedBidId}/reject`);
       setRejectResult({
         success: true,
@@ -396,6 +398,8 @@ export default function ProductDetailPage() {
         success: false,
         message: error.response?.data?.error?.message || "Failed to reject bid",
       });
+    } finally {
+      setRejectLoading(false);
     }
   };
 
@@ -1139,7 +1143,7 @@ export default function ProductDetailPage() {
                     {isSeller && (
                       <TableCell>
                         {bid.isRejected ? (
-                          <Badge variant="destructive">Rejected</Badge>
+                          <Badge variant="destructive" className="bg-red-500 hover:bg-red-600">Rejected</Badge>
                         ) : (
                           <Badge variant="default" className="bg-emerald-500 hover:bg-emerald-600">Active</Badge>
                         )}
@@ -1150,6 +1154,7 @@ export default function ProductDetailPage() {
                         <Button
                           size="sm"
                           variant="destructive"
+                          className="bg-red-500 hover:bg-red-600"
                           onClick={() => handleOpenRejectDialog(bid.id)}
                           disabled={bid.isRejected}
                         >
@@ -1197,7 +1202,7 @@ export default function ProductDetailPage() {
                 }`}
               >
                 <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                <p className="text-sm">{rejectResult.message}</p>
+                <p className="text-sm my-0">{rejectResult.message}</p>
               </div>
             </div>
           )}
@@ -1214,8 +1219,15 @@ export default function ProductDetailPage() {
                 >
                   Cancel
                 </Button>
-                <Button variant="destructive" onClick={handleRejectBid}>
-                  Reject
+                <Button variant="destructive" onClick={handleRejectBid} className="bg-red-500 hover:bg-red-600" disabled={rejectLoading}>
+                  {rejectLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Rejecting...
+                    </>
+                  ) : (
+                    "Reject"
+                  )}
                 </Button>
               </div>
             ) : (

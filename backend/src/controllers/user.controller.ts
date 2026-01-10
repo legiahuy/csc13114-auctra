@@ -4,6 +4,7 @@ import { AppError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { sendQuestionNotificationEmail, sendAnswerNotificationEmail } from '../utils/email.util';
 import { Op } from 'sequelize';
+import { sequelize } from '../config/database';
 
 // Thời gian chờ giữa các lần yêu cầu upgrade (ngày) - có thể chỉnh để test
 const UPGRADE_REQUEST_COOLDOWN_DAYS = 7;
@@ -201,34 +202,68 @@ export const getMyBids = async (req: AuthRequest, res: Response, next: NextFunct
     const limitNum = parseInt(limit as string);
     const offset = (pageNum - 1) * limitNum;
 
-    const where: any = { bidderId: req.user.id };
+    // We want ONE bid entry per product (the latest one).
+    // Strategy:
+    // 1. Find distinct product IDs bid on by this user, matching filters.
+    // 2. For each product, get the ID of the LATEST bid.
+    // 3. Paginate based on this list of IDs.
+    // 4. Fetch full details for these IDs.
 
-    // Build product filter for nested query
-    const productWhere: any = {};
-    if (search) {
-      productWhere.name = { [Op.iLike]: `%${search}%` };
-    }
+    let productFilterClause = '';
+    const replacements: any = { bidderId: req.user.id };
+
     if (status) {
-      productWhere.status = status;
+      productFilterClause += ` AND "products"."status" = :status`;
+      replacements.status = status;
+    }
+    if (search) {
+      productFilterClause += ` AND "products"."name" ILIKE :search`;
+      replacements.search = `%${search}%`;
     }
 
-    const { count, rows: bids } = await Bid.findAndCountAll({
-      where,
+    // Query to get the Latest Bid ID for each product
+    const idQuery = `
+      SELECT MAX("bids"."id") as "id"
+      FROM "bids"
+      JOIN "products" ON "bids"."productId" = "products"."id"
+      WHERE "bids"."bidderId" = :bidderId
+      ${productFilterClause}
+      GROUP BY "bids"."productId"
+      ORDER BY MAX("bids"."createdAt") DESC
+      LIMIT :limit OFFSET :offset
+    `;
+
+    const countQuery = `
+      SELECT COUNT(DISTINCT "bids"."productId") as "count"
+      FROM "bids"
+      JOIN "products" ON "bids"."productId" = "products"."id"
+      WHERE "bids"."bidderId" = :bidderId
+      ${productFilterClause}
+    `;
+
+    replacements.limit = limitNum;
+    replacements.offset = offset;
+
+    const [idResults] = await sequelize.query(idQuery, { replacements });
+    const [countResults] = await sequelize.query(countQuery, { replacements });
+
+    const bidIds = idResults.map((r: any) => r.id);
+    const count = parseInt((countResults[0] as any).count);
+
+    // Fetch full bid objects
+    const bids = await Bid.findAll({
+      where: { id: { [Op.in]: bidIds } },
       include: [
         {
           model: Product,
           as: 'product',
-          where: Object.keys(productWhere).length > 0 ? productWhere : undefined,
           include: [
             { model: Category, as: 'category' },
             { model: User, as: 'seller', attributes: ['id', 'fullName'] },
           ],
         },
       ],
-      limit: limitNum,
-      offset,
       order: [['createdAt', 'DESC']],
-      distinct: true, // Important for accurate count with includes
     });
 
     res.json({
