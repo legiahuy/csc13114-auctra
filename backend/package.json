@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "test": "jest",
     "seed": "ts-node src/scripts/seed.ts",
+    "seed:prod": "node dist/scripts/seed.js",
     "create-settings": "ts-node src/scripts/create-settings-table.ts"
   },
   "keywords": [

@@ -12,7 +12,18 @@ RUN npm ci && \
     npm cache clean --force
 
 # Copy source code
+# Copy source code
 COPY . .
+
+# Build arguments
+ARG VITE_BASE_URL
+ARG VITE_RECAPTCHA_SITE_KEY
+ARG VITE_STRIPE_PUBLIC_KEY
+
+# Set environment variables for build
+ENV VITE_BASE_URL=$VITE_BASE_URL
+ENV VITE_RECAPTCHA_SITE_KEY=$VITE_RECAPTCHA_SITE_KEY
+ENV VITE_STRIPE_PUBLIC_KEY=$VITE_STRIPE_PUBLIC_KEY
 
 # Build application
 RUN npm run build

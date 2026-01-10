@@ -2,69 +2,64 @@ version: "3.8"
 
 services:
   # Backend API Service
-  # backend:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: Dockerfile
-  #   container_name: auction-backend
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     - NODE_ENV=production
-  #     - PORT=3000
-  #     - DATABASE_URL=${DATABASE_URL}
-  #     - DB_SSL=${DB_SSL:-true}
-  #     - JWT_SECRET=${JWT_SECRET}
-  #     - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-  #     - JWT_ACCESS_EXPIRES_IN=${JWT_ACCESS_EXPIRES_IN:-15m}
-  #     - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-7d}
-  #     - EMAIL_HOST=${EMAIL_HOST}
-  #     - EMAIL_PORT=${EMAIL_PORT}
-  #     - EMAIL_USER=${EMAIL_USER}
-  #     - EMAIL_PASSWORD=${EMAIL_PASSWORD}
-  #     - EMAIL_FROM=${EMAIL_FROM}
-  #     - SUPABASE_URL=${SUPABASE_URL}
-  #     - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-  #     - SUPABASE_STORAGE_BUCKET=${SUPABASE_STORAGE_BUCKET:-product-images}
-  #     - FRONTEND_URL=http://localhost:3001
-  #     - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY}
-  #     - LOKI_HOST=http://loki:3100
-  #   volumes:
-  #     - ./backend/logs:/app/logs
-  #   depends_on:
-  #     - postgres
-  #   networks:
-  #     - auction-network
-  #   restart: unless-stopped
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "exit 0"] # Simplified for dev
-  #     interval: 30s
-  #     timeout: 3s
-  #     retries: 3
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: auction-backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/online_auction
+      - DB_SSL=false
+      - FRONTEND_URL=http://localhost:3001
+      - LOKI_HOST=http://loki:3100
+      # Wait for DB to be potentially ready
+      - SYNC_DB=false
+    volumes:
+      - ./backend/logs:/app/logs
+      - ./backend/uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - auction-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "exit 0"] # Simplified for dev/local
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    command: ["/bin/sh", "-c", "./start.sh"]
 
   # Frontend Service
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #     args:
-  #       - VITE_API_URL=http://localhost:3000
-  #       - VITE_RECAPTCHA_SITE_KEY=${VITE_RECAPTCHA_SITE_KEY}
-  #       - VITE_STRIPE_PUBLISHABLE_KEY=${VITE_STRIPE_PUBLISHABLE_KEY}
-  #   container_name: auction-frontend
-  #   ports:
-  #     - "3001:8080"
-  #   depends_on:
-  #     - backend
-  #   networks:
-  #     - auction-network
-  #   restart: unless-stopped
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "exit 0"]
-  #     interval: 30s
-  #     timeout: 3s
-  #     retries: 3
-  #     start_period: 10s
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_BASE_URL=http://localhost:3000
+        # Variables must be provided in root .env or shell context for build args
+        - VITE_RECAPTCHA_SITE_KEY=${VITE_RECAPTCHA_SITE_KEY}
+        - VITE_STRIPE_PUBLIC_KEY=${VITE_STRIPE_PUBLIC_KEY}
+    container_name: auction-frontend
+    ports:
+      - "3001:8080"
+    depends_on:
+      - backend
+    networks:
+      - auction-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   # Monitoring - Loki
   loki:
@@ -97,27 +92,26 @@ services:
     depends_on:
       - loki
 
-  # PostgreSQL Database (Optional - for local development)
-  # Uncomment if not using Supabase or other cloud database
-  # postgres:
-  #   image: postgres:15-alpine
-  #   container_name: auction-db
-  #   environment:
-  #     POSTGRES_USER: ${DB_USER:-postgres}
-  #     POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-  #     POSTGRES_DB: ${DB_NAME:-online_auction}
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   networks:
-  #     - auction-network
-  #   restart: unless-stopped
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
+  # PostgreSQL Database (Local)
+  postgres:
+    image: postgres:15-alpine
+    container_name: auction-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: online_auction
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - auction-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   auction-network:
