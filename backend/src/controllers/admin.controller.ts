@@ -735,3 +735,47 @@ export const getUserDetails = async (req: AuthRequest, res: Response, next: Next
     next(error);
   }
 };
+// Generate random password
+const generateRandomPassword = (length = 10): string => {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+  let password = "";
+  for (let i = 0; i < length; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+};
+
+export const resetUserPassword = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return next(new AppError('Admin access required', 403));
+    }
+
+    const { id } = req.params;
+
+    const user = await User.findByPk(id);
+    if (!user) return next(new AppError('User not found', 404));
+
+    if (user.role === 'admin') {
+      return next(new AppError('Cannot reset password for another admin', 403));
+    }
+
+    // Generate new random password
+    const newPassword = generateRandomPassword(12);
+
+    // Update user password (model hook will handle hashing)
+    user.password = newPassword;
+    await user.save();
+
+    // Send email to user (safely require to avoid circular dependency issues if any)
+    const { sendAdminPasswordResetEmail } = require('../utils/email.util');
+    await sendAdminPasswordResetEmail(user.email, newPassword);
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully. Email sent to user.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};

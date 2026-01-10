@@ -11,7 +11,7 @@ interface StepperProps {
 export function Stepper({ activeStep, steps, className }: StepperProps) {
   return (
     <div className={cn("w-full", className)}>
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
         {steps.map((step, index) => {
           const isActive = index === activeStep;
           const isCompleted = index < activeStep;
@@ -19,10 +19,10 @@ export function Stepper({ activeStep, steps, className }: StepperProps) {
 
           return (
             <React.Fragment key={index}>
-              <div className="flex flex-col items-center flex-1">
+              <div className="flex flex-col items-center flex-1 z-10">
                 <div
                   className={cn(
-                    "flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors",
+                    "flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors bg-background",
                     isCompleted
                       ? "bg-emerald-500 border-emerald-500 text-primary-foreground"
                       : isActive
@@ -38,7 +38,7 @@ export function Stepper({ activeStep, steps, className }: StepperProps) {
                 </div>
                 <div
                   className={cn(
-                    "mt-2 text-xs font-medium text-center max-w-[100px]",
+                    "mt-2 text-xs font-medium text-center",
                     isActive || isCompleted
                       ? "text-foreground"
                       : "text-muted-foreground"

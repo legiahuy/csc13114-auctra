@@ -1,7 +1,15 @@
-import { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { io, Socket } from "socket.io-client";
-import { formatDistanceToNow } from "date-fns";
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { io, Socket } from 'socket.io-client';
+import { formatDistanceToNow } from 'date-fns';
+import { AlertCircle, CheckCircle2, XCircle, Send, CreditCard, Upload, FileText, Package, Truck, Download, Clock } from 'lucide-react';
+
+import apiClient from '../api/client';
+import { useAuthStore } from '../store/authStore';
+import toast from 'react-hot-toast';
+import Loading from '@/components/Loading';
+
+import { Button } from '@/components/ui/button';
 import {
   AlertCircle,
   CheckCircle2,
@@ -63,6 +71,10 @@ interface Order {
   paymentProof?: string;
   shippingAddress?: string;
   shippingInvoice?: string;
+  trackingNumber?: string;
+  carrierName?: string;
+  createdAt: string;
+  updatedAt: string;
   product: {
     id: number;
     name: string;
@@ -140,6 +152,14 @@ export default function OrderPage() {
   );
   const [myReview, setMyReview] = useState<Review | null>(null);
 
+  // Seller Confirmation States for Auto-Generated Invoice
+  const [trackingNumber, setTrackingNumber] = useState('');
+  const [carrierName, setCarrierName] = useState('');
+  const [isAddressConfirmed, setIsAddressConfirmed] = useState(false);
+  const [isPaymentConfirmed, setIsPaymentConfirmed] = useState(false);
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+
   // Cancel order dialog
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelResult, setCancelResult] = useState<{
@@ -157,6 +177,10 @@ export default function OrderPage() {
     shippingAddress?: string;
     shippingInvoice?: string;
   }>({});
+
+  // File upload states
+  const [uploadingPaymentProof, setUploadingPaymentProof] = useState(false);
+  const paymentProofInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-save function với debounce
   const autoSave = async (data: {
@@ -250,22 +274,18 @@ export default function OrderPage() {
 
     newSocket.on("new-message", (message: ChatMessage) => {
       // Enrich message with proper sender info if missing or if it's the generic "User"
-      const needsEnrichment =
-        !message.sender ||
+      const needsEnrichment = !message.sender ||
         !message.sender.fullName ||
-        message.sender.fullName === "User";
+        message.sender.fullName === 'User';
 
       const enrichedMessage = {
         ...message,
-        sender: needsEnrichment
-          ? {
-              id: message.senderId,
-              fullName:
-                message.senderId === order.buyerId
-                  ? order.buyer.fullName
-                  : order.seller.fullName,
-            }
-          : message.sender,
+        sender: needsEnrichment ? {
+          id: message.senderId,
+          fullName: message.senderId === order.buyerId
+            ? order.buyer.fullName
+            : order.seller.fullName
+        } : message.sender
       };
       setMessages((prev) => [...prev, enrichedMessage]);
     });
@@ -458,6 +478,7 @@ export default function OrderPage() {
 
   /* handleShippingInvoiceUpload removed as unnecessary */
 
+
   const handleStep3 = async () => {
     try {
       await apiClient.put(`/orders/${orderId}`, {
@@ -490,6 +511,12 @@ export default function OrderPage() {
       if (order) {
         setOrder({ ...order, status: "completed" });
       }
+
+      // Auto-prompt for review
+      setTimeout(() => {
+        handleOpenReviewDialog('seller');
+      }, 500);
+
     } catch (error: any) {
       toast.error(
         error.response?.data?.error?.message || "Confirmation failed"
@@ -625,6 +652,123 @@ export default function OrderPage() {
     }
   };
 
+  // Handle payment proof upload
+  const handlePaymentProofUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+
+    setUploadingPaymentProof(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const uploadResponse = await apiClient.post('/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const fileUrl = uploadResponse.data.data.url;
+      setPaymentProofUrl(fileUrl);
+
+      // Update order with payment proof
+      await apiClient.put(`/orders/${orderId}`, {
+        paymentProof: fileUrl,
+      });
+
+      toast.success('Payment proof uploaded successfully! Seller will be notified.');
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast.error(error.response?.data?.error?.message || 'Failed to upload payment proof');
+    } finally {
+      setUploadingPaymentProof(false);
+      if (paymentProofInputRef.current) {
+        paymentProofInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Handle Seller confirming payment proof
+  const handleConfirmPayment = async () => {
+    try {
+      await apiClient.put(`/orders/${orderId}`, {
+        status: 'pending_address',
+      });
+      toast.success('Payment confirmed! Buyer can now enter shipping address.');
+
+      // Update local state
+      if (order) {
+        setOrder({ ...order, status: 'pending_address' });
+        setActiveStep(1);
+      }
+    } catch (error: any) {
+      console.error('Payment confirmation error:', error);
+      toast.error(error.response?.data?.error?.message || 'Failed to confirm payment');
+    }
+  };
+
+  // Handle generating invoice and confirming shipment
+  const handleGenerateAndShip = async () => {
+    if (!order) return;
+
+    if (!trackingNumber.trim()) {
+      toast.error('Please enter a tracking number to generate the invoice');
+      return;
+    }
+
+    if (!isAddressConfirmed || !isPaymentConfirmed) {
+      toast.error('Please confirm both address and payment verification checks');
+      return;
+    }
+
+    setIsGeneratingInvoice(true);
+    try {
+      // Update order status to pending_delivery and mark invoice as generated
+      // Also save tracking details
+      await apiClient.put(`/orders/${orderId}`, {
+        status: 'pending_delivery',
+        shippingInvoice: 'generated_invoice',
+        trackingNumber: trackingNumber,
+        carrierName: carrierName || 'Default Carrier'
+      });
+
+      toast.success('Invoice generated & shipping confirmed! Buyer has been notified.');
+
+      // Update local state to reflect changes immediately
+      if (order) {
+        setOrder({
+          ...order,
+          status: 'pending_delivery',
+          shippingInvoice: 'generated_invoice',
+          trackingNumber: trackingNumber,
+          carrierName: carrierName
+        });
+        // We don't rely on activeStep state directly as it's derived from order status effect, 
+        // but setting it here provides instant feedback
+        setActiveStep(3);
+      }
+    } catch (error: any) {
+      console.error('Shipping confirmation error:', error);
+      toast.error(error.response?.data?.error?.message || 'Failed to confirm shipping');
+    } finally {
+      setIsGeneratingInvoice(false);
+    }
+  };
+
+
+
   if (loading) {
     return <Loading />;
   }
@@ -720,280 +864,578 @@ export default function OrderPage() {
               {order.status !== "cancelled" && (
                 <div className="space-y-6">
                   {/* Step 1: Payment */}
-                  {activeStep === 0 && isBuyer && (
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">
-                        Step 1: Confirm Payment
-                      </h3>
-
-                      <div className="rounded-lg border bg-card p-6 text-center space-y-4">
-                        <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                          <CreditCard className="h-6 w-6 text-primary" />
+                  {/* Step 1: Payment Verification */}
+                  {activeStep === 0 && (
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
+                          1
                         </div>
-                        <div>
-                          <p className="text-lg font-medium">Total Amount</p>
-                          <p className="text-3xl font-bold text-brand">
-                            {parseFloat(
-                              order.finalPrice.toString()
-                            ).toLocaleString("vi-VN")}{" "}
-                            VNĐ
-                          </p>
-                        </div>
-                        <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                          Securely pay for your item using Stripe. You will be
-                          redirected to a dedicated payment page.
-                        </p>
-                        <Button
-                          className="w-full max-w-sm h-11 text-base"
-                          onClick={() => navigate(`/payment/${orderId}`)}
-                        >
-                          Pay with Stripe
-                        </Button>
+                        <h3 className="text-xl font-semibold">Payment Verification</h3>
                       </div>
+
+                      {/* SELLER VIEW */}
+                      {isSeller && (
+                        <div className="rounded-lg border bg-card p-6">
+                          <h4 className="font-semibold mb-4">Review Payment Proof</h4>
+                          {!order.paymentProof ? (
+                            <div className="flex flex-col items-center justify-center py-8 text-center bg-muted/30 rounded-lg border border-dashed">
+                              <Clock className="h-8 w-8 text-muted-foreground mb-2 opacity-50" />
+                              <p className="font-medium text-muted-foreground">Waiting for payment proof</p>
+                              <p className="text-sm text-muted-foreground mt-1">The buyer hasn't uploaded payment confirmation yet.</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="rounded-lg border overflow-hidden bg-muted/10">
+                                <div className="p-3 border-b bg-muted/30 flex justify-between items-center">
+                                  <span className="text-sm font-medium flex items-center gap-2">
+                                    <FileText className="h-4 w-4" /> Proof of Payment
+                                  </span>
+                                  <a href={order.paymentProof} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:align-baseline flex items-center gap-1">
+                                    <Download className="h-3 w-3" /> View Original
+                                  </a>
+                                </div>
+                                <div className="p-4 flex justify-center bg-black/5">
+                                  <img src={order.paymentProof} alt="Proof" className="max-h-[400px] w-auto object-contain rounded shadow-sm" />
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col gap-3 p-4 bg-yellow-50 dark:bg-yellow-950/10 border border-yellow-200 dark:border-yellow-900 rounded-lg">
+                                <div className="flex gap-2">
+                                  <AlertCircle className="h-5 w-5 text-yellow-600 shrink-0" />
+                                  <div>
+                                    <h5 className="font-medium text-yellow-900 dark:text-yellow-200">Verify Payment</h5>
+                                    <p className="text-sm text-yellow-800 dark:text-yellow-300 mt-1">
+                                      Please verify the proof above matches the order amount. Confirming will allow the buyer to proceed to enter shipping address.
+                                    </p>
+                                  </div>
+                                </div>
+                                <Button onClick={handleConfirmPayment} className="w-full mt-2" size="lg">
+                                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                                  Confirm Payment & Allow Shipping
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* BUYER VIEW */}
+                      {isBuyer && (
+                        <div className="space-y-6">
+                          {/* Warning Banner */}
+                          <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 px-4 py-3">
+                            <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-red-900 dark:text-red-100">
+                                Important: Payment Confirmation
+                              </p>
+                              <p className="text-xs text-red-800 dark:text-red-200 mt-1">
+                                After paying via Stripe, please take a screenshot of the success screen and upload it here as proof.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Pay Button */}
+                          {!order.paymentProof && (
+                            <div className="rounded-lg border bg-card p-6 text-center space-y-4">
+                              <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                                <CreditCard className="h-6 w-6 text-primary" />
+                              </div>
+                              <div>
+                                <p className="text-lg font-medium">Total Amount</p>
+                                <p className="text-3xl font-bold text-brand">
+                                  {parseFloat(order.finalPrice.toString()).toLocaleString('vi-VN')} VNĐ
+                                </p>
+                              </div>
+                              <Button
+                                className="w-full max-w-sm h-11 text-base"
+                                onClick={() => navigate(`/payment/${orderId}`)}
+                              >
+                                Pay with Stripe
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Payment Proof Upload Section - Always show after payment button */}
+                          <div className="rounded-lg border bg-card p-6 space-y-4">
+                            <div className="flex items-start gap-3">
+                              <Upload className="h-5 w-5 text-blue-600 mt-0.5" />
+                              <div className="flex-1">
+                                <h4 className="font-semibold mb-2">Upload Payment Proof</h4>
+
+                                {paymentProofUrl ? (
+                                  <div className="space-y-4">
+                                    <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 px-4 py-3">
+                                      <Clock className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                      <div className="flex-1">
+                                        <p className="text-sm text-blue-900 dark:text-blue-100 font-medium">
+                                          Waiting for Seller Approval
+                                        </p>
+                                        <p className="text-sm text-blue-800 dark:text-blue-200 mt-1">
+                                          You have uploaded the proof. Please wait for the seller to verify and confirm your payment.
+                                          Once confirmed, this page will automatically update to allow you to enter your shipping address.
+                                        </p>
+                                        <a
+                                          href={paymentProofUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-xs text-blue-600 hover:underline mt-2 inline-block font-medium"
+                                        >
+                                          View uploaded proof
+                                        </a>
+                                      </div>
+                                    </div>
+                                    <div className="text-center pt-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => paymentProofInputRef.current?.click()}
+                                        disabled={uploadingPaymentProof}
+                                        className="text-xs text-muted-foreground"
+                                      >
+                                        Upload different proof if needed
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <p className="text-sm text-muted-foreground mb-4">
+                                      Upload your screenshot here after payment.
+                                    </p>
+                                    <div
+                                      className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer bg-muted/50"
+                                      onClick={() => paymentProofInputRef.current?.click()}
+                                    >
+                                      {uploadingPaymentProof ? (
+                                        <div className="flex flex-col items-center">
+                                          <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mb-2" />
+                                          <p className="text-sm text-muted-foreground">Uploading...</p>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                                          <p className="text-sm font-medium">Click to upload image</p>
+                                          <p className="text-xs text-muted-foreground mt-1">Accepts JPG, PNG (Max 5MB)</p>
+                                        </>
+                                      )}
+                                    </div>
+                                  </>
+                                )}
+                                <input
+                                  ref={paymentProofInputRef}
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handlePaymentProofUpload}
+                                  className="hidden"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
+
 
                   {/* Step 2: Shipping Address */}
-                  {activeStep === 1 && isBuyer && (
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">
-                        Step 2: Send Shipping Address
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm font-medium mb-1.5 block">
-                            House Number
-                          </label>
-                          <Input
-                            value={addressData.houseNumber}
-                            onChange={(e) =>
-                              setAddressData({
-                                ...addressData,
-                                houseNumber: e.target.value,
-                              })
-                            }
-                            placeholder="e.g. 123"
-                          />
+                  {
+                    activeStep === 1 && isBuyer && (
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
+                            2
+                          </div>
+                          <h3 className="text-xl font-semibold">Shipping Address</h3>
                         </div>
-                        <div>
-                          <label className="text-sm font-medium mb-1.5 block">
-                            Street Name
-                          </label>
-                          <Input
-                            value={addressData.street}
-                            onChange={(e) =>
-                              setAddressData({
-                                ...addressData,
-                                street: e.target.value,
-                              })
-                            }
-                            placeholder="e.g. Nguyen Van Linh"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium mb-1.5 block">
-                            City
-                          </label>
-                          <Input
-                            value={addressData.city}
-                            onChange={(e) =>
-                              setAddressData({
-                                ...addressData,
-                                city: e.target.value,
-                              })
-                            }
-                            placeholder="e.g. Ho Chi Minh City"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium mb-1.5 block">
-                            Country
-                          </label>
-                          <Input
-                            value={addressData.country}
-                            onChange={(e) =>
-                              setAddressData({
-                                ...addressData,
-                                country: e.target.value,
-                              })
-                            }
-                            placeholder="e.g. Vietnam"
-                          />
+
+                        <div className="rounded-lg border bg-card p-6 space-y-4">
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Please enter your complete shipping address so the seller can ship the item.
+                          </p>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-sm font-medium mb-1.5 block">House Number *</label>
+                              <Input
+                                value={addressData.houseNumber}
+                                onChange={(e) => setAddressData({ ...addressData, houseNumber: e.target.value })}
+                                placeholder="e.g. 123"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium mb-1.5 block">Street Name *</label>
+                              <Input
+                                value={addressData.street}
+                                onChange={(e) => setAddressData({ ...addressData, street: e.target.value })}
+                                placeholder="e.g. Nguyen Van Linh"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium mb-1.5 block">City *</label>
+                              <Input
+                                value={addressData.city}
+                                onChange={(e) => setAddressData({ ...addressData, city: e.target.value })}
+                                placeholder="e.g. Ho Chi Minh City"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium mb-1.5 block">Country *</label>
+                              <Input
+                                value={addressData.country}
+                                onChange={(e) => setAddressData({ ...addressData, country: e.target.value })}
+                                placeholder="e.g. Vietnam"
+                              />
+                            </div>
+                          </div>
+
+                          <Button
+                            onClick={handleStep2}
+                            disabled={!addressData.houseNumber || !addressData.street || !addressData.city || !addressData.country}
+                            className="w-full"
+                            size="lg"
+                          >
+                            <Package className="h-5 w-5 mr-2" />
+                            Confirm Address
+                          </Button>
                         </div>
                       </div>
-
-                      <Button
-                        onClick={handleStep2}
-                        disabled={
-                          !addressData.houseNumber ||
-                          !addressData.street ||
-                          !addressData.city ||
-                          !addressData.country
-                        }
-                      >
-                        Confirm Address
-                      </Button>
-                    </div>
-                  )}
+                    )
+                  }
 
                   {/* Buyer waiting for seller to ship */}
-                  {((activeStep === 1 &&
-                    order?.status === "pending_address" &&
-                    order?.shippingAddress) ||
-                    activeStep === 2) &&
-                    isBuyer &&
-                    order?.status !== "pending_shipping" &&
-                    order?.status !== "pending_delivery" && (
+                  {
+                    ((activeStep === 1 && order?.status === 'pending_address' && order?.shippingAddress) || activeStep === 2) && isBuyer && order?.status !== 'pending_shipping' && order?.status !== 'pending_delivery' && (
                       <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                         <AlertCircle className="h-4 w-4 mt-0.5" />
-                        <p className="text-sm my-0">
-                          You have sent the address. Please wait for the seller
-                          to confirm and ship.
-                        </p>
+                        <p>You have sent the address. Please wait for the seller to confirm and ship.</p>
                       </div>
-                    )}
+                    )
+                  }
 
                   {/* Step 3: Seller confirms shipping */}
-                  {order?.status === "pending_address" &&
-                    order?.shippingAddress &&
-                    isSeller && (
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-semibold">
-                          Step 3: Confirm Payment Received and Ship
-                        </h3>
+                  {
+                    order?.status === 'pending_address' && order?.shippingAddress && isSeller && (
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
+                            3
+                          </div>
+                          <h3 className="text-xl font-semibold">Confirm Shipping</h3>
+                        </div>
+
+                        {/* Shipping Address Display */}
                         {order.shippingAddress && (
-                          <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                            <AlertCircle className="h-4 w-4 mt-0.5" />
-                            <div>
-                              <p className="font-medium mb-1">
-                                Shipping Address:
-                              </p>
-                              <p>{order.shippingAddress}</p>
+                          <div className="rounded-lg border bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 p-6">
+                            <div className="flex items-start gap-3">
+                              <Package className="h-6 w-6 text-amber-600 mt-1" />
+                              <div className="flex-1">
+                                <p className="font-semibold mb-2 text-amber-900 dark:text-amber-100">
+                                  Shipping Address:
+                                </p>
+                                <p className="text-sm text-amber-800 dark:text-amber-200 bg-white/50 dark:bg-black/20 rounded p-3">
+                                  {order.shippingAddress}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         )}
-                        <div>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Please confirm that you have shipped the item to the
-                            buyer's address above.
-                          </p>
-                        </div>
-                        <Button onClick={handleStep3}>Confirm Shipped</Button>
-                      </div>
-                    )}
 
-                  {/* Step 4: Buyer confirms delivery */}
-                  {order?.status === "pending_shipping" && isBuyer && (
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">
-                        Step 4: Confirm Delivery
-                      </h3>
-                      <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                        <AlertCircle className="h-4 w-4 mt-0.5" />
-                        <p>Please check the goods before confirming</p>
-                      </div>
-                      <Button onClick={handleStep4}>Confirm Delivery</Button>
-                    </div>
-                  )}
-
-                  {/* Completed */}
-                  {order.status === "completed" && (
-                    <div className="space-y-4">
-                      <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
-                        <CheckCircle2 className="h-4 w-4 mt-0.5" />
-                        <p className="text-sm my-0">
-                          Order completed successfully!
-                        </p>
-                      </div>
-
-                      {/* Step 5: Review */}
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-semibold">
-                          Step 5: Review Transaction
-                        </h3>
-
-                        {/* Display current reviews if any */}
-                        {order.reviews && order.reviews.length > 0 && (
-                          <div className="space-y-3">
-                            <p className="text-sm font-medium">
-                              Current Reviews:
-                            </p>
-                            {order.reviews.map((review) => (
-                              <Card key={review.id}>
-                                <CardContent className="p-4">
-                                  <div className="flex justify-between items-center mb-2">
-                                    <p className="text-sm font-semibold">
-                                      {review.reviewer.fullName} reviewed{" "}
-                                      {review.reviewerId === order.sellerId
-                                        ? order.buyer.fullName
-                                        : order.seller.fullName}
+                        {/* Payment Proof Display for Seller */}
+                        {order.paymentProof && (
+                          <div className="rounded-lg border bg-card p-6">
+                            <div className="flex items-start gap-3">
+                              <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+                              <div className="flex-1">
+                                <h4 className="font-semibold mb-2">Payment Proof from Buyer</h4>
+                                <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 px-4 py-3">
+                                  <FileText className="h-4 w-4 text-green-600 mt-0.5" />
+                                  <div className="flex-1">
+                                    <p className="text-sm text-green-900 dark:text-green-100">
+                                      Buyer has uploaded payment proof
                                     </p>
-                                    <Badge
-                                      variant={
-                                        review.rating === 1
-                                          ? "default"
-                                          : "destructive"
-                                      }
+                                    <a
+                                      href={order.paymentProof}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-blue-600 hover:underline mt-1 inline-block"
                                     >
-                                      {review.rating === 1
-                                        ? "+1 (Positive)"
-                                        : "-1 (Negative)"}
-                                    </Badge>
+                                      Xem hóa đơn / View proof
+                                    </a>
                                   </div>
-                                  <p className="text-sm text-muted-foreground mb-2">
-                                    {review.comment}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {formatDistanceToNow(
-                                      new Date(
-                                        review.updatedAt || review.createdAt
-                                      ),
-                                      { addSuffix: true }
-                                    )}
-                                  </p>
-                                </CardContent>
-                              </Card>
-                            ))}
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         )}
 
-                        {/* Review form for current user */}
-                        {user && (
-                          <div className="space-y-3">
-                            {myReview ? (
-                              <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                                <AlertCircle className="h-4 w-4 mt-0.5" />
-                                <p className="text-sm my-0">
-                                  You have already reviewed. You can change your
-                                  review at any time.
+                        {/* Shipping Confirmation Section with Auto Invoice Generation */}
+                        <div className="rounded-lg border bg-card p-6 space-y-6">
+                          <div className="flex items-start gap-3">
+                            <Truck className="h-5 w-5 text-blue-600 mt-0.5" />
+                            <div className="flex-1 space-y-4">
+                              <div>
+                                <h4 className="font-semibold mb-1">Create Invoice & Ship</h4>
+                                <p className="text-sm text-muted-foreground">
+                                  Enter shipping details below. The system will automatically generate an invoice for the buyer.
                                 </p>
                               </div>
-                            ) : (
-                              <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                                <AlertCircle className="h-4 w-4 mt-0.5" />
-                                <p className="text-sm my-0">
-                                  Please review the{" "}
-                                  {isBuyer ? "seller" : "buyer"} to complete the
-                                  transaction.
-                                </p>
-                              </div>
-                            )}
 
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <label className="text-sm font-medium mb-1.5 block">Tracking Number *</label>
+                                  <Input
+                                    value={trackingNumber}
+                                    onChange={(e) => setTrackingNumber(e.target.value)}
+                                    placeholder="e.g. VN123456789"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-sm font-medium mb-1.5 block">Carrier Name</label>
+                                  <Input
+                                    value={carrierName}
+                                    onChange={(e) => setCarrierName(e.target.value)}
+                                    placeholder="e.g. Viettel Post"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="space-y-3 pt-2 border-t">
+                                <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">Confirmation Checklist</h5>
+
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="checkbox"
+                                    id="confirm-addr"
+                                    checked={isAddressConfirmed}
+                                    onChange={(e) => setIsAddressConfirmed(e.target.checked)}
+                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                  />
+                                  <label htmlFor="confirm-addr" className="text-sm cursor-pointer select-none">
+                                    I verify that the address <strong>{order.shippingAddress}</strong> is correct and valid for delivery.
+                                  </label>
+                                </div>
+
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="checkbox"
+                                    id="confirm-pay"
+                                    checked={isPaymentConfirmed}
+                                    onChange={(e) => setIsPaymentConfirmed(e.target.checked)}
+                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                  />
+                                  <label htmlFor="confirm-pay" className="text-sm cursor-pointer select-none">
+                                    I confirm that I have received full payment of <strong>{parseFloat(order.finalPrice.toString()).toLocaleString('vi-VN')} VNĐ</strong>.
+                                  </label>
+                                </div>
+                              </div>
+
+                              <Button
+                                onClick={handleGenerateAndShip}
+                                disabled={isGeneratingInvoice || !trackingNumber || !isAddressConfirmed || !isPaymentConfirmed}
+                                className="w-full mt-4"
+                                size="lg"
+                              >
+                                {isGeneratingInvoice ? (
+                                  <>
+                                    <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2" />
+                                    Generating Invoice & Shipping...
+                                  </>
+                                ) : (
+                                  <>
+                                    <FileText className="h-4 w-4 mr-2" />
+                                    Create Invoice & Confirm Shipping
+                                  </>
+                                )}
+                              </Button>
+
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  {/* Step 4: Delivery & Invoice */}
+                  {
+                    (order?.status === 'pending_shipping' || order?.status === 'pending_delivery') && (
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
+                            4
+                          </div>
+                          <h3 className="text-xl font-semibold">
+                            {isBuyer ? 'Confirm Delivery' : 'Shipping & Invoice'}
+                          </h3>
+                        </div>
+
+                        {/* Invoice Display - Visible to BOTH Buyer and Seller */}
+                        <Card className="border-2 border-dashed bg-gray-50/50 dark:bg-gray-900/10">
+                          <CardContent className="p-6">
+                            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6 border-b pb-4">
+                              <div>
+                                <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                  <FileText className="h-5 w-5" />
+                                  INVOICE
+                                </h4>
+                                <p className="text-sm text-muted-foreground">#{order.id}</p>
+                              </div>
+                              <div className="text-left sm:text-right">
+                                <Badge variant="outline" className="mb-1 font-mono">
+                                  {order.trackingNumber || 'No Tracking'}
+                                </Badge>
+                                <p className="text-sm font-medium">{order.carrierName || 'Standard Shipping'}</p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                              <div className="space-y-1">
+                                <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Bill To (Buyer)</h5>
+                                <p className="font-semibold">{order.buyer.fullName}</p>
+                                <p className="text-sm text-muted-foreground break-words">{order.shippingAddress || 'Address not provided'}</p>
+                                <p className="text-sm text-muted-foreground">{order.buyer.email}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Ship From (Seller)</h5>
+                                <p className="font-semibold">{order.seller.fullName}</p>
+                                <p className="text-sm text-muted-foreground">{order.seller.email}</p>
+                              </div>
+                            </div>
+
+                            <div className="bg-white dark:bg-black/20 rounded-lg border p-4 mb-6">
+                              <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Item Details</h5>
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <p className="font-medium text-lg">{order.product.name}</p>
+                                  <Badge variant="secondary" className="text-xs">Auction Won</Badge>
+                                </div>
+                                <p className="font-bold text-lg text-brand whitespace-nowrap">
+                                  {parseFloat(order.finalPrice.toString()).toLocaleString('vi-VN')} VNĐ
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex justify-end gap-2">
+                              {order.shippingInvoice === 'generated_invoice' && (
+                                <Button variant="outline" size="sm" onClick={() => setInvoiceDialogOpen(true)}>
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  View Full Invoice
+                                </Button>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Buyer Actions */}
+                        {isBuyer && (
+                          <div className="rounded-lg border bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 p-6">
+                            <div className="flex items-start gap-3 mb-4">
+                              <AlertCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                              <div className="space-y-1">
+                                <p className="text-sm text-green-900 dark:text-green-100 font-medium">
+                                  Has the package arrived safely?
+                                </p>
+                                <p className="text-xs text-green-800 dark:text-green-200">
+                                  Please inspect the item before confirming receipt. This will complete the order and release funds to the seller.
+                                </p>
+                              </div>
+                            </div>
                             <Button
-                              variant={myReview ? "outline" : "default"}
-                              onClick={() =>
-                                handleOpenReviewDialog(
-                                  isBuyer ? "seller" : "buyer"
-                                )
-                              }
+                              onClick={handleStep4}
+                              className="w-full bg-green-600 hover:bg-green-700 text-white"
+                              size="lg"
                             >
-                              {myReview ? "Change Review" : "Review"}
+                              <CheckCircle2 className="h-5 w-5 mr-2" />
+                              Already Received
                             </Button>
                           </div>
                         )}
+
+                        {/* Seller Status */}
+                        {isSeller && (
+                          <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 px-4 py-3">
+                            <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                                Shipment in Progress
+                              </p>
+                              <p className="text-sm text-blue-800 dark:text-blue-200 mt-1">
+                                You have confirmed the shipment. The invoice is visible to the buyer.
+                                Waiting for the buyer to confirm they have received the goods.
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    )
+                  }
+
+                  {/* Completed */}
+                  {
+                    order.status === 'completed' && (
+                      <div className="space-y-4">
+                        <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
+                          <CheckCircle2 className="h-4 w-4 mt-0.5" />
+                          <p>Order completed! You can now review each other.</p>
+                        </div>
+
+                        {/* Step 5: Review */}
+                        <div className="space-y-4">
+                          <h3 className="text-lg font-semibold">Step 5: Review Transaction</h3>
+
+                          {/* Display current reviews if any */}
+                          {order.reviews && order.reviews.length > 0 && (
+                            <div className="space-y-3">
+                              <p className="text-sm font-medium">Current Reviews:</p>
+                              {order.reviews.map((review) => (
+                                <Card key={review.id}>
+                                  <CardContent className="p-4">
+                                    <div className="flex justify-between items-center mb-2">
+                                      <p className="text-sm font-semibold">
+                                        {review.reviewer.fullName} reviewed{' '}
+                                        {review.reviewerId === order.sellerId ? order.buyer.fullName : order.seller.fullName}
+                                      </p>
+                                      <Badge variant={review.rating === 1 ? 'default' : 'destructive'}>
+                                        {review.rating === 1 ? '+1 (Positive)' : '-1 (Negative)'}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground mb-2">{review.comment}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {formatDistanceToNow(new Date(review.updatedAt || review.createdAt), { addSuffix: true })}
+                                    </p>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Review form for current user */}
+                          {user && (
+                            <div className="space-y-3">
+                              {myReview ? (
+                                <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                                  <AlertCircle className="h-4 w-4 mt-0.5" />
+                                  <p>You have already reviewed. You can change your review at any time.</p>
+                                </div>
+                              ) : (
+                                <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                                  <AlertCircle className="h-4 w-4 mt-0.5" />
+                                  <p>Please review the {isBuyer ? 'seller' : 'buyer'} to complete the transaction.</p>
+                                </div>
+                              )}
+
+                              <Button
+                                variant={myReview ? 'outline' : 'default'}
+                                onClick={() => handleOpenReviewDialog(isBuyer ? 'seller' : 'buyer')}
+                              >
+                                {myReview ? 'Change Review' : 'Review'}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  }
 
                   {/* Actions for order */}
                   <div className="flex gap-2 flex-wrap pt-4 border-t">
@@ -1012,13 +1454,13 @@ export default function OrderPage() {
                       </Button>
                     )}
                   </div>
-                </div>
+                </div >
               )}
-            </CardContent>
-          </Card>
+            </CardContent >
+          </Card >
 
           {/* Chat Section */}
-          <Card className="overflow-hidden">
+          < Card className="overflow-hidden" >
             <CardHeader className="border-b pb-3">
               <CardTitle className="text-base">Messages</CardTitle>
             </CardHeader>
@@ -1153,11 +1595,11 @@ export default function OrderPage() {
                 </div>
               </div>
             </CardContent>
-          </Card>
-        </div>
+          </Card >
+        </div >
 
         {/* Right column - Order info */}
-        <div className="space-y-4 lg:sticky lg:top-20 lg:h-fit">
+        < div className="space-y-4 lg:sticky lg:top-20 lg:h-fit" >
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Order Information</CardTitle>
@@ -1202,13 +1644,15 @@ export default function OrderPage() {
                   VNĐ
                 </p>
               </div>
+
+
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </div >
+      </div >
 
       {/* Cancel Order Dialog */}
-      <Dialog
+      < Dialog
         open={cancelDialogOpen}
         onOpenChange={(open) => {
           setCancelDialogOpen(open);
@@ -1273,16 +1717,13 @@ export default function OrderPage() {
             )}
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog >
 
       {/* Review Dialog */}
-      <Dialog
-        open={reviewDialogOpen}
-        onOpenChange={(open) => {
-          setReviewDialogOpen(open);
-          if (!open) setReviewingFor(null);
-        }}
-      >
+      < Dialog open={reviewDialogOpen} onOpenChange={(open) => {
+        setReviewDialogOpen(open);
+        if (!open) setReviewingFor(null);
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
@@ -1344,7 +1785,86 @@ export default function OrderPage() {
             </Button>
           </DialogFooter>
         </DialogContent>
+      </Dialog >
+
+      {/* Invoice Preview Dialog */}
+      <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Shipping Invoice Preview</DialogTitle>
+          </DialogHeader>
+
+          <div className="border rounded-lg p-8 bg-white text-black font-sans shadow-sm my-2">
+            <div className="flex justify-between border-b border-gray-100 pb-6 mb-6">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 tracking-tight">INVOICE</h1>
+                <p className="text-sm text-gray-500 mt-2 font-medium">No. INV-{order?.id}</p>
+                <p className="text-sm text-gray-500">Date: {order && (order.updatedAt || order.createdAt) ? new Date(order.updatedAt || order.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</p>
+              </div>
+              <div className="text-right">
+                <h3 className="font-semibold text-gray-800 uppercase text-xs tracking-wider mb-1">Shipping Details</h3>
+                <p className="text-sm text-gray-700">Tracking: <strong className="font-mono bg-gray-100 px-1 rounded">{order?.trackingNumber || 'N/A'}</strong></p>
+                <p className="text-sm text-gray-700 mt-1">Carrier: {order?.carrierName || 'Standard'}</p>
+              </div>
+            </div>
+
+            <div className="flex justify-between mb-8 gap-8">
+              <div className="w-1/2 bg-gray-50 p-4 rounded-md">
+                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 border-b border-gray-200 pb-2">Bill To (Buyer)</h4>
+                <p className="font-bold text-lg text-gray-900">{order?.buyer?.fullName}</p>
+                <p className="text-sm text-gray-600 mt-1 leading-relaxed">{order?.shippingAddress}</p>
+                <p className="text-sm text-gray-500 mt-2 flex items-center gap-1">
+                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span> {order?.buyer?.email}
+                </p>
+              </div>
+              <div className="w-1/2 bg-gray-50 p-4 rounded-md">
+                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 border-b border-gray-200 pb-2">Ship From (Seller)</h4>
+                <p className="font-bold text-lg text-gray-900">{order?.seller?.fullName}</p>
+                <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
+                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span> {order?.seller?.email}
+                </p>
+              </div>
+            </div>
+
+            <table className="w-full mb-8 border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border-y border-gray-100">
+                  <th className="text-left py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Item Description</th>
+                  <th className="text-right py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="py-4 px-4 border-b border-gray-50">
+                    <p className="font-medium text-gray-900 text-lg">{order?.product?.name}</p>
+                    <Badge variant="secondary" className="mt-1 text-xs font-normal">Auction Item Winner</Badge>
+                  </td>
+                  <td className="py-4 px-4 border-b border-gray-50 text-right text-gray-900 font-medium">
+                    {order && parseFloat(order.finalPrice.toString()).toLocaleString('vi-VN')} VNĐ
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr className="bg-gray-50 border-t border-gray-200">
+                  <td className="py-4 px-4 text-right font-bold text-gray-700">Total Due</td>
+                  <td className="py-4 px-4 text-right font-bold text-green-700 text-xl whitespace-nowrap">
+                    {order && parseFloat(order.finalPrice.toString()).toLocaleString('vi-VN')} VNĐ
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+
+            <div className="text-center text-xs text-gray-400 mt-12">
+              <p>This is a computer-generated invoice used for shipping verification.</p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
-    </div>
+
+    </div >
   );
 }

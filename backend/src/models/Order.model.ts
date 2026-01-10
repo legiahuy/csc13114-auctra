@@ -13,6 +13,8 @@ export interface OrderAttributes {
   paymentProof?: string; // URL to payment proof image
   shippingAddress?: string;
   shippingInvoice?: string;
+  trackingNumber?: string;
+  carrierName?: string;
   cancelledBy?: 'seller' | 'buyer';
   cancellationReason?: string;
   createdAt?: Date;
@@ -33,6 +35,8 @@ export class Order extends Model<OrderAttributes, OrderCreationAttributes> imple
   public paymentProof?: string;
   public shippingAddress?: string;
   public shippingInvoice?: string;
+  public trackingNumber?: string;
+  public carrierName?: string;
   public cancelledBy?: 'seller' | 'buyer';
   public cancellationReason?: string;
   public readonly createdAt!: Date;
@@ -103,6 +107,14 @@ Order.init(
       allowNull: true,
     },
     shippingInvoice: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    trackingNumber: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    carrierName: {
       type: DataTypes.STRING,
       allowNull: true,
     },

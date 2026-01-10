@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Circle,
   Eye,
+  Key,
   Loader2,
 } from "lucide-react";
 import apiClient from "../api/client";
@@ -148,7 +149,7 @@ export default function AdminDashboardPage() {
     open: false,
     title: "",
     description: "",
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
 
   // Rejection Reason Dialog State
@@ -301,6 +302,15 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const refreshCategories = async () => {
+    try {
+      const res = await apiClient.get("/categories");
+      setCategories(res.data.data);
+    } catch (error) {
+      console.error("Error refreshing categories:", error);
+    }
+  };
+
   const handleCreateCategory = async () => {
     if (!categoryName.trim()) {
       toast.error("Please enter category name");
@@ -320,6 +330,7 @@ export default function AdminDashboardPage() {
       setCategoryDialogOpen(false);
       setCategoryName("");
       setParentCategoryId("0");
+      refreshCategories();
       fetchData(false);
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || "Failed to create category");
@@ -348,6 +359,7 @@ export default function AdminDashboardPage() {
       setSelectedCategory(null);
       setCategoryName("");
       setParentCategoryId("0");
+      refreshCategories();
       fetchData(false);
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || "Failed to update");
@@ -366,6 +378,7 @@ export default function AdminDashboardPage() {
         try {
           await apiClient.delete(`/categories/${id}`);
           toast.success("Category deleted successfully");
+          refreshCategories();
           fetchData(false);
         } catch (error: any) {
           toast.error(error.response?.data?.error?.message || "Failed to delete");
@@ -384,9 +397,28 @@ export default function AdminDashboardPage() {
         try {
           await apiClient.delete(`/products/${id}`);
           toast.success("Product deleted successfully");
+          fetchProducts(productsPage, productsSearch, productsStatus);
+          fetchStats();
           fetchData(false);
         } catch (error: any) {
           toast.error(error.response?.data?.error?.message || "Failed to delete");
+        }
+      },
+    });
+  };
+
+  const handleResetPassword = async (id: number) => {
+    setConfirmDialog({
+      open: true,
+      title: "Reset Password",
+      description: "Are you sure you want to reset this user's password? A new password will be generated and sent to their email.",
+      variant: "default",
+      onConfirm: async () => {
+        try {
+          await apiClient.post(`/admin/users/${id}/reset-password`);
+          toast.success("Password reset successfully");
+        } catch (error: any) {
+          toast.error(error.response?.data?.error?.message || "Failed to reset password");
         }
       },
     });
@@ -909,10 +941,10 @@ export default function AdminDashboardPage() {
                                 status === "pending"
                                   ? "outline"
                                   : status === "approved"
-                                  ? "default"
-                                  : status === "rejected"
-                                  ? "destructive"
-                                  : "secondary"
+                                    ? "default"
+                                    : status === "rejected"
+                                      ? "destructive"
+                                      : "secondary"
                               }
                               className={`text-xs ${
                                 status === "approved" ? "bg-green-500 hover:bg-green-600" : 
@@ -934,6 +966,15 @@ export default function AdminDashboardPage() {
                             onClick={() => setUserDetailsModal({ open: true, userId: u.id })}
                           >
                             <Eye className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-orange-500 hover:text-orange-700"
+                            onClick={() => handleResetPassword(u.id)}
+                            title="Reset Password"
+                          >
+                            <Key className="h-3 w-3" />
                           </Button>
                           <Button
                             variant="ghost"

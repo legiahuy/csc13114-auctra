@@ -46,21 +46,21 @@ export default function Layout({ children }: LayoutProps) {
 
     const checkUserRole = async () => {
       if (!isActive) return;
-      
+
       try {
         const response = await apiClient.get("/users/profile");
         const updatedUser = response.data.data;
-        
+
         // Get the current user from the store at check time
         const currentUser = useAuthStore.getState().user;
         if (!currentUser) return;
-        
+
         console.log("Role check:", {
           currentRole: currentUser.role,
           fetchedRole: updatedUser.role,
           willUpdate: updatedUser.role !== currentUser.role
         });
-        
+
         // If role or upgrade status has changed, update the auth store
         if (
           updatedUser.role !== currentUser.role ||
@@ -234,7 +234,10 @@ export default function Layout({ children }: LayoutProps) {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost">Categories</Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent
+                  align="end"
+                  className="w-56 max-h-[80vh] overflow-y-auto"
+                >
                   {categories.length === 0 ? (
                     <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
                   ) : (

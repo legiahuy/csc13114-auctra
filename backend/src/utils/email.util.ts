@@ -113,7 +113,7 @@ export const sendEmail = async (
       logger.error(`❌ SMTP Response: ${error.response}`);
     }
     logger.error(`❌ Full Error Stack: ${error.stack}`);
-    
+
     // Log connection details if available
     if (error.address) logger.error(`❌ Connected to: ${error.address}:${error.port}`);
   }
@@ -373,3 +373,18 @@ export const sendBidRejectedEmail = async (
   await sendEmail(email, `Bid Rejected - ${productName}`, html);
 };
 
+export const sendAdminPasswordResetEmail = async (
+  email: string,
+  newPassword: string
+): Promise<void> => {
+  const templatePath = path.join(__dirname, "../templates/otp-email.mjml");
+  // Using the OTP template but adapting it for password reset notification
+  const html = renderMJMLTemplate(templatePath, {
+    emailType: "Password Reset Notification",
+    message: `Your password has been reset by an administrator. Please use the following temporary password to log in. We recommend changing your password immediately after logging in.`,
+    codeLabel: "New Password",
+    code: newPassword,
+    expiryText: "This password does not expire, but please change it soon for security.",
+  });
+  await sendEmail(email, "Your Password Has Been Reset - Auctra", html);
+};

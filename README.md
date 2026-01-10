@@ -147,7 +147,7 @@ Auctra solves the challenge of creating a reliable and engaging online auction e
    ```bash
    cd backend
    npm install
-   cp env.example .env
+   cp .env.example .env
    # Edit .env with your configuration
    npm run seed  # Seed database with sample data
    npm run dev   # Start development server
@@ -204,6 +204,9 @@ FRONTEND_URL=http://localhost:5173
 # reCAPTCHA & Stripe
 RECAPTCHA_SECRET_KEY=your-secret-key
 STRIPE_SECRET_KEY=your-stripe-secret-key
+
+#Grafana
+LOKI_HOST=http://localhost:3100
 ```
 
 #### Frontend (.env)
@@ -225,6 +228,24 @@ docker-compose up --build
 # Stop services
 docker-compose down
 ```
+
+## Logging & Monitoring
+
+The platform includes a comprehensive monitoring stack using **Loki**, and **Grafana**.
+
+### Setup
+**Setup Backend**: Ensure `LOKI_HOST=http://localhost:3100` is set in your `backend/.env`.
+
+### Start Monitoring Stack
+Run only the monitoring services using Docker Compose:
+```bash
+docker-compose up -d --no-deps prometheus loki grafana
+```
+
+### Access Dashboards
+- **Grafana**: [http://localhost:3002](http://localhost:3002) (User/Pass: `admin`/`admin`)
+- **Loki Explorer**: Inside Grafana, go to **Explore** and select **Loki** as the datasource.
+
 
 ## Project Structure
 

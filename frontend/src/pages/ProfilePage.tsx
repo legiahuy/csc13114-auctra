@@ -6,7 +6,6 @@ import {
   User,
   Star,
   Heart,
-  Gavel,
   Trophy,
   Edit,
   Lock,
@@ -147,11 +146,11 @@ export default function ProfilePage() {
       return;
     }
     fetchData();
-  }, [authUser, navigate, bidsPagination.page]);
+  }, [authUser, navigate]);
 
   const fetchData = async () => {
     try {
-      const [profileRes, reviewsRes, watchlistRes, bidsRes, wonRes] =
+      const [profileRes, reviewsRes, watchlistRes, wonRes] =
         await Promise.all([
           apiClient.get("/users/profile"),
           apiClient.get("/users/reviews"),
@@ -541,13 +540,6 @@ export default function ProfilePage() {
                       {watchlist.length}
                     </Badge>
                   </TabsTrigger>
-                  <TabsTrigger value="bids" className="flex items-center gap-2">
-                    <Gavel className="h-4 w-4" />
-                    <span className="hidden sm:inline">Bids</span>
-                    <Badge variant="secondary" className="ml-1">
-                      {bidsPagination.total}
-                    </Badge>
-                  </TabsTrigger>
                   <TabsTrigger value="won" className="flex items-center gap-2">
                     <Trophy className="h-4 w-4" />
                     <span className="hidden sm:inline">Won</span>
@@ -823,40 +815,43 @@ export default function ProfilePage() {
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {wonProducts.map((order) => (
-                          <Link
+                          <div
                             key={order.id}
-                            to={`/orders/${order.id}`}
-                            className="group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow"
+                            className="group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow flex flex-col"
                           >
-                            <div className="aspect-video overflow-hidden">
-                              <img
-                                src={order.product.mainImage}
-                                alt={order.product.name}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
-                            </div>
-                            <div className="p-3 space-y-2">
-                              <p className="text-sm font-medium line-clamp-2">
-                                {order.product.name}
-                              </p>
-                              <div>
-                                <p className="text-xs text-muted-foreground">
-                                  Final price
-                                </p>
-                                <p className="text-sm font-semibold text-brand">
-                                  {Number(order.finalPrice).toLocaleString(
-                                    "vi-VN"
-                                  )}{" "}
-                                  VNĐ
-                                </p>
+                            <Link to={`/orders/${order.id}`} className="block flex-1">
+                              <div className="aspect-video overflow-hidden">
+                                <img
+                                  src={order.product.mainImage}
+                                  alt={order.product.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
                               </div>
+                              <div className="p-3 space-y-2">
+                                <p className="text-sm font-medium line-clamp-2">
+                                  {order.product.name}
+                                </p>
+                                <div>
+                                  <p className="text-xs text-muted-foreground">
+                                    Final price
+                                  </p>
+                                  <p className="text-sm font-semibold text-brand">
+                                    {Number(order.finalPrice).toLocaleString(
+                                      "vi-VN"
+                                    )}{" "}
+                                    VNĐ
+                                  </p>
+                                </div>
+                              </div>
+                            </Link>
+                            <div className="p-3 pt-0 flex items-center justify-between mt-auto">
                               <Badge
                                 variant={
                                   order.status === "completed"
                                     ? "default"
                                     : order.status === "cancelled"
-                                    ? "destructive"
-                                    : "secondary"
+                                      ? "destructive"
+                                      : "secondary"
                                 }
                                 className={`text-xs ${
                                     order.status === "completed"
@@ -869,16 +864,22 @@ export default function ProfilePage() {
                                 {order.status === "pending_payment"
                                   ? "Pending Payment"
                                   : order.status === "pending_address"
-                                  ? "Pending Address"
-                                  : order.status === "pending_shipping" ||
-                                    order.status === "pending_delivery"
-                                  ? "Shipping"
-                                  : order.status === "completed"
-                                  ? "Completed"
-                                  : "Cancelled"}
+                                    ? "Pending Address"
+                                    : order.status === "pending_shipping" ||
+                                      order.status === "pending_delivery"
+                                      ? "Shipping"
+                                      : order.status === "completed"
+                                        ? "Completed"
+                                        : "Cancelled"}
                               </Badge>
+
+                              <Button variant="outline" size="sm" asChild>
+                                <Link to={`/products/${order.product.id}`}>
+                                  View details
+                                </Link>
+                              </Button>
                             </div>
-                          </Link>
+                          </div>
                         ))}
                       </div>
                     )}
