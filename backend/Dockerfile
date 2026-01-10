@@ -40,6 +40,9 @@ RUN npm ci --only=production && \
 # Copy built application from builder
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 
+# Copy source code for Swagger documentation
+COPY --from=builder --chown=nodejs:nodejs /app/src ./src
+
 # Copy necessary files
 COPY --chown=nodejs:nodejs src/templates ./dist/templates
 
