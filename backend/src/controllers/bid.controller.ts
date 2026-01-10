@@ -170,10 +170,11 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
             });
         } else {
             // Case 2: Champion Defends (Incoming Loses)
-            // Tie (==) also goes here because Champion was earlier (createdAt ASC)
-            // Price = min(ChampionMax, IncomingLimit + Step)
+            // Price = IncomingLimit
+            // The champion defends by matching the incoming bid's limit.
+            // No need to add step because the incoming bid is already maxed out.
             
-            newPrice = Math.min(championMax, incomingBidLimit + bidStep);
+            newPrice = incomingBidLimit;
             isIncomingWinner = false;
 
             // 1. Record Incoming Bid (The failed attempt)
@@ -186,14 +187,9 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
                 isAutoBid: isAutoBid || false
             });
 
-            // 2. Record Defensive Bid for Champion
-            await Bid.create({
-                productId,
-                bidderId: champion.bidderId,
-                amount: newPrice,
-                maxAmount: championMax,
-                isAutoBid: true // Implicit auto-bid defense
-            });
+            // 2. NO Defensive Bid Record for Champion (Per user request for clean history)
+            // The champion defends silently. Current price is updated on Product.
+            // await Bid.create({ ... }); 
         }
       }
     }
@@ -201,12 +197,8 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
     // Update Product
     product.currentPrice = newPrice;
     
-    // Increment count. If defense happened, we added 2 bids.
-    if (!isIncomingWinner && activeHighestBid && activeHighestBid.bidderId !== req.user.id) {
-       product.bidCount += 2; 
-    } else {
-       product.bidCount += 1;
-    }
+    // Increment count. Just 1 for the incoming bid.
+    product.bidCount += 1;
     await product.save();
 
 

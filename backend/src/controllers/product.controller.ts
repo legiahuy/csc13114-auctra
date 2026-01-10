@@ -244,7 +244,7 @@ export const getProducts = async (
               attributes: ["id", "fullName", "rating", "totalRatings"],
             },
           ],
-          order: [["amount", "DESC"]],
+          order: [["maxAmount", "DESC"], ["createdAt", "ASC"]],
           limit: 1,
         },
       ],
@@ -319,7 +319,7 @@ export const getProductById = async (
               attributes: ["id", "fullName", "rating", "totalRatings"],
             },
           ],
-          order: [["amount", "DESC"]],
+          order: [["maxAmount", "DESC"], ["createdAt", "ASC"]],
           limit: 5, // Just get top 5 bids for display if needed, but UI seems to show history
         },
         {
