@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Bid, Product, User, Settings } from '../models';
 import { AppError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { sendBidNotificationEmail, sendBidRejectedEmail } from '../utils/email.util';
+import { sendBidNotificationEmail, sendBidRejectedEmail, sendSellerNewBidNotification } from '../utils/email.util';
 import { Op } from 'sequelize';
 import { sequelize } from '../config/database';
 
@@ -59,134 +59,215 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
       return next(new AppError('You have been rejected from bidding on this product', 403));
     }
 
-    // Validate bid amount
-    const minBidAmount =
-      parseFloat(product.currentPrice.toString()) + parseFloat(product.bidStep.toString());
+    // --- AUTO-BID LOGIC START ---
 
-    if (!isAutoBid && parseFloat(amount) < minBidAmount) {
-      return next(
-        new AppError(`Minimum bid amount is ${minBidAmount.toLocaleString('vi-VN')} VNĐ`, 400)
-      );
+    // 1. Identify Incoming Bid Parameters
+    // If isAutoBid, the "Limit" is maxAmount. If manual, it's amount.
+    const incomingBidLimit = parseFloat(isAutoBid ? maxAmount : amount);
+    const bidStep = parseFloat(product.bidStep.toString());
+    const currentPrice = parseFloat(product.currentPrice.toString());
+
+    // 2. Validate Entry
+    // The bid must be at least CurrentPrice + Step (unless it's the first bid)
+    let minEntryAmount: number;
+    if (product.bidCount === 0) {
+      minEntryAmount = parseFloat(product.startingPrice.toString());
+    } else {
+      minEntryAmount = currentPrice + bidStep;
     }
 
-    if (isAutoBid && maxAmount && parseFloat(maxAmount) < minBidAmount) {
+    if (incomingBidLimit < minEntryAmount) {
       return next(
         new AppError(
-          `Maximum bid amount must be at least ${minBidAmount.toLocaleString('vi-VN')} VNĐ`,
+          `Bid amount must be at least ${minEntryAmount.toLocaleString('vi-VN')} VNĐ`,
           400
         )
       );
     }
 
+    // 3. Get Current Highest Bidder (The "Champion")
+    // We start by looking for the current highest active bid.
+    // Important: We need to respect the "First come, first served" rule for ties.
+    // So we order by maxAmount DESC, then createdAt ASC.
+    const activeHighestBid = await Bid.findOne({
+      where: { productId, isRejected: false },
+      order: [['maxAmount', 'DESC'], ['createdAt', 'ASC']],
+      include: [{ model: User, as: 'bidder' }], 
+    });
+
+    let newPrice: number = 0;
+    let isIncomingWinner: boolean = false;
+    let championMax: number = 0;
+
     // Check auto-extend
     const now = new Date();
     const timeUntilEnd = product.endDate.getTime() - now.getTime();
-
-    // Get settings from database, fallback to environment variables
     const [thresholdSetting, durationSetting] = await Promise.all([
       Settings.findOne({ where: { key: 'AUTO_EXTEND_THRESHOLD_MINUTES' } }),
       Settings.findOne({ where: { key: 'AUTO_EXTEND_DURATION_MINUTES' } }),
     ]);
-
-    const thresholdMinutes = thresholdSetting
-      ? parseInt(thresholdSetting.value)
-      : parseInt(process.env.AUTO_EXTEND_THRESHOLD_MINUTES || '5');
-
-    const extendMinutes = durationSetting
-      ? parseInt(durationSetting.value)
-      : parseInt(process.env.AUTO_EXTEND_DURATION_MINUTES || '10');
+    const thresholdMinutes = thresholdSetting ? parseInt(thresholdSetting.value) : parseInt(process.env.AUTO_EXTEND_THRESHOLD_MINUTES || '5');
+    const extendMinutes = durationSetting ? parseInt(durationSetting.value) : parseInt(process.env.AUTO_EXTEND_DURATION_MINUTES || '10');
 
     if (product.autoExtend && timeUntilEnd <= thresholdMinutes * 60 * 1000) {
       product.endDate = new Date(now.getTime() + extendMinutes * 60 * 1000);
       await product.save();
     }
 
-    // Process auto-bidding or regular bid
-    let finalAmount = parseFloat(amount);
-    let previousHighestBidder: User | null = null;
+    // --- LOGIC EXECUTION ---
 
-    if (isAutoBid && maxAmount) {
-      // Auto-bidding logic
-      const highestAutoBid = await Bid.findOne({
-        where: {
-          productId,
-          isAutoBid: true,
-          isRejected: false,
-        },
-        include: [{ model: User, as: 'bidder' }],
-        order: [['maxAmount', 'DESC'], ['createdAt', 'ASC']], // First-come-first-served for equal max bids
+    if (!activeHighestBid) {
+      // Scenario: No Bids Yet
+      // Winner = Incoming
+      // Price = Starting Price
+      newPrice = parseFloat(product.startingPrice.toString());
+      isIncomingWinner = true;
+      
+      // Create Bid
+      await Bid.create({
+        productId,
+        bidderId: req.user.id,
+        amount: newPrice,
+        maxAmount: incomingBidLimit,
+        isAutoBid: isAutoBid || false,
       });
 
-      if (highestAutoBid) {
-        const highestMaxAmount = parseFloat(highestAutoBid.maxAmount!.toString());
-        if (parseFloat(maxAmount) > highestMaxAmount) {
-          finalAmount = Math.min(
-            parseFloat(maxAmount),
-            highestMaxAmount + parseFloat(product.bidStep.toString())
-          );
-          previousHighestBidder = (highestAutoBid as any).bidder;
-        } else {
-          finalAmount = Math.min(
-            parseFloat(maxAmount),
-            parseFloat(product.currentPrice.toString()) + parseFloat(product.bidStep.toString())
-          );
-        }
+    } else {
+      // Scenario: Competing
+      const champion = activeHighestBid;
+      championMax = parseFloat(champion.maxAmount ? champion.maxAmount.toString() : champion.amount.toString());
+      
+      // Check if self-bidding (updating max)
+      if (champion.bidderId === req.user.id) {
+         // User is already the winner.
+         // Let's simply add a new bid record to reflect the new state.
+         
+         newPrice = currentPrice;
+         isIncomingWinner = true; // Still winner
+
+         await Bid.create({
+             productId,
+             bidderId: req.user.id,
+             amount: newPrice,
+             maxAmount: incomingBidLimit,
+             isAutoBid: isAutoBid || false
+         });
+
       } else {
-        finalAmount =
-          parseFloat(product.currentPrice.toString()) + parseFloat(product.bidStep.toString());
+        // Different Bidder
+        if (incomingBidLimit > championMax) {
+            // Case 1: Incoming Wins (New Winner)
+            // Price = min(IncomingLimit, ChampionMax + Step)
+            newPrice = Math.min(incomingBidLimit, championMax + bidStep);
+            isIncomingWinner = true;
+
+            await Bid.create({
+                productId,
+                bidderId: req.user.id,
+                amount: newPrice,
+                maxAmount: incomingBidLimit,
+                isAutoBid: isAutoBid || false
+            });
+        } else {
+            // Case 2: Champion Defends (Incoming Loses)
+            // Price = IncomingLimit
+            // The champion defends by matching the incoming bid's limit.
+            // No need to add step because the incoming bid is already maxed out.
+            
+            newPrice = incomingBidLimit;
+            isIncomingWinner = false;
+
+            // 1. Record Incoming Bid (The failed attempt)
+            // It reached its limit immediately.
+            await Bid.create({
+                productId,
+                bidderId: req.user.id,
+                amount: incomingBidLimit, // It pushed up to its limit
+                maxAmount: incomingBidLimit,
+                isAutoBid: isAutoBid || false
+            });
+
+            // 2. NO Defensive Bid Record for Champion (Per user request for clean history)
+            // The champion defends silently. Current price is updated on Product.
+            // await Bid.create({ ... }); 
+        }
       }
     }
 
-    // Create bid
-    const bid = await Bid.create({
-      productId,
-      bidderId: req.user.id,
-      amount: finalAmount,
-      maxAmount: isAutoBid ? maxAmount : undefined,
-      isAutoBid: isAutoBid || false,
-    });
-
-    // Update product
-    product.currentPrice = finalAmount;
+    // Update Product
+    product.currentPrice = newPrice;
+    
+    // Increment count. Just 1 for the incoming bid.
     product.bidCount += 1;
     await product.save();
 
-    // Get previous highest bidder
-    if (!previousHighestBidder) {
-      const previousBid = await Bid.findOne({
-        where: {
-          productId,
-          bidderId: { [Op.ne]: req.user.id },
-          isRejected: false,
-        },
-        include: [{ model: User, as: 'bidder' }],
-        order: [['amount', 'DESC']],
-      });
 
-      if (previousBid) {
-        previousHighestBidder = (previousBid as any).bidder;
-      }
+    // --- NOTIFICATIONS ---
+    
+    // 1. Notify Incoming User
+    if (isIncomingWinner) {
+        // Success Email
+        sendBidNotificationEmail(
+            req.user.email,
+            product.name,
+            newPrice,
+            req.user.fullName || "Bidder",
+            false,
+            productId
+        ).catch((err: any) => console.error("Error sending success email:", err));
+    } else {
+        // Outbid Email (Immediate)
+        sendBidNotificationEmail(
+             req.user.email,
+             product.name,
+             newPrice, // The price is now held by champion
+             req.user.fullName || "Bidder",
+             true, // IS OUTBID immediately
+             productId
+        ).catch((err: any) => console.error("Error sending immediate outbid email:", err));
     }
 
-    // Send notifications
-    // Signature: (email, productName, amount, isOutbid, productId)
-    await sendBidNotificationEmail(req.user.email, product.name, finalAmount, false, productId);
+    // 2. Notify Previous Champion (If they lost or defended)
+    if (activeHighestBid && activeHighestBid.bidderId !== req.user.id) {
+        if (isIncomingWinner) {
+             // They were outbid
+             sendBidNotificationEmail(
+                 (activeHighestBid as any).bidder.email,
+                 product.name,
+                 newPrice,
+                 (activeHighestBid as any).bidder.fullName || "Bidder",
+                 true, // Outbid
+                 productId
+             ).catch((err: any) => console.error("Error sending prev winner outbid email:", err));
+        } else {
+             // They successfully defended (Auto-bid worked)
+             sendBidNotificationEmail(
+                 (activeHighestBid as any).bidder.email,
+                 product.name,
+                 newPrice,
+                 (activeHighestBid as any).bidder.fullName || "Bidder",
+                 false, // Success (Defended)
+                 productId
+             ).catch((err: any) => console.error("Error sending defense email:", err));
+        }
+    }
 
-    if (previousHighestBidder) {
-      await sendBidNotificationEmail(
-        previousHighestBidder.email,
+    // 3. Notify Seller
+    sendSellerNewBidNotification(
+        product.seller.email,
         product.name,
-        finalAmount,
-        true,
+        newPrice,
+        isIncomingWinner ? (req.user.fullName || "Bidder") : ((activeHighestBid as any)?.bidder.fullName || "Defender"), // Show who holds it
         productId
-      );
-    }
+    ).catch((err: any) => console.error("Error sending seller email:", err));
 
-    await sendBidNotificationEmail(product.seller.email, product.name, finalAmount, false, productId);
 
     res.status(201).json({
       success: true,
-      data: bid,
+      data: {
+         amount: newPrice,
+         isWinner: isIncomingWinner
+      },
     });
   } catch (error) {
     next(error);
@@ -239,7 +320,8 @@ export const getBidHistory = async (req: AuthRequest, res: Response, next: NextF
       } else {
         // Others see masked names
         const fullName = bidData.bidder?.fullName || 'Unknown';
-        const maskedName = fullName.length > 4 ? '****' + fullName.slice(-4) : '****' + fullName;
+
+        const maskedName = fullName.split('').map((char: string, index: number) => index % 2 === 0 ? char : '*').join('');
         return {
           ...bidData,
           bidder: {
@@ -282,35 +364,85 @@ export const rejectBid = async (req: AuthRequest, res: Response, next: NextFunct
       return next(new AppError('Not authorized', 403));
     }
 
-    bid.isRejected = true;
-    await bid.save();
-
-    // If this was the highest bid, find the next highest
-    // Check if the rejected bid amount matches current price (meaning it was the highest)
-    if (parseFloat(bid.product.currentPrice.toString()) === parseFloat(bid.amount.toString())) {
-      // This was the highest bid, find the next highest non-rejected bid
-      const nextHighestBid = await Bid.findOne({
-        where: {
-          productId: bid.productId,
-          isRejected: false,
-          id: { [Op.ne]: bidId },
-        },
-        order: [['amount', 'DESC'], ['createdAt', 'ASC']],
-      });
-
-      if (nextHighestBid) {
-        // Update to the next highest bid amount
-        bid.product.currentPrice = nextHighestBid.amount;
-        await bid.product.save();
-      } else {
-        // No other bids, reset to starting price
-        bid.product.currentPrice = bid.product.startingPrice;
-        await bid.product.save();
+    // Reject ALL bids from this bidder for this product
+    await Bid.update(
+      { isRejected: true },
+      { 
+        where: { 
+          productId: bid.productId, 
+          bidderId: bid.bidderId 
+        } 
       }
+    );
+
+    // Recalculate Auction State (Winner & Price)
+    // 1. Fetch all valid bids for this product
+    const validBids = await Bid.findAll({
+      where: {
+        productId: bid.productId,
+        isRejected: false,
+      },
+      include: [{ model: User, as: 'bidder' }],
+      order: [['maxAmount', 'DESC'], ['createdAt', 'ASC']], // Determining the real hierarchy
+    });
+
+    const product = await Product.findByPk(bid.productId);
+    if (!product) return next(new AppError('Product not found', 404));
+
+    if (validBids.length === 0) {
+      // No bids left
+      product.currentPrice = product.startingPrice;
+      product.bidCount = 0;
+      await product.save();
+    } else if (validBids.length === 1) {
+      // Only one bidder left -> They win at starting price
+      const winner = validBids[0];
+      // Price resets to starting price (or their bid if lower? No, starting price is min).
+      product.currentPrice = product.startingPrice;
+      // We might want to ensure it's at least their bid amount? 
+      // Actually auto-bid logic says if 1 bidder, price is start price.
+      product.bidCount = 1; 
+      await product.save();
+
+      // OPTIONAL: Update the bid record amount to reflect new price if we want strict consistency
+      // winner.amount = product.startingPrice;
+      // await winner.save();
+    } else {
+      // Multiple bidders left
+      const newWinner = validBids[0];
+      const newRunnerUp = validBids[1];
+      const bidStep = parseFloat(product.bidStep.toString());
+
+      const newWinnerMax = parseFloat(newWinner.maxAmount ? newWinner.maxAmount.toString() : newWinner.amount.toString());
+      const runnerUpMax = parseFloat(newRunnerUp.maxAmount ? newRunnerUp.maxAmount.toString() : newRunnerUp.amount.toString());
+
+      // Calculate new price
+      // Price = min(WinnerMax, RunnerUpMax + Step)
+      let nextPrice = Math.min(newWinnerMax, runnerUpMax + bidStep);
+
+      product.currentPrice = nextPrice;
+      product.bidCount = validBids.length; // Simply count of valid bids (approximate)
+      // Or actually count total valid bids? 
+      // validBids.length is exactly the count of valid active bids.
+      // But `bidCount` usually tracks "number of bids placed". 
+      // If we rejected one, should we decrease count? Yes.
+      await product.save();
+      
+      // Update the winner's current bid amount record?
+      // In our new "Clean History" model, we might not have a record at exactly `nextPrice`.
+      // But `newWinner` creates a record when they bid.
+      // If we don't update records, the history might look weird (Winner has record at 11M, but price is 10.6M).
+      // But typically we don't retroactive edit history.
+      // We just update the Product's current price.
     }
 
     // Send notification
-    await sendBidRejectedEmail(bid.bidder.email, bid.product.name, bid.productId);
+    sendBidRejectedEmail(
+      bid.bidder.email,
+      bid.product.name,
+      bid.bidder.fullName || "Bidder",
+      bid.productId
+    ).catch((err: any) => console.error("Error sending bid rejected email:", err));
 
     res.json({
       success: true,
@@ -320,4 +452,3 @@ export const rejectBid = async (req: AuthRequest, res: Response, next: NextFunct
     next(error);
   }
 };
-

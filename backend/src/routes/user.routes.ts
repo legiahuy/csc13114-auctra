@@ -13,11 +13,30 @@ import {
   answerQuestion,
   requestSellerUpgrade,
   rateUser,
+  getPublicProfile,
 } from '../controllers/user.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { body } from 'express-validator';
 
 const router = Router();
+
+/**
+ * @swagger
+ * /api/users/{id}/public:
+ *   get:
+ *     summary: Get public user profile
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Public user profile
+ */
+router.get('/:id/public', getPublicProfile);
 
 // All routes require authentication
 router.use(authenticate);
@@ -46,6 +65,9 @@ router.use(authenticate);
  *               $ref: '#/components/schemas/User'
  */
 router.get('/profile', getProfile);
+
+
+
 
 /**
  * @swagger

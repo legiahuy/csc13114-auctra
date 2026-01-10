@@ -4,6 +4,7 @@ import { AppError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { sendQuestionNotificationEmail, sendAnswerNotificationEmail } from '../utils/email.util';
 import { Op } from 'sequelize';
+import { sequelize } from '../config/database';
 
 // Thời gian chờ giữa các lần yêu cầu upgrade (ngày) - có thể chỉnh để test
 const UPGRADE_REQUEST_COOLDOWN_DAYS = 7;
@@ -201,34 +202,68 @@ export const getMyBids = async (req: AuthRequest, res: Response, next: NextFunct
     const limitNum = parseInt(limit as string);
     const offset = (pageNum - 1) * limitNum;
 
-    const where: any = { bidderId: req.user.id };
+    // We want ONE bid entry per product (the latest one).
+    // Strategy:
+    // 1. Find distinct product IDs bid on by this user, matching filters.
+    // 2. For each product, get the ID of the LATEST bid.
+    // 3. Paginate based on this list of IDs.
+    // 4. Fetch full details for these IDs.
 
-    // Build product filter for nested query
-    const productWhere: any = {};
-    if (search) {
-      productWhere.name = { [Op.iLike]: `%${search}%` };
-    }
+    let productFilterClause = '';
+    const replacements: any = { bidderId: req.user.id };
+
     if (status) {
-      productWhere.status = status;
+      productFilterClause += ` AND "products"."status" = :status`;
+      replacements.status = status;
+    }
+    if (search) {
+      productFilterClause += ` AND "products"."name" ILIKE :search`;
+      replacements.search = `%${search}%`;
     }
 
-    const { count, rows: bids } = await Bid.findAndCountAll({
-      where,
+    // Query to get the Latest Bid ID for each product
+    const idQuery = `
+      SELECT MAX("bids"."id") as "id"
+      FROM "bids"
+      JOIN "products" ON "bids"."productId" = "products"."id"
+      WHERE "bids"."bidderId" = :bidderId
+      ${productFilterClause}
+      GROUP BY "bids"."productId"
+      ORDER BY MAX("bids"."createdAt") DESC
+      LIMIT :limit OFFSET :offset
+    `;
+
+    const countQuery = `
+      SELECT COUNT(DISTINCT "bids"."productId") as "count"
+      FROM "bids"
+      JOIN "products" ON "bids"."productId" = "products"."id"
+      WHERE "bids"."bidderId" = :bidderId
+      ${productFilterClause}
+    `;
+
+    replacements.limit = limitNum;
+    replacements.offset = offset;
+
+    const [idResults] = await sequelize.query(idQuery, { replacements });
+    const [countResults] = await sequelize.query(countQuery, { replacements });
+
+    const bidIds = idResults.map((r: any) => r.id);
+    const count = parseInt((countResults[0] as any).count);
+
+    // Fetch full bid objects
+    const bids = await Bid.findAll({
+      where: { id: { [Op.in]: bidIds } },
       include: [
         {
           model: Product,
           as: 'product',
-          where: Object.keys(productWhere).length > 0 ? productWhere : undefined,
           include: [
             { model: Category, as: 'category' },
             { model: User, as: 'seller', attributes: ['id', 'fullName'] },
           ],
         },
       ],
-      limit: limitNum,
-      offset,
       order: [['createdAt', 'DESC']],
-      distinct: true, // Important for accurate count with includes
     });
 
     res.json({
@@ -392,9 +427,30 @@ export const askQuestion = async (req: AuthRequest, res: Response, next: NextFun
         }
       });
 
-      // Also add the product seller
+      // Also add the product seller (if not the one replying)
       if ((product as any).seller?.id !== req.user.id) {
         participantUserIds.add((product as any).seller?.id);
+      }
+
+      // If the replier is the SELLER, broadcast to ALL Bidders and ALL Questioners
+      if ((product as any).sellerId && req.user.id === (product as any).sellerId) {
+        // Fetch all unique questioners
+        const allQuestioners = await Question.findAll({
+          where: { productId: productId },
+          attributes: ['userId'],
+        });
+        allQuestioners.forEach(q => {
+          if (q.userId !== req.user!.id) participantUserIds.add(q.userId);
+        });
+
+        // Fetch all unique bidders
+        const allBidders = await Bid.findAll({
+          where: { productId: productId },
+          attributes: ['bidderId'],
+        });
+        allBidders.forEach(b => {
+          if (b.bidderId !== req.user!.id) participantUserIds.add(b.bidderId);
+        });
       }
 
       // Get all participant emails
@@ -412,22 +468,25 @@ export const askQuestion = async (req: AuthRequest, res: Response, next: NextFun
           product.name,
           question,
           productId,
-          asker?.fullName
+          participant.fullName,
+          asker?.fullName,
+          true
         ).catch((error) => {
           console.error('Lỗi khi gửi email thông báo reply:', error);
         });
       });
     } else {
-      // This is a top-level comment, only notify seller
+      // This is a top-level      // Send email notification to seller
+      // Signature: (sellerEmail, productName, question, productId, userName, askerName)
       sendQuestionNotificationEmail(
-        (product as any).seller?.email,
+        product.seller.email,
         product.name,
         question,
-        productId,
-        asker?.fullName
-      ).catch((error) => {
-        console.error('Lỗi khi gửi email thông báo câu hỏi:', error);
-      });
+        parseInt(productId),
+        "Seller",
+        req.user.fullName,
+        false
+      ).catch((err: any) => console.error("Error sending question email:", err));
     }
 
     res.status(201).json({
@@ -479,15 +538,17 @@ export const answerQuestion = async (req: AuthRequest, res: Response, next: Next
     await question.save();
 
     // Send email to questioner and all bidders
+    // Send email to questioner and all bidders
     const questioner = await User.findByPk(question.userId);
     if (questioner) {
-      await sendAnswerNotificationEmail(
+      sendAnswerNotificationEmail(
         questioner.email,
         product.name,
         answer,
         question.productId,
+        questioner.fullName || "User",
         question.question
-      );
+      ).catch((err: any) => console.error("Error sending answer email to questioner:", err));
     }
 
     // Get all users who asked questions or placed bids
@@ -514,13 +575,14 @@ export const answerQuestion = async (req: AuthRequest, res: Response, next: Next
     });
 
     for (const user of users) {
-      await sendAnswerNotificationEmail(
+      sendAnswerNotificationEmail(
         user.email,
         product.name,
         answer,
         question.productId,
+        user.fullName || "User",
         question.question
-      );
+      ).catch((err: any) => console.error("Error sending answer email to participant:", err));
     }
 
     res.json({
@@ -658,3 +720,51 @@ export const rateUser = async (req: AuthRequest, res: Response, next: NextFuncti
   }
 };
 
+
+export const getPublicProfile = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findByPk(id, {
+      attributes: ['id', 'fullName', 'createdAt', 'rating', 'totalRatings', 'role'],
+    }) as any;
+
+    if (!user) {
+      return next(new AppError('User not found', 404));
+    }
+
+    const reviews = await Review.findAll({
+      where: { revieweeId: id },
+      include: [
+        {
+          model: User,
+          as: 'reviewer',
+          attributes: ['id', 'fullName'],
+        },
+        {
+          model: Order,
+          as: 'order',
+          include: [
+            {
+              model: Product,
+              as: 'product',
+              attributes: ['id', 'name', 'mainImage'],
+            },
+          ],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+      limit: 20, // Limit to 20 recent reviews
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ...user.toJSON(),
+        reviews,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
