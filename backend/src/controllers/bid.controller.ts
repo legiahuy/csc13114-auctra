@@ -417,15 +417,23 @@ export const rejectBid = async (req: AuthRequest, res: Response, next: NextFunct
       const runnerUpMax = parseFloat(newRunnerUp.maxAmount ? newRunnerUp.maxAmount.toString() : newRunnerUp.amount.toString());
 
       // Calculate new price
-      // Price = min(WinnerMax, RunnerUpMax + Step)
-      let nextPrice = Math.min(newWinnerMax, runnerUpMax + bidStep);
+      // Logic based on Teacher's Rules:
+      // 1. If New Winner is OLDER than Runner Up (Defense Scenario):
+      //    Price = RunnerUpMax
+      // 2. If New Winner is NEWER than Runner Up (Overtake Scenario):
+      //    Price = min(WinnerMax, RunnerUpMax + Step)
+      
+      let nextPrice: number;
+      const isDefense = new Date(newWinner.createdAt).getTime() < new Date(newRunnerUp.createdAt).getTime();
+
+      if (isDefense) {
+          nextPrice = runnerUpMax;
+      } else {
+          nextPrice = Math.min(newWinnerMax, runnerUpMax + bidStep);
+      }
 
       product.currentPrice = nextPrice;
       product.bidCount = validBids.length; // Simply count of valid bids (approximate)
-      // Or actually count total valid bids? 
-      // validBids.length is exactly the count of valid active bids.
-      // But `bidCount` usually tracks "number of bids placed". 
-      // If we rejected one, should we decrease count? Yes.
       await product.save();
       
       // Update the winner's current bid amount record?

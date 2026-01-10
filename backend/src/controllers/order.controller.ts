@@ -27,7 +27,7 @@ export const processEndedAuctions = async () => {
             as: 'bidder',
           },
         ],
-        order: [['amount', 'DESC']],
+        order: [['maxAmount', 'DESC'], ['createdAt', 'ASC']],
         limit: 1,
       },
     ],
@@ -42,7 +42,7 @@ export const processEndedAuctions = async () => {
         productId: product.id,
         sellerId: product.sellerId,
         buyerId: winningBid.bidderId,
-        finalPrice: winningBid.amount,
+        finalPrice: product.currentPrice, // Use currentPrice reflecting the final auction price
         status: 'pending_payment',
       });
 
@@ -53,7 +53,7 @@ export const processEndedAuctions = async () => {
         product.id,
         false,
         "Seller", // userName
-        parseFloat(winningBid.amount.toString()),
+        parseFloat(product.currentPrice.toString()), // Use currentPrice
         true, // isSeller
         order.id
       ).catch((err: any) => console.error("Error sending auction ended email to seller:", err));
@@ -64,7 +64,7 @@ export const processEndedAuctions = async () => {
         product.id,
         true,
         winningBid.bidder.fullName || "Winner", // userName
-        parseFloat(winningBid.amount.toString()),
+        parseFloat(product.currentPrice.toString()), // Use currentPrice
         false, // isSeller
         order.id
       ).catch((err: any) => console.error("Error sending auction ended email to winner:", err));

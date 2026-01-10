@@ -82,6 +82,7 @@ interface Bid {
   id: number;
   amount: number;
   isRejected: boolean; // Add this
+  isHighestBidder?: boolean; // Added
   product: {
     id: number;
     name: string;
@@ -710,14 +711,23 @@ export default function ProfilePage() {
                             <Link
                               key={bid.id}
                               to={`/products/${bid.product.id}`}
-                              className="group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow"
+                              className={`group rounded-lg border bg-card overflow-hidden hover:shadow-sm transition-shadow ${
+                                bid.product.status === "active" && bid.isHighestBidder
+                                  ? "ring-2 ring-primary shadow-md"
+                                  : ""
+                              }`}
                             >
-                              <div className="aspect-video overflow-hidden">
+                              <div className="aspect-video overflow-hidden relative">
                                 <img
                                   src={bid.product.mainImage}
                                   alt={bid.product.name}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                 />
+                                {bid.product.status === "active" && bid.isHighestBidder && (
+                                  <Badge className="absolute top-2 left-2 bg-primary/100 text-white border-none">
+                                    Leading Bid
+                                  </Badge>
+                                )}
                               </div>
                               <div className="p-3 space-y-2">
                                 <p className="text-sm font-medium line-clamp-2">

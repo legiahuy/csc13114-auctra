@@ -27,6 +27,7 @@ interface Bid {
   amount: number;
   createdAt: string;
   isRejected?: boolean;
+  isHighestBidder?: boolean; // Added
   product: {
     id: number;
     name: string;
@@ -214,7 +215,7 @@ export default function MyBidsPage() {
               <Card
                 key={bid.id}
                 className={`h-full flex flex-col hover:shadow-lg transition-all ${bid.product.status === "active" &&
-                  Number(bid.amount) === Number(bid.product.currentPrice)
+                  bid.isHighestBidder // Use flag
                   ? "ring-2 ring-primary shadow-md transform scale-[1.02]"
                   : ""
                   }`}
@@ -226,7 +227,7 @@ export default function MyBidsPage() {
                     className="w-full h-full object-cover"
                   />
                   {bid.product.status === "active" &&
-                    Number(bid.amount) === Number(bid.product.currentPrice) && (
+                    bid.isHighestBidder && ( // Use flag
                       <Badge className="absolute top-2 left-2 bg-primary/100 text-white border-none">
                         Leading Bid
                       </Badge>
@@ -261,11 +262,11 @@ export default function MyBidsPage() {
                           Current price
                         </p>
                         <p
-                          className={`text-lg font-semibold ${Number(bid.amount) ===
-                            Number(bid.product.currentPrice)
-                            ? "text-green-600 dark:text-green-500"
-                            : "text-foreground"
-                            }`}
+                          className={`text-lg font-semibold ${
+                            bid.isHighestBidder
+                              ? "text-green-600 dark:text-green-500"
+                              : "text-foreground"
+                          }`}
                         >
                           {Number(bid.product.currentPrice).toLocaleString(
                             "vi-VN"

@@ -260,16 +260,42 @@ export const getMyBids = async (req: AuthRequest, res: Response, next: NextFunct
           include: [
             { model: Category, as: 'category' },
             { model: User, as: 'seller', attributes: ['id', 'fullName'] },
+            // Fetch highest bid to determine if user is winning
+            {
+              model: Bid,
+              as: 'bids',
+              where: { isRejected: false },
+              attributes: ['bidderId'],
+              limit: 1,
+              order: [['maxAmount', 'DESC'], ['createdAt', 'ASC']],
+              separate: true // Run separate query to support limit per product
+            }
           ],
         },
       ],
       order: [['createdAt', 'DESC']],
     });
 
+    // Add isHighestBidder flag
+    const bidsWithStatus = bids.map((bid: any) => {
+      const bidJson = bid.toJSON();
+      const highestBid = bidJson.product.bids ? bidJson.product.bids[0] : null;
+      
+      // Calculate status based on strict highest bidder logic
+      bidJson.isHighestBidder = highestBid?.bidderId === req.user!.id;
+      
+      // Clean up the extra bids array from the response
+      if (bidJson.product.bids) {
+        delete bidJson.product.bids;
+      }
+      
+      return bidJson;
+    });
+
     res.json({
       success: true,
       data: {
-        bids,
+        bids: bidsWithStatus,
         pagination: {
           page: pageNum,
           limit: limitNum,
