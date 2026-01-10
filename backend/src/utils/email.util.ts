@@ -153,6 +153,7 @@ export const sendBidNotificationEmail = async (
   email: string,
   productName: string,
   amount: number,
+  userName: string,
   isOutbid: boolean = false,
   productId?: number
 ): Promise<void> => {
@@ -170,7 +171,41 @@ export const sendBidNotificationEmail = async (
 
   const html = renderMJMLTemplate(templatePath, {
     notificationType,
-    userName: "", // Will show "Hello ," which is fine for generic emails
+    userName,
+    message,
+    productName,
+    priceLabel,
+    currentPrice: `${amount.toLocaleString("en-US")} VND`,
+    productUrl,
+  });
+
+  await sendEmail(
+    email,
+    `${notificationType} - ${productName}`,
+    html
+  );
+};
+
+export const sendSellerNewBidNotification = async (
+  email: string,
+  productName: string,
+  amount: number,
+  bidderName: string,
+  productId?: number
+): Promise<void> => {
+  const templatePath = path.join(__dirname, "../templates/bid-notification.mjml");
+
+  const notificationType = "New Bid Received";
+  const message = `A new bid has been placed on your product. Current highest bid is now ${amount.toLocaleString("en-US")} VND by ${bidderName}.`;
+  const priceLabel = "Current Highest Bid";
+
+  const productUrl = productId
+    ? `${process.env.FRONTEND_URL}/products/${productId}`
+    : `${process.env.FRONTEND_URL}/products`;
+
+  const html = renderMJMLTemplate(templatePath, {
+    notificationType,
+    userName: "Seller",
     message,
     productName,
     priceLabel,
@@ -191,6 +226,7 @@ export const sendQuestionNotificationEmail = async (
   productName: string,
   question: string,
   productId: number,
+  userName: string = "Seller",
   askerName?: string
 ): Promise<void> => {
   const templatePath = path.join(__dirname, "../templates/qa-notification.mjml");
@@ -198,7 +234,7 @@ export const sendQuestionNotificationEmail = async (
 
   const html = renderMJMLTemplate(templatePath, {
     notificationType: "📧 New Question About Your Product",
-    userName: "", // Generic greeting
+    userName,
     message: "You have received a new question about one of your products. Please review and respond to help potential buyers.",
     productName,
     askerLabel: askerName ? "Asked by" : "",
@@ -220,6 +256,7 @@ export const sendAnswerNotificationEmail = async (
   productName: string,
   answer: string,
   productId: number,
+  userName: string,
   question?: string
 ): Promise<void> => {
   const templatePath = path.join(__dirname, "../templates/qa-notification.mjml");
@@ -227,7 +264,7 @@ export const sendAnswerNotificationEmail = async (
 
   const html = renderMJMLTemplate(templatePath, {
     notificationType: "Answer Received",
-    userName: "", // Generic greeting
+    userName,
     message: "The seller has answered a question about this product. View the details below.",
     productName,
     askerLabel: "",
@@ -249,6 +286,7 @@ export const sendAuctionEndedEmail = async (
   productName: string,
   productId: number,
   isWinner: boolean,
+  userName: string,
   finalPrice?: number,
   isSeller: boolean = false,
   orderId?: number
@@ -295,7 +333,7 @@ export const sendAuctionEndedEmail = async (
 
   const html = renderMJMLTemplate(templatePath, {
     emailTitle,
-    userName: "", // Generic greeting
+    userName,
     message,
     productName,
     finalPrice: finalPrice ? `${finalPrice.toLocaleString("en-US")} VND` : "",
@@ -311,6 +349,7 @@ export const sendAuctionEndedEmail = async (
 export const sendBidRejectedEmail = async (
   email: string,
   productName: string,
+  userName: string,
   productId?: number
 ): Promise<void> => {
   const templatePath = path.join(__dirname, "../templates/bid-notification.mjml");
@@ -321,7 +360,7 @@ export const sendBidRejectedEmail = async (
 
   const html = renderMJMLTemplate(templatePath, {
     notificationType: "Bid Rejected",
-    userName: "", // Generic greeting
+    userName,
     message: "The seller has rejected your bid. You are no longer able to bid on this product.",
     productName,
     priceLabel: "Status",

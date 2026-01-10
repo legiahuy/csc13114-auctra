@@ -418,16 +418,16 @@ export const askQuestion = async (req: AuthRequest, res: Response, next: NextFun
         });
       });
     } else {
-      // This is a top-level comment, only notify seller
+      // This is a top-level      // Send email notification to seller
+      // Signature: (sellerEmail, productName, question, productId, userName, askerName)
       sendQuestionNotificationEmail(
-        (product as any).seller?.email,
+        product.seller.email,
         product.name,
         question,
-        productId,
-        asker?.fullName
-      ).catch((error) => {
-        console.error('Lỗi khi gửi email thông báo câu hỏi:', error);
-      });
+        parseInt(productId),
+        "Seller",
+        req.user.fullName
+      ).catch((err: any) => console.error("Error sending question email:", err));
     }
 
     res.status(201).json({
@@ -479,15 +479,17 @@ export const answerQuestion = async (req: AuthRequest, res: Response, next: Next
     await question.save();
 
     // Send email to questioner and all bidders
+    // Send email to questioner and all bidders
     const questioner = await User.findByPk(question.userId);
     if (questioner) {
-      await sendAnswerNotificationEmail(
+      sendAnswerNotificationEmail(
         questioner.email,
         product.name,
         answer,
         question.productId,
+        questioner.fullName || "User",
         question.question
-      );
+      ).catch((err: any) => console.error("Error sending answer email to questioner:", err));
     }
 
     // Get all users who asked questions or placed bids
@@ -514,13 +516,14 @@ export const answerQuestion = async (req: AuthRequest, res: Response, next: Next
     });
 
     for (const user of users) {
-      await sendAnswerNotificationEmail(
+      sendAnswerNotificationEmail(
         user.email,
         product.name,
         answer,
         question.productId,
+        user.fullName || "User",
         question.question
-      );
+      ).catch((err: any) => console.error("Error sending answer email to participant:", err));
     }
 
     res.json({
