@@ -249,10 +249,13 @@ export default function MyBidsPage() {
                   <div className="space-y-2 flex-1">
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">
-                        Your bid
+                        {bid.isHighestBidder ? "Your winning bid" : "Your bid"}
                       </p>
                       <p className="text-xl font-bold text-brand">
-                        {Number(bid.amount).toLocaleString("vi-VN")} VNĐ
+                        {Number(
+                          bid.isHighestBidder ? bid.product.currentPrice : bid.amount
+                        ).toLocaleString("vi-VN")}{" "}
+                        VNĐ
                       </p>
                     </div>
 

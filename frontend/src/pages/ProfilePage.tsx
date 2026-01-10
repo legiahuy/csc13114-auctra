@@ -735,10 +735,12 @@ export default function ProfilePage() {
                                 </p>
                                 <div>
                                   <p className="text-xs text-muted-foreground">
-                                    Your bid amount
+                                    {bid.isHighestBidder ? "Your winning bid" : "Your bid amount"}
                                   </p>
                                   <p className="text-sm font-semibold text-brand">
-                                    {Number(bid.amount).toLocaleString("vi-VN")}{" "}
+                                    {Number(
+                                      bid.isHighestBidder ? bid.product.currentPrice : bid.amount
+                                    ).toLocaleString("vi-VN")}{" "}
                                     VNĐ
                                   </p>
                                 </div>
