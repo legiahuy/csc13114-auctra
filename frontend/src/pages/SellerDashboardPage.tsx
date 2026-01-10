@@ -88,6 +88,7 @@ interface Product {
       fullName: string;
     };
     amount: number;
+    isRejected?: boolean;
   }>;
 }
 
@@ -597,11 +598,20 @@ export default function SellerDashboardPage() {
                                 Ends: {format(new Date(product.endDate), "dd/MM/yyyy HH:mm")}
                               </span>
                             </div>
-                            {product.bids && product.bids[0] && (
-                              <p className="text-xs text-muted-foreground">
-                                Highest bidder: {product.bids[0].bidder.fullName}
-                              </p>
-                            )}
+                            {(() => {
+                              const rejectedBidderIds = new Set(
+                                product.bids?.filter((b) => b.isRejected).map((b) => b.bidder.id)
+                              );
+                              const highestBidder = product.bids && [...product.bids]
+                                .filter((b) => !rejectedBidderIds.has(b.bidder.id))
+                                .sort((a, b) => Number(b.amount) - Number(a.amount))[0];
+                              
+                              return highestBidder ? (
+                                <p className="text-xs text-muted-foreground">
+                                  Highest bidder: {highestBidder.bidder.fullName}
+                                </p>
+                              ) : null;
+                            })()}
                           </div>
                         </Link>
                         <div className="p-4 pt-0">
@@ -677,11 +687,20 @@ export default function SellerDashboardPage() {
                           >
                             {product.status === "ended" ? "Ended" : "Expired"}
                           </Badge>
-                          {product.bids && product.bids[0] && (
-                            <p className="text-xs text-muted-foreground">
-                              Winner: {product.bids[0].bidder.fullName}
-                            </p>
-                          )}
+                          {(() => {
+                            const rejectedBidderIds = new Set(
+                              product.bids?.filter((b) => b.isRejected).map((b) => b.bidder.id)
+                            );
+                            const winner = product.bids && [...product.bids]
+                              .filter((b) => !rejectedBidderIds.has(b.bidder.id))
+                              .sort((a, b) => Number(b.amount) - Number(a.amount))[0];
+
+                            return winner ? (
+                              <p className="text-xs text-muted-foreground">
+                                Winner: {winner.bidder.fullName}
+                              </p>
+                            ) : null;
+                          })()}
                         </div>
                       </Link>
                     ))}

@@ -310,7 +310,7 @@ export const getProductById = async (
         {
           model: Bid,
           as: "bids",
-          where: { isRejected: false },
+          // where: { isRejected: false }, // Allow rejected bids so frontend can filter strict bans
           required: false,
           include: [
             {
@@ -320,7 +320,7 @@ export const getProductById = async (
             },
           ],
           order: [["maxAmount", "DESC"], ["createdAt", "ASC"]],
-          limit: 5, // Just get top 5 bids for display if needed, but UI seems to show history
+          // limit: 5, // Remove limit to ensure we catch any rejected bid in history
         },
         {
           model: Question,
@@ -551,7 +551,7 @@ export const getMyProducts = async (
         {
           model: Bid,
           as: "bids",
-          where: { isRejected: false },
+          // where: { isRejected: false }, // ALLOW rejected bids so frontend can filter strict bans
           required: false,
           include: [
             {
@@ -561,7 +561,7 @@ export const getMyProducts = async (
             },
           ],
           order: [["amount", "DESC"]],
-          limit: 1,
+          // limit: 1, // Remove limit to allow finding the true highest after strict filtering
         },
       ],
       order: [["createdAt", "DESC"]],

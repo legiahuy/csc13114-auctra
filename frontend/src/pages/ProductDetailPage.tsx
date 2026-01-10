@@ -89,6 +89,7 @@ interface Product {
     };
     amount: number;
     createdAt: string;
+    isRejected?: boolean;
   }>;
   questions: Array<{
     id: number;
@@ -469,7 +470,14 @@ export default function ProductDetailPage() {
     product.seller.totalRatings
   );
 
-  const highestBidder = product.bids && product.bids[0];
+  // Identify bidders who have been rejected (if any bid is rejected, the user is banned from this product)
+  const rejectedBidderIds = new Set(
+    product.bids?.filter((b) => b.isRejected).map((b) => b.bidder.id)
+  );
+
+  const highestBidder = product.bids && [...product.bids]
+    .filter((b) => !rejectedBidderIds.has(b.bidder.id))
+    .sort((a, b) => Number(b.amount) - Number(a.amount))[0];
 
   const highestBidderRating =
     highestBidder && highestBidder.bidder.totalRatings > 0
@@ -1114,7 +1122,7 @@ export default function ProductDetailPage() {
                   <TableHead>Bidder</TableHead>
                   <TableHead>Amount</TableHead>
                   {isSeller && <TableHead>Status</TableHead>}
-                  {isSeller && <TableHead>Actions</TableHead>}
+                  {isSeller && !isEnded && <TableHead>Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1147,7 +1155,7 @@ export default function ProductDetailPage() {
                         )}
                       </TableCell>
                     )}
-                    {isSeller && (
+                    {isSeller && !isEnded && (
                       <TableCell>
                         <Button
                           size="sm"
