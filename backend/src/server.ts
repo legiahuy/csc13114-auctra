@@ -12,6 +12,7 @@ import { sequelize } from './config/database';
 import { logger } from './config/logger';
 import { errorHandler } from './middleware/errorHandler';
 import { rateLimiter } from './middleware/rateLimiter';
+import { requestLogger } from './middleware/requestLogger';
 import { startAuctionProcessor } from './services/auction.service';
 import { register, collectDefaultMetrics } from 'prom-client';
 
@@ -99,7 +100,6 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Prometheus metrics endpoint
 app.get('/metrics', async (req, res) => {
   try {
     res.set('Content-Type', register.contentType);
@@ -108,6 +108,8 @@ app.get('/metrics', async (req, res) => {
     res.status(500).end(err);
   }
 });
+
+app.use(requestLogger);
 
 // Routes
 app.use('/api/auth', authRoutes);
