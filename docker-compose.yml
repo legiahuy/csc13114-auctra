@@ -2,69 +2,69 @@ version: "3.8"
 
 services:
   # Backend API Service
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: auction-backend
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - DATABASE_URL=${DATABASE_URL}
-      - DB_SSL=${DB_SSL:-true}
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-      - JWT_ACCESS_EXPIRES_IN=${JWT_ACCESS_EXPIRES_IN:-15m}
-      - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-7d}
-      - EMAIL_HOST=${EMAIL_HOST}
-      - EMAIL_PORT=${EMAIL_PORT}
-      - EMAIL_USER=${EMAIL_USER}
-      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
-      - EMAIL_FROM=${EMAIL_FROM}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - SUPABASE_STORAGE_BUCKET=${SUPABASE_STORAGE_BUCKET:-product-images}
-      - FRONTEND_URL=http://localhost:3001
-      - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY}
-      - LOKI_HOST=http://loki:3100
-    volumes:
-      - ./backend/logs:/app/logs
-    depends_on:
-      - postgres
-    networks:
-      - auction-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "exit 0"] # Simplified for dev
-      interval: 30s
-      timeout: 3s
-      retries: 3
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: auction-backend
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - NODE_ENV=production
+  #     - PORT=3000
+  #     - DATABASE_URL=${DATABASE_URL}
+  #     - DB_SSL=${DB_SSL:-true}
+  #     - JWT_SECRET=${JWT_SECRET}
+  #     - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+  #     - JWT_ACCESS_EXPIRES_IN=${JWT_ACCESS_EXPIRES_IN:-15m}
+  #     - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-7d}
+  #     - EMAIL_HOST=${EMAIL_HOST}
+  #     - EMAIL_PORT=${EMAIL_PORT}
+  #     - EMAIL_USER=${EMAIL_USER}
+  #     - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+  #     - EMAIL_FROM=${EMAIL_FROM}
+  #     - SUPABASE_URL=${SUPABASE_URL}
+  #     - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+  #     - SUPABASE_STORAGE_BUCKET=${SUPABASE_STORAGE_BUCKET:-product-images}
+  #     - FRONTEND_URL=http://localhost:3001
+  #     - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY}
+  #     - LOKI_HOST=http://loki:3100
+  #   volumes:
+  #     - ./backend/logs:/app/logs
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - auction-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "exit 0"] # Simplified for dev
+  #     interval: 30s
+  #     timeout: 3s
+  #     retries: 3
 
   # Frontend Service
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - VITE_API_URL=http://localhost:3000
-        - VITE_RECAPTCHA_SITE_KEY=${VITE_RECAPTCHA_SITE_KEY}
-        - VITE_STRIPE_PUBLISHABLE_KEY=${VITE_STRIPE_PUBLISHABLE_KEY}
-    container_name: auction-frontend
-    ports:
-      - "3001:8080"
-    depends_on:
-      - backend
-    networks:
-      - auction-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "exit 0"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #     args:
+  #       - VITE_API_URL=http://localhost:3000
+  #       - VITE_RECAPTCHA_SITE_KEY=${VITE_RECAPTCHA_SITE_KEY}
+  #       - VITE_STRIPE_PUBLISHABLE_KEY=${VITE_STRIPE_PUBLISHABLE_KEY}
+  #   container_name: auction-frontend
+  #   ports:
+  #     - "3001:8080"
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - auction-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "exit 0"]
+  #     interval: 30s
+  #     timeout: 3s
+  #     retries: 3
+  #     start_period: 10s
 
   # Monitoring - Loki
   loki:
@@ -99,25 +99,25 @@ services:
 
   # PostgreSQL Database (Optional - for local development)
   # Uncomment if not using Supabase or other cloud database
-  postgres:
-    image: postgres:15-alpine
-    container_name: auction-db
-    environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-      POSTGRES_DB: ${DB_NAME:-online_auction}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - auction-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: auction-db
+  #   environment:
+  #     POSTGRES_USER: ${DB_USER:-postgres}
+  #     POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+  #     POSTGRES_DB: ${DB_NAME:-online_auction}
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - auction-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
 
 networks:
   auction-network:

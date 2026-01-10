@@ -31,7 +31,10 @@ export interface ProductCardProduct {
     fullName: string;
   };
   bids?: Array<{
+    amount?: number;
+    isRejected?: boolean;
     bidder: {
+      id: number;
       fullName: string;
     };
   }>;
@@ -52,7 +55,19 @@ export function ProductCard({
 }: ProductCardProps) {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const highestBidderName = product.bids?.[0]?.bidder?.fullName;
+  // Calculate highest bidder with strict ban logic (filter out anyone with a rejected bid)
+  const highestBidderName = (() => {
+    if (!product.bids || product.bids.length === 0) return undefined;
+    
+    const rejectedBidderIds = new Set(
+      product.bids.filter((b) => b.isRejected).map((b) => b.bidder.id)
+    );
+    
+    // Note: product.bids from getProducts might only have limited fields, but we need amount for sorting if not already sorted.
+    // The backend `getProducts` sorts by maxAmount DESC, so the first valid one should be correct.
+    const validBids = product.bids.filter((b) => !rejectedBidderIds.has(b.bidder.id));
+    return validBids[0]?.bidder?.fullName;
+  })();
 
   const handleWatchlistClick = async (e: React.MouseEvent) => {
     e.preventDefault();

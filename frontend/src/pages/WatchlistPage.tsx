@@ -31,7 +31,10 @@ interface WatchlistItem {
       fullName: string;
     };
     bids?: Array<{
+      amount?: number;
+      isRejected?: boolean;
       bidder: {
+        id: number;
         fullName: string;
       };
     }>;

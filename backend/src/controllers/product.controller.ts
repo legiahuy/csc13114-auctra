@@ -235,7 +235,7 @@ export const getProducts = async (
         {
           model: Bid,
           as: "bids",
-          where: { isRejected: false },
+          // where: { isRejected: false }, // Allow rejected bids so frontend can filter strict bans
           required: false,
           include: [
             {
@@ -245,7 +245,7 @@ export const getProducts = async (
             },
           ],
           order: [["maxAmount", "DESC"], ["createdAt", "ASC"]],
-          limit: 1,
+          limit: 5, // Get top 5 to ensure we catch rejected bids in history for strict filtering
         },
       ],
       order,
