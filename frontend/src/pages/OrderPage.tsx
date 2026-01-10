@@ -11,24 +11,33 @@ import Loading from '@/components/Loading';
 
 import { Button } from '@/components/ui/button';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+  Send,
+  CreditCard,
+} from "lucide-react";
+
+import apiClient from "../api/client";
+import { useAuthStore } from "../store/authStore";
+import toast from "react-hot-toast";
+import Loading from "@/components/Loading";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Stepper } from '@/components/ui/stepper';
+} from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Stepper } from "@/components/ui/stepper";
 
 interface Review {
   id: number;
@@ -50,7 +59,13 @@ interface Order {
   sellerId: number;
   buyerId: number;
   finalPrice: number;
-  status: 'pending_payment' | 'pending_address' | 'pending_shipping' | 'pending_delivery' | 'completed' | 'cancelled';
+  status:
+    | "pending_payment"
+    | "pending_address"
+    | "pending_shipping"
+    | "pending_delivery"
+    | "completed"
+    | "cancelled";
   paymentMethod?: string;
   paymentTransactionId?: string;
   paymentProof?: string;
@@ -93,11 +108,11 @@ interface ChatMessage {
 }
 
 const steps = [
-  'Payment',
-  'Shipping Address',
-  'Confirm Shipping',
-  'Confirm Delivery',
-  'Review Transaction',
+  "Payment",
+  "Shipping Address",
+  "Confirm Shipping",
+  "Confirm Delivery",
+  "Review Transaction",
 ];
 
 export default function OrderPage() {
@@ -109,23 +124,32 @@ export default function OrderPage() {
   const [activeStep, setActiveStep] = useState(0);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [paymentProofUrl, setPaymentProofUrl] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('Stripe');
-  const [paymentTransactionId, setPaymentTransactionId] = useState('');
+  const [newMessage, setNewMessage] = useState("");
+  const [paymentProofUrl, setPaymentProofUrl] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("Stripe");
+  const [paymentTransactionId, setPaymentTransactionId] = useState("");
   const [addressData, setAddressData] = useState({
-    houseNumber: '',
-    street: '',
-    city: '',
-    country: ''
+    houseNumber: "",
+    street: "",
+    city: "",
+    country: "",
   });
   // Derived shipping address for backward compatibility/display
-  const shippingAddress = [addressData.houseNumber, addressData.street, addressData.city, addressData.country].filter(Boolean).join(', ');
-  const [shippingInvoiceUrl, setShippingInvoiceUrl] = useState('');
+  const shippingAddress = [
+    addressData.houseNumber,
+    addressData.street,
+    addressData.city,
+    addressData.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const [shippingInvoiceUrl, setShippingInvoiceUrl] = useState("");
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [reviewRating, setReviewRating] = useState<1 | -1>(1);
-  const [reviewComment, setReviewComment] = useState('');
-  const [reviewingFor, setReviewingFor] = useState<'seller' | 'buyer' | null>(null);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewingFor, setReviewingFor] = useState<"seller" | "buyer" | null>(
+    null
+  );
   const [myReview, setMyReview] = useState<Review | null>(null);
 
   // Seller Confirmation States for Auto-Generated Invoice
@@ -177,7 +201,7 @@ export default function OrderPage() {
         });
         lastSavedRef.current = { ...data };
       } catch (error) {
-        console.error('Auto-save failed:', error);
+        console.error("Auto-save failed:", error);
       }
     }, 1000);
   };
@@ -209,13 +233,13 @@ export default function OrderPage() {
             setReviewComment(myReviewData.comment);
           }
         }
-        setPaymentMethod(orderData.paymentMethod || 'Stripe');
-        setPaymentTransactionId(orderData.paymentTransactionId || '');
-        setPaymentProofUrl(orderData.paymentProof || '');
+        setPaymentMethod(orderData.paymentMethod || "Stripe");
+        setPaymentTransactionId(orderData.paymentTransactionId || "");
+        setPaymentProofUrl(orderData.paymentProof || "");
         // Parse shipping address logic REMOVED to disable auto-fill per user request
         // if (orderData.shippingAddress) { ... }
 
-        setShippingInvoiceUrl(orderData.shippingInvoice || '');
+        setShippingInvoiceUrl(orderData.shippingInvoice || "");
 
         lastSavedRef.current = {
           paymentMethod: orderData.paymentMethod || undefined,
@@ -227,8 +251,8 @@ export default function OrderPage() {
 
         isInitialLoadRef.current = false;
       } catch (error) {
-        console.error('Error fetching order:', error);
-        toast.error('Failed to load order information');
+        console.error("Error fetching order:", error);
+        toast.error("Failed to load order information");
       } finally {
         setLoading(false);
       }
@@ -241,14 +265,14 @@ export default function OrderPage() {
   useEffect(() => {
     if (!order || !user) return;
 
-    const newSocket = io('http://localhost:3000');
+    const newSocket = io("http://localhost:3000");
 
-    newSocket.on('connect', () => {
-      newSocket.emit('join-room', `order-${orderId}`);
-      newSocket.emit('join-room', `user-${user.id}`);
+    newSocket.on("connect", () => {
+      newSocket.emit("join-room", `order-${orderId}`);
+      newSocket.emit("join-room", `user-${user.id}`);
     });
 
-    newSocket.on('new-message', (message: ChatMessage) => {
+    newSocket.on("new-message", (message: ChatMessage) => {
       // Enrich message with proper sender info if missing or if it's the generic "User"
       const needsEnrichment = !message.sender ||
         !message.sender.fullName ||
@@ -266,7 +290,7 @@ export default function OrderPage() {
       setMessages((prev) => [...prev, enrichedMessage]);
     });
 
-    newSocket.on('order-updated', (updatedOrder: Order) => {
+    newSocket.on("order-updated", (updatedOrder: Order) => {
       setOrder(updatedOrder);
       const statusSteps: Record<string, number> = {
         pending_payment: 0,
@@ -288,28 +312,28 @@ export default function OrderPage() {
           setReviewComment(myReviewData.comment);
         }
       }
-      setPaymentMethod(updatedOrder.paymentMethod || 'Stripe');
-      setPaymentTransactionId(updatedOrder.paymentTransactionId || '');
-      setPaymentProofUrl(updatedOrder.paymentProof || '');
+      setPaymentMethod(updatedOrder.paymentMethod || "Stripe");
+      setPaymentTransactionId(updatedOrder.paymentTransactionId || "");
+      setPaymentProofUrl(updatedOrder.paymentProof || "");
       if (updatedOrder.shippingAddress) {
-        const parts = updatedOrder.shippingAddress.split(', ');
+        const parts = updatedOrder.shippingAddress.split(", ");
         if (parts.length >= 4) {
           setAddressData({
-            houseNumber: parts[0] || '',
-            street: parts[1] || '',
-            city: parts[2] || '',
-            country: parts[3] || ''
+            houseNumber: parts[0] || "",
+            street: parts[1] || "",
+            city: parts[2] || "",
+            country: parts[3] || "",
           });
         } else {
           setAddressData({
-            houseNumber: '',
+            houseNumber: "",
             street: updatedOrder.shippingAddress,
-            city: '',
-            country: ''
+            city: "",
+            country: "",
           });
         }
       }
-      setShippingInvoiceUrl(updatedOrder.shippingInvoice || '');
+      setShippingInvoiceUrl(updatedOrder.shippingInvoice || "");
 
       lastSavedRef.current = {
         paymentMethod: updatedOrder.paymentMethod || undefined,
@@ -327,7 +351,7 @@ export default function OrderPage() {
         const response = await apiClient.get(`/chat/${orderId}`);
         setMessages(response.data.data);
       } catch (error) {
-        console.error('Error loading messages:', error);
+        console.error("Error loading messages:", error);
       }
     };
     loadMessages();
@@ -338,14 +362,17 @@ export default function OrderPage() {
   }, [order, orderId, user]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(
+        textareaRef.current.scrollHeight,
+        120
+      )}px`;
     }
   }, [newMessage]);
 
@@ -356,14 +383,20 @@ export default function OrderPage() {
     const isSeller = user?.id === order.sellerId;
 
     const hasPaymentChanges =
-      (paymentMethod || '') !== (lastSavedRef.current.paymentMethod || '') ||
-      (paymentTransactionId || '') !== (lastSavedRef.current.paymentTransactionId || '') ||
-      (paymentProofUrl || '') !== (lastSavedRef.current.paymentProof || '');
+      (paymentMethod || "") !== (lastSavedRef.current.paymentMethod || "") ||
+      (paymentTransactionId || "") !==
+        (lastSavedRef.current.paymentTransactionId || "") ||
+      (paymentProofUrl || "") !== (lastSavedRef.current.paymentProof || "");
 
     const hasShippingInvoiceChanges =
-      (shippingInvoiceUrl || '') !== (lastSavedRef.current.shippingInvoice || '');
+      (shippingInvoiceUrl || "") !==
+      (lastSavedRef.current.shippingInvoice || "");
 
-    if (isBuyer && hasPaymentChanges && (order.status === 'pending_payment' || order.status === 'pending_address')) {
+    if (
+      isBuyer &&
+      hasPaymentChanges &&
+      (order.status === "pending_payment" || order.status === "pending_address")
+    ) {
       autoSave({
         paymentMethod: paymentMethod || undefined,
         paymentTransactionId: paymentTransactionId || undefined,
@@ -380,12 +413,27 @@ export default function OrderPage() {
     }
     */
 
-    if (isSeller && hasShippingInvoiceChanges && shippingInvoiceUrl && (order.status === 'pending_shipping' || order.status === 'pending_delivery')) {
+    if (
+      isSeller &&
+      hasShippingInvoiceChanges &&
+      shippingInvoiceUrl &&
+      (order.status === "pending_shipping" ||
+        order.status === "pending_delivery")
+    ) {
       autoSave({
         shippingInvoice: shippingInvoiceUrl || undefined,
       });
     }
-  }, [paymentMethod, paymentTransactionId, paymentProofUrl, shippingAddress, shippingInvoiceUrl, order, orderId, user]);
+  }, [
+    paymentMethod,
+    paymentTransactionId,
+    paymentProofUrl,
+    shippingAddress,
+    shippingInvoiceUrl,
+    order,
+    orderId,
+    user,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -398,8 +446,13 @@ export default function OrderPage() {
   /* Removed handlePaymentProofUpload and handleStep1 as they are replaced by StripePaymentForm */
 
   const handleStep2 = async () => {
-    if (!addressData.houseNumber || !addressData.street || !addressData.city || !addressData.country) {
-      toast.error('Please fill in all address fields');
+    if (
+      !addressData.houseNumber ||
+      !addressData.street ||
+      !addressData.city ||
+      !addressData.country
+    ) {
+      toast.error("Please fill in all address fields");
       return;
     }
 
@@ -409,29 +462,54 @@ export default function OrderPage() {
       await apiClient.put(`/orders/${orderId}`, {
         shippingAddress,
       });
-      toast.success('Address sent. Please wait for the seller to confirm and ship.');
+      toast.success(
+        "Address sent. Please wait for the seller to confirm and ship."
+      );
       if (order) {
         setOrder({ ...order, shippingAddress });
       }
       setActiveStep(2); // Move to Step 3 (Waiting for seller)
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Failed to send address');
+      toast.error(
+        error.response?.data?.error?.message || "Failed to send address"
+      );
     }
   };
 
   /* handleShippingInvoiceUpload removed as unnecessary */
 
 
+  const handleStep3 = async () => {
+    try {
+      await apiClient.put(`/orders/${orderId}`, {
+        status: "pending_shipping",
+        shippingInvoice: "not_required", // Or simply omit if backend allows null
+      });
+      toast.success("Shipping confirmed successfully");
+      setActiveStep(3);
+      if (order) {
+        setOrder({
+          ...order,
+          status: "pending_shipping",
+          shippingInvoice: "not_required",
+        });
+      }
+    } catch (error: any) {
+      toast.error(
+        error.response?.data?.error?.message || "Confirmation failed"
+      );
+    }
+  };
 
   const handleStep4 = async () => {
     try {
       await apiClient.put(`/orders/${orderId}`, {
-        status: 'completed',
+        status: "completed",
       });
-      toast.success('Delivery confirmed successfully');
+      toast.success("Delivery confirmed successfully");
       setActiveStep(4);
       if (order) {
-        setOrder({ ...order, status: 'completed' });
+        setOrder({ ...order, status: "completed" });
       }
 
       // Auto-prompt for review
@@ -440,23 +518,29 @@ export default function OrderPage() {
       }, 500);
 
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Confirmation failed');
+      toast.error(
+        error.response?.data?.error?.message || "Confirmation failed"
+      );
     }
   };
 
   const handleSubmitReview = async () => {
     if (!reviewComment.trim()) {
-      toast.error('Please enter a comment');
+      toast.error("Please enter a comment");
       return;
     }
 
     try {
-      await apiClient.post('/users/rate', {
+      await apiClient.post("/users/rate", {
         orderId,
         rating: reviewRating,
         comment: reviewComment,
       });
-      toast.success(myReview ? 'Review updated successfully' : 'Review submitted successfully');
+      toast.success(
+        myReview
+          ? "Review updated successfully"
+          : "Review submitted successfully"
+      );
       setReviewDialogOpen(false);
       setReviewingFor(null);
       const response = await apiClient.get(`/orders/${orderId}`);
@@ -471,18 +555,20 @@ export default function OrderPage() {
         }
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Failed to submit review');
+      toast.error(
+        error.response?.data?.error?.message || "Failed to submit review"
+      );
     }
   };
 
-  const handleOpenReviewDialog = (forUser: 'seller' | 'buyer') => {
+  const handleOpenReviewDialog = (forUser: "seller" | "buyer") => {
     setReviewingFor(forUser);
     if (myReview) {
       setReviewRating(myReview.rating);
       setReviewComment(myReview.comment);
     } else {
       setReviewRating(1);
-      setReviewComment('');
+      setReviewComment("");
     }
     setReviewDialogOpen(true);
   };
@@ -495,19 +581,20 @@ export default function OrderPage() {
   const handleCancelOrder = async () => {
     try {
       await apiClient.put(`/orders/${orderId}`, {
-        status: 'cancelled',
+        status: "cancelled",
       });
       setCancelResult({
         success: true,
-        message: 'Order has been cancelled successfully.',
+        message: "Order has been cancelled successfully.",
       });
       if (order) {
-        setOrder({ ...order, status: 'cancelled' });
+        setOrder({ ...order, status: "cancelled" });
       }
     } catch (error: any) {
       setCancelResult({
         success: false,
-        message: error.response?.data?.error?.message || 'Failed to cancel order',
+        message:
+          error.response?.data?.error?.message || "Failed to cancel order",
       });
     }
   };
@@ -517,44 +604,51 @@ export default function OrderPage() {
 
     try {
       await apiClient.post(`/chat/${orderId}`, { message: newMessage });
-      setNewMessage('');
+      setNewMessage("");
     } catch (error) {
-      toast.error('Failed to send message');
+      toast.error("Failed to send message");
     }
   };
 
   const handleResetOrder = async () => {
-    if (!window.confirm('Are you sure you want to reset all order information from the beginning?')) return;
+    if (
+      !window.confirm(
+        "Are you sure you want to reset all order information from the beginning?"
+      )
+    )
+      return;
 
     try {
       await apiClient.put(`/orders/${orderId}`, {
-        status: 'pending_payment',
-        paymentMethod: '',
-        paymentTransactionId: '',
-        paymentProof: '',
-        shippingAddress: '',
-        shippingInvoice: '',
+        status: "pending_payment",
+        paymentMethod: "",
+        paymentTransactionId: "",
+        paymentProof: "",
+        shippingAddress: "",
+        shippingInvoice: "",
       });
-      toast.success('Order process reset. Please start from step 1');
+      toast.success("Order process reset. Please start from step 1");
       setActiveStep(0);
       if (order) {
         setOrder({
           ...order,
-          status: 'pending_payment',
-          paymentMethod: '',
-          paymentTransactionId: '',
-          paymentProof: '',
-          shippingAddress: '',
-          shippingInvoice: '',
+          status: "pending_payment",
+          paymentMethod: "",
+          paymentTransactionId: "",
+          paymentProof: "",
+          shippingAddress: "",
+          shippingInvoice: "",
         } as any);
       }
-      setPaymentMethod('Stripe');
-      setPaymentTransactionId('');
-      setPaymentProofUrl('');
-      setAddressData({ houseNumber: '', street: '', city: '', country: '' });
-      setShippingInvoiceUrl('');
+      setPaymentMethod("Stripe");
+      setPaymentTransactionId("");
+      setPaymentProofUrl("");
+      setAddressData({ houseNumber: "", street: "", city: "", country: "" });
+      setShippingInvoiceUrl("");
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Failed to reset order');
+      toast.error(
+        error.response?.data?.error?.message || "Failed to reset order"
+      );
     }
   };
 
@@ -692,22 +786,26 @@ export default function OrderPage() {
 
   const isBuyer = user?.id === order.buyerId;
   const isSeller = user?.id === order.sellerId;
-  const canCancel = isSeller && order.status !== 'completed' && order.status !== 'cancelled';
+  const canCancel =
+    isSeller && order.status !== "completed" && order.status !== "cancelled";
   const canReset =
-    isBuyer &&
-    order.status !== 'completed' &&
-    order.status !== 'cancelled';
+    isBuyer && order.status !== "completed" && order.status !== "cancelled";
 
   const getStatusBadge = () => {
-    const statusMap: Record<string, { label: string; variant: 'default' | 'destructive' | 'outline' }> = {
-      pending_payment: { label: 'Pending Payment', variant: 'outline' },
-      pending_address: { label: 'Pending Address', variant: 'outline' },
-      pending_shipping: { label: 'Pending Shipping', variant: 'outline' },
-      pending_delivery: { label: 'Pending Delivery', variant: 'outline' },
-      completed: { label: 'Completed', variant: 'default' },
-      cancelled: { label: 'Cancelled', variant: 'destructive' },
+    const statusMap: Record<
+      string,
+      { label: string; variant: "default" | "destructive" | "outline" }
+    > = {
+      pending_payment: { label: "Pending Payment", variant: "outline" },
+      pending_address: { label: "Pending Address", variant: "outline" },
+      pending_shipping: { label: "Pending Shipping", variant: "outline" },
+      pending_delivery: { label: "Pending Delivery", variant: "outline" },
+      completed: { label: "Completed", variant: "default" },
+      cancelled: { label: "Cancelled", variant: "destructive" },
     };
-    return statusMap[order.status] || { label: order.status, variant: 'outline' };
+    return (
+      statusMap[order.status] || { label: order.status, variant: "outline" }
+    );
   };
 
   const statusBadge = getStatusBadge();
@@ -729,10 +827,17 @@ export default function OrderPage() {
                   className="w-48 h-48 object-cover rounded-lg"
                 />
                 <div className="flex-1">
-                  <h2 className="text-xl font-semibold mb-2">{order.product.name}</h2>
-                  <p className="text-sm text-muted-foreground mb-2">{order.product.category.name}</p>
+                  <h2 className="text-xl font-semibold mb-2">
+                    {order.product.name}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {order.product.category.name}
+                  </p>
                   <p className="text-2xl font-bold text-brand">
-                    {parseFloat(order.finalPrice.toString()).toLocaleString('vi-VN')} VNĐ
+                    {parseFloat(order.finalPrice.toString()).toLocaleString(
+                      "vi-VN"
+                    )}{" "}
+                    VNĐ
                   </p>
                 </div>
               </div>
@@ -749,14 +854,14 @@ export default function OrderPage() {
           {/* Main content */}
           <Card>
             <CardContent className="p-6">
-              {order.status === 'cancelled' && (
+              {order.status === "cancelled" && (
                 <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive mb-4">
                   <XCircle className="h-4 w-4 mt-0.5" />
-                  <p>Order has been cancelled</p>
+                  <p className="text-sm my-0">Order has been cancelled</p>
                 </div>
               )}
 
-              {order.status !== 'cancelled' && (
+              {order.status !== "cancelled" && (
                 <div className="space-y-6">
                   {/* Step 1: Payment */}
                   {/* Step 1: Payment Verification */}
@@ -1344,10 +1449,7 @@ export default function OrderPage() {
                       </Button>
                     )}
                     {canReset && (
-                      <Button
-                        variant="outline"
-                        onClick={handleResetOrder}
-                      >
+                      <Button variant="outline" onClick={handleResetOrder}>
                         Reset from Beginning
                       </Button>
                     )}
@@ -1373,25 +1475,31 @@ export default function OrderPage() {
                   messages.map((msg, index) => {
                     const isOwnMessage = msg.senderId === user?.id;
                     const prevMessage = index > 0 ? messages[index - 1] : null;
-                    const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
+                    const nextMessage =
+                      index < messages.length - 1 ? messages[index + 1] : null;
 
                     // Check if this is the first message in a group
                     const isFirstInGroup =
                       !prevMessage ||
                       prevMessage.senderId !== msg.senderId ||
-                      new Date(msg.createdAt).getTime() - new Date(prevMessage.createdAt).getTime() > 300000; // 5 minutes
+                      new Date(msg.createdAt).getTime() -
+                        new Date(prevMessage.createdAt).getTime() >
+                        300000; // 5 minutes
 
                     // Check if this is the last message in a group
                     const isLastInGroup =
                       !nextMessage ||
                       nextMessage.senderId !== msg.senderId ||
-                      new Date(nextMessage.createdAt).getTime() - new Date(msg.createdAt).getTime() > 300000;
+                      new Date(nextMessage.createdAt).getTime() -
+                        new Date(msg.createdAt).getTime() >
+                        300000;
 
                     return (
                       <div
                         key={msg.id}
-                        className={`flex items-start gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'} ${isFirstInGroup ? 'mt-2' : 'mt-1'
-                          }`}
+                        className={`flex items-start gap-2 ${
+                          isOwnMessage ? "justify-end" : "justify-start"
+                        } ${isFirstInGroup ? "mt-2" : "mt-1"}`}
                       >
                         {/* Avatar for other person's messages */}
                         {!isOwnMessage && (
@@ -1409,7 +1517,11 @@ export default function OrderPage() {
                         )}
 
                         {/* Message bubble */}
-                        <div className={`flex flex-col max-w-[70%] ${isOwnMessage ? 'items-end' : 'items-start'}`}>
+                        <div
+                          className={`flex flex-col max-w-[70%] ${
+                            isOwnMessage ? "items-end" : "items-start"
+                          }`}
+                        >
                           {/* Sender name for other person's messages */}
                           {!isOwnMessage && isFirstInGroup && (
                             <span className="text-xs text-muted-foreground mb-1.5 px-1.5">
@@ -1419,27 +1531,33 @@ export default function OrderPage() {
 
                           {/* Message bubble */}
                           <div
-                            className={`relative rounded-2xl px-4 py-2.5 flex items-center justify-center min-h-[36px] ${isOwnMessage
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-gray-200 text-gray-900'
-                              }`}
+                            className={`relative rounded-2xl px-4 py-2.5 flex items-center justify-center min-h-[36px] ${
+                              isOwnMessage
+                                ? "bg-blue-500 text-white"
+                                : "bg-gray-200 text-gray-900"
+                            }`}
                           >
-                            <p className="text-sm whitespace-pre-wrap break-words text-center leading-normal m-0 w-full">{msg.message}</p>
+                            <p className="text-sm whitespace-pre-wrap break-words text-center leading-normal m-0 w-full">
+                              {msg.message}
+                            </p>
                           </div>
 
                           {/* Timestamp - only show for the latest message */}
                           {index === messages.length - 1 && (
-                            <span className={`text-xs text-muted-foreground mt-1 px-1.5 ${isOwnMessage ? 'text-right' : 'text-left'
-                              }`}>
-                              {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })}
+                            <span
+                              className={`text-xs text-muted-foreground mt-1 px-1.5 ${
+                                isOwnMessage ? "text-right" : "text-left"
+                              }`}
+                            >
+                              {formatDistanceToNow(new Date(msg.createdAt), {
+                                addSuffix: true,
+                              })}
                             </span>
                           )}
                         </div>
 
                         {/* Spacer for own messages */}
-                        {isOwnMessage && (
-                          <div className="flex-shrink-0 w-8" />
-                        )}
+                        {isOwnMessage && <div className="flex-shrink-0 w-8" />}
                       </div>
                     );
                   })
@@ -1456,7 +1574,7 @@ export default function OrderPage() {
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
+                        if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
                           handleSendMessage();
                         }
@@ -1494,7 +1612,16 @@ export default function OrderPage() {
               <Separator />
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Status</p>
-                <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
+                <Badge
+                  variant={statusBadge.variant}
+                  className={`text-xs ${
+                    statusBadge.label === "Completed"
+                      ? "bg-green-500"
+                      : "bg-muted-foreground"
+                  }`}
+                >
+                  {statusBadge.label}
+                </Badge>
               </div>
               <Separator />
               <div>
@@ -1507,9 +1634,14 @@ export default function OrderPage() {
               </div>
               <Separator />
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Total Amount</p>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Total Amount
+                </p>
                 <p className="text-xl font-bold text-brand">
-                  {parseFloat(order.finalPrice.toString()).toLocaleString('vi-VN')} VNĐ
+                  {parseFloat(order.finalPrice.toString()).toLocaleString(
+                    "vi-VN"
+                  )}{" "}
+                  VNĐ
                 </p>
               </div>
 
@@ -1539,19 +1671,21 @@ export default function OrderPage() {
           {!cancelResult ? (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground text-justify">
-                Are you sure you want to cancel this order? This action cannot be undone.
+                Are you sure you want to cancel this order? This action cannot
+                be undone.
               </p>
             </div>
           ) : (
             <div className="space-y-4">
               <div
-                className={`flex items-start gap-3 p-4 rounded-lg border ${cancelResult.success
-                  ? "bg-green-50 border-green-200 text-green-900"
-                  : "bg-red-50 border-red-200 text-red-900"
-                  }`}
+                className={`flex items-start gap-3 p-4 rounded-lg border ${
+                  cancelResult.success
+                    ? "bg-green-50 border-green-200 text-green-900"
+                    : "bg-red-50 border-red-200 text-red-900"
+                }`}
               >
                 <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                <p className="text-sm">{cancelResult.message}</p>
+                <p className="text-sm my-0">{cancelResult.message}</p>
               </div>
             </div>
           )}
@@ -1593,27 +1727,30 @@ export default function OrderPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {myReview ? 'Change Review' : 'Review Transaction'}
+              {myReview ? "Change Review" : "Review Transaction"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {reviewingFor && order && (
               <p className="text-sm text-muted-foreground">
-                You are reviewing: {reviewingFor === 'seller' ? order.seller.fullName : order.buyer.fullName}
+                You are reviewing:{" "}
+                {reviewingFor === "seller"
+                  ? order.seller.fullName
+                  : order.buyer.fullName}
               </p>
             )}
             <div>
               <p className="text-sm font-medium mb-2">Rating:</p>
               <div className="flex gap-2">
                 <Button
-                  variant={reviewRating === 1 ? 'default' : 'outline'}
+                  variant={reviewRating === 1 ? "default" : "outline"}
                   onClick={() => setReviewRating(1)}
                   className="flex-1"
                 >
                   +1 (Positive)
                 </Button>
                 <Button
-                  variant={reviewRating === -1 ? 'destructive' : 'outline'}
+                  variant={reviewRating === -1 ? "destructive" : "outline"}
                   onClick={() => setReviewRating(-1)}
                   className="flex-1"
                 >
@@ -1622,7 +1759,9 @@ export default function OrderPage() {
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium mb-1.5 block">Comment</label>
+              <label className="text-sm font-medium mb-1.5 block">
+                Comment
+              </label>
               <Textarea
                 rows={4}
                 value={reviewComment}
@@ -1642,7 +1781,7 @@ export default function OrderPage() {
               Cancel
             </Button>
             <Button onClick={handleSubmitReview}>
-              {myReview ? 'Update Review' : 'Submit Review'}
+              {myReview ? "Update Review" : "Submit Review"}
             </Button>
           </DialogFooter>
         </DialogContent>

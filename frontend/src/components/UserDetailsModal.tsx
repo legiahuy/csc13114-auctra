@@ -142,8 +142,8 @@ export default function UserDetailsModal({
                   <div className="mt-2">
                     <span className="text-xs text-muted-foreground">
                       Upgrade Request:{" "}
-                      <Badge variant={details.user.upgradeRequestStatus === "pending" ? "outline" : "default"} className="text-xs">
-                        {details.user.upgradeRequestStatus}
+                      <Badge variant={details.user.upgradeRequestStatus === "pending" ? "outline" : "default"} className={details.user.upgradeRequestStatus === "approved" ? "bg-green-500 hover:bg-green-600" :  details.user.upgradeRequestStatus === "rejected" ? "bg-red-500 hover:bg-red-600" : "" }>
+                        {details.user.upgradeRequestStatus.toString().charAt(0).toUpperCase() + details.user.upgradeRequestStatus.toString().slice(1)}
                       </Badge>
                     </span>
                   </div>

@@ -13,7 +13,7 @@ import {
   Gavel,
   X,
   Star,
-  LoaderIcon,
+  Loader2,
 } from "lucide-react";
 import { useFormik } from "formik";
 import * as yup from "yup";
@@ -669,7 +669,11 @@ export default function SellerDashboardPage() {
                                 ? "destructive"
                                 : "secondary"
                             }
-                            className="text-xs"
+                            className={`text-xs ${
+                                  product.status === "active"
+                                    ? "bg-emerald-500 hover:bg-emerald-600"
+                                    : "bg-red-500 hover:bg-red-600"
+                                }`}
                           >
                             {product.status === "ended" ? "Ended" : "Expired"}
                           </Badge>
@@ -730,8 +734,23 @@ export default function SellerDashboardPage() {
 
                                 {/* Order Steps Progress */}
                                 {!isCancelled && (
-                                  <div className="space-y-2">
-                                    <div className="flex items-center gap-2">
+                                  <div className="relative pt-2 pb-6 px-4">
+                                    {/* Lines */}
+                                    <div className="absolute top-6 left-[40px] right-[40px]">
+                                      <div className="relative h-0.5 w-full bg-muted">
+                                        <div 
+                                          className={`absolute top-0 left-0 h-full bg-green-500 transition-all duration-500 ease-in-out ${
+                                            isCompleted ? "w-full" : ""
+                                          }`}
+                                          style={{ 
+                                            width: isCompleted ? "100%" : `${Math.min(100, (Math.max(0, currentStep) / (orderSteps.length - 1)) * 100)}%` 
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {/* Steps */}
+                                    <div className="relative flex justify-between w-full">
                                       {orderSteps.map((step, index) => {
                                         const isStepCompleted =
                                           isCompleted || index < currentStep;
@@ -741,54 +760,38 @@ export default function SellerDashboardPage() {
                                         return (
                                           <div
                                             key={step}
-                                            className="flex items-center flex-1"
+                                            className="flex flex-col items-center gap-2 z-10"
+                                            style={{ width: "80px" }} 
                                           >
-                                            <div className="flex items-center gap-2 flex-1">
-                                              <div
-                                                className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-                                                  isStepCompleted
-                                                    ? "bg-green-500 border-green-500 text-white"
-                                                    : isStepActive
-                                                    ? "border-primary text-primary"
-                                                    : "border-muted-foreground text-muted-foreground"
-                                                }`}
-                                              >
-                                                {isStepCompleted ? (
-                                                  <CheckCircle2 className="h-4 w-4" />
-                                                ) : (
-                                                  <span className="text-xs font-medium">
-                                                    {index + 1}
-                                                  </span>
-                                                )}
-                                              </div>
-                                              {index < orderSteps.length - 1 && (
-                                                <div
-                                                  className={`flex-1 h-0.5 ${
-                                                    isStepCompleted
-                                                      ? "bg-green-500"
-                                                      : "bg-muted"
-                                                  }`}
-                                                />
+                                            <div
+                                              className={`flex items-center justify-center w-8 h-8 rounded-full border-2 bg-card transition-colors duration-300 ${
+                                                isStepCompleted
+                                                  ? "bg-green-500 border-green-500 text-white"
+                                                  : isStepActive
+                                                  ? "border-primary text-primary"
+                                                  : "border-muted-foreground text-muted-foreground"
+                                              }`}
+                                            >
+                                              {isStepCompleted ? (
+                                                <CheckCircle2 className="h-4 w-4" />
+                                              ) : (
+                                                <span className="text-xs font-medium">
+                                                  {index + 1}
+                                                </span>
                                               )}
                                             </div>
+                                            <span
+                                              className={`text-xs text-center font-medium transition-colors duration-300 ${
+                                                index <= currentStep
+                                                  ? "text-foreground"
+                                                  : "text-muted-foreground"
+                                              }`}
+                                            >
+                                              {step}
+                                            </span>
                                           </div>
                                         );
                                       })}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-xs">
-                                      {orderSteps.map((step, index) => (
-                                        <div key={step} className="flex-1 text-center">
-                                          <span
-                                            className={
-                                              index <= currentStep
-                                                ? "text-foreground font-medium"
-                                                : "text-muted-foreground"
-                                            }
-                                          >
-                                            {step}
-                                          </span>
-                                        </div>
-                                      ))}
                                     </div>
                                   </div>
                                 )}
@@ -801,7 +804,13 @@ export default function SellerDashboardPage() {
                                       ? "destructive"
                                       : "secondary"
                                   }
-                                  className="text-xs"
+                                  className={`text-xs ${
+                                    isCompleted
+                                      ? "bg-emerald-500 hover:bg-emerald-600"
+                                      : isCancelled
+                                      ? "bg-red-500 hover:bg-red-600"
+                                      : "bg-amber-500 hover:bg-amber-600"
+                                  }`}
                                 >
                                   {order.status === "pending_payment"
                                     ? "Pending Payment"
@@ -1225,7 +1234,7 @@ export default function SellerDashboardPage() {
               >
                 {formik.isSubmitting ? (
                   <>
-                    <LoaderIcon className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Creating...
                   </>
                 ) : (

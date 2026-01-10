@@ -100,9 +100,7 @@ export default function MyBidsPage() {
     handlePageChange(1);
   };
 
-  if (loading && bids.length === 0) {
-    return <Loading />;
-  }
+
 
   const getStatusBadge = (status: string) => {
     const s = (status || "").toLowerCase();
@@ -110,7 +108,7 @@ export default function MyBidsPage() {
       s === "active" ? "default" : s === "cancelled" ? "destructive" : "outline";
 
     const className =
-      s === "active" ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "";
+      s === "active" ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "bg-red-500 hover:bg-red-600 text-white";
 
     const label =
       s === "active" ? "Active" : s === "cancelled" ? "Cancelled" : "Ended";
@@ -134,17 +132,23 @@ export default function MyBidsPage() {
       </div>
 
       {/* Search and Filters */}
-      {bids.length !== 0 && (
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
-          <div className="flex-1 space-y-2">
-            <Label htmlFor="search">Search</Label>
-            <div className="flex gap-2 relative">
-              <Input
-                id="search"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Search by product name..."
-                className="pr-10 bg-background"
+      {(bids.length > 0 || searchInput || statusFilter) && (
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+        <div className="flex-1 space-y-2">
+          <Label htmlFor="search">Search</Label>
+          <div className="flex gap-2 relative">
+            <Input
+              id="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search by product name..."
+              className="pr-10 bg-background"
+            />
+            {isSearching && (
+              <LoaderIcon
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors animate-spin size-4"
+                role="status"
+                aria-label="Loading"
               />
               {isSearching && (
                 <LoaderIcon
@@ -194,7 +198,9 @@ export default function MyBidsPage() {
         </div>
       )}
 
-      {bids.length === 0 && !loading ? (
+      {loading ? (
+        <Loading />
+      ) : bids.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">
             {debouncedSearch || statusFilter

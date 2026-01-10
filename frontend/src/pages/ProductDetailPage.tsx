@@ -1,16 +1,17 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { ProductImageCarousel } from "@/components/ProductImageCarousel";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   AlertCircle,
   Clock,
   Gavel,
   Heart,
-  Image as ImageIcon,
   User,
   ChevronDown,
   ChevronUp,
   Reply,
+  Loader2
 } from "lucide-react";
 
 import apiClient from "../api/client";
@@ -111,6 +112,7 @@ interface BidHistory {
   createdAt: string;
   isRejected?: boolean;
   bidder: {
+    id: number;
     fullName: string;
   };
 }
@@ -127,6 +129,7 @@ export default function ProductDetailPage() {
   const [maxAmount, setMaxAmount] = useState("");
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [rejectLoading, setRejectLoading] = useState(false);
 
   const [bidHistoryOpen, setBidHistoryOpen] = useState(false);
   const [expandedReplies, setExpandedReplies] = useState<Set<number>>(new Set());
@@ -136,7 +139,7 @@ export default function ProductDetailPage() {
   );
 
   const [question, setQuestion] = useState("");
-  const [selectedImage, setSelectedImage] = useState(0);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   const [order, setOrder] = useState<any>(null);
 
@@ -173,15 +176,15 @@ export default function ProductDetailPage() {
         setBidHistory(bidHistoryRes.data.data || []);
         setIsRejectedBidder(productRes.data.data.isRejectedBidder || false);
 
+        
+
         // Suggested max amount (auto-bidding only)
         if (productData.bids && productData.bids[0]) {
-          const suggestedMax =
-            Number(productData.currentPrice) + Number(productData.bidStep) * 2;
-          setMaxAmount(String(suggestedMax));
+          const suggestedMax = Number(productData.currentPrice) + Number(productData.bidStep);
+          setMaxAmount(String(Math.floor(suggestedMax)));
         } else {
-          setMaxAmount(String(productData.startingPrice));
+          setMaxAmount(String(Math.floor(Number(productData.startingPrice))));
         }
-
         // Watchlist + order info (only if logged in)
         if (user) {
           try {
@@ -232,7 +235,10 @@ export default function ProductDetailPage() {
     setConfirmOpen(true);
   };
 
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
   const handleConfirmBid = async () => {
+    setConfirmLoading(true);
     try {
       await apiClient.post("/bids", {
         productId: id,
@@ -248,14 +254,17 @@ export default function ProductDetailPage() {
         apiClient.get(`/products/${id}`),
         apiClient.get(`/bids/history/${id}`),
       ]);
-
       setProduct(productRes.data.data.product);
       setBidHistory(bidHistoryRes.data.data);
-      setIsRejectedBidder(productRes.data.data.isRejectedBidder || false);
     } catch (error: any) {
+      console.error("Error placing bid:", error);
       toast.error(error.response?.data?.error?.message || "Failed to place bid");
+    } finally {
+        setConfirmLoading(false);
     }
   };
+
+
 
   const handleToggleWatchlist = async () => {
     if (!user) {
@@ -380,7 +389,7 @@ export default function ProductDetailPage() {
     );
 
     try {
-      // 3. Perform API call in background
+      setRejectLoading(true);
       await apiClient.put(`/bids/${selectedBidId}/reject`);
 
       // 4. Silently re-validate data to ensure consistency
@@ -394,12 +403,12 @@ export default function ProductDetailPage() {
       setIsRejectedBidder(productRes.data.data.isRejectedBidder || false);
 
     } catch (error: any) {
-      // 5. Revert on failure
-      setBidHistory(previousBidHistory);
-      toast.error(error.response?.data?.error?.message || "Failed to reject bid");
+      setRejectResult({
+        success: false,
+        message: error.response?.data?.error?.message || "Failed to reject bid",
+      });
     } finally {
-      setSelectedBidId(null);
-      setRejectResult(null);
+      setRejectLoading(false);
     }
   };
 
@@ -453,10 +462,7 @@ export default function ProductDetailPage() {
     product.status === "cancelled" ||
     new Date(product.endDate) <= new Date();
 
-  const canSeeAfterEnd =
-    !isEnded ||
-    isSeller ||
-    (order && (user?.id === order.sellerId || user?.id === order.buyerId));
+
 
   const sellerRating = getRatingPercentage(
     product.seller.rating,
@@ -486,53 +492,15 @@ export default function ProductDetailPage() {
         </div>
       )}
 
-      {product.status === "ended" && !order && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <AlertCircle className="h-4 w-4 mt-0.5" />
-          <p>Product has ended</p>
-        </div>
-      )}
+
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {/* Left column */}
         <div className="space-y-6">
           {/* Gallery */}
           <Card>
-            <CardContent className="p-4 space-y-4">
-              <div className="relative rounded-xl bg-muted flex items-center justify-center overflow-hidden">
-                {allImages[selectedImage] ? (
-                  <img
-                    src={allImages[selectedImage]}
-                    alt={product.name}
-                    className="max-h-[420px] w-full object-contain bg-background"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                    <ImageIcon className="h-10 w-10 mb-2" />
-                    <p>No image</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {allImages.map((img, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setSelectedImage(idx)}
-                    className={`h-16 w-16 rounded-md overflow-hidden border ${selectedImage === idx
-                      ? "border-primary ring-2 ring-primary/40"
-                      : "border-border"
-                      }`}
-                  >
-                    <img
-                      src={img}
-                      alt={`${product.name} ${idx + 1}`}
-                      className="h-full w-full object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
+            <CardContent className="p-0">
+               <ProductImageCarousel images={allImages} productName={product.name} />
             </CardContent>
           </Card>
 
@@ -620,7 +588,13 @@ export default function ProductDetailPage() {
                   <div className="flex justify-between">
                     <span>Highest bidder</span>
                     <span className="font-medium text-foreground">
-                      {highestBidder.bidder.fullName}
+                      {isSeller ? (
+                        <Link to={`/users/${highestBidder.bidder.id}`} className="hover:underline hover:text-primary">
+                          {highestBidder.bidder.fullName}
+                        </Link>
+                      ) : (
+                        highestBidder.bidder.fullName
+                      )}
                       {highestBidderRating > 0 &&
                         ` (${highestBidderRating.toFixed(1)}%)`}
                     </span>
@@ -634,7 +608,7 @@ export default function ProductDetailPage() {
               <div className="space-y-2">
                 <p className="text-sm font-semibold flex items-center gap-2">
                   <User className="h-4 w-4" />
-                  Seller: {product.seller.fullName}
+                  Seller: <Link to={`/users/${product.seller.id}`} className="hover:underline hover:text-primary">{product.seller.fullName}</Link>
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Rating:{" "}
@@ -646,11 +620,34 @@ export default function ProductDetailPage() {
               {/* Description */}
               <div className="space-y-3">
                 <h2 className="text-base font-semibold">Product Description</h2>
-                <div className="rounded-lg border border-border bg-card p-4 md:p-6">
+                <div className="rounded-lg border border-border bg-card p-4 md:p-6 relative">
                   <div
-                    className="text-sm leading-relaxed text-muted-foreground [&_h1]:text-xl [&_h1]:font-bold [&_h1]:text-foreground [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-foreground [&_h3]:mt-3 [&_h3]:mb-2 [&_p]:my-2 [&_p]:text-muted-foreground [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-foreground [&_em]:italic [&_u]:underline [&_s]:line-through [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:space-y-1 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:space-y-1 [&_ol]:my-3 [&_li]:my-1 [&_a]:text-foreground [&_a]:underline [&_a:hover]:text-foreground/80 [&_img]:max-w-full [&_img]:max-h-96 [&_img]:w-auto [&_img]:h-auto [&_img]:object-contain [&_img]:rounded-md [&_img]:my-4 [&_img]:mx-auto [&_img]:block [&_.ql-align-left]:text-left [&_.ql-align-center]:text-center [&_.ql-align-right]:text-right [&_.ql-align-justify]:text-justify"
+                    className={`text-sm leading-relaxed text-muted-foreground transition-all duration-300 ${
+                      !isDescriptionExpanded ? "max-h-[300px] overflow-hidden" : ""
+                    } [&_h1]:text-xl [&_h1]:font-bold [&_h1]:text-foreground [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-foreground [&_h3]:mt-3 [&_h3]:mb-2 [&_p]:my-2 [&_p]:text-muted-foreground [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-foreground [&_em]:italic [&_u]:underline [&_s]:line-through [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:space-y-1 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:space-y-1 [&_ol]:my-3 [&_li]:my-1 [&_a]:text-foreground [&_a]:underline [&_a:hover]:text-foreground/80 [&_img]:max-w-full [&_img]:max-h-96 [&_img]:w-auto [&_img]:h-auto [&_img]:object-contain [&_img]:rounded-md [&_img]:my-4 [&_img]:mx-auto [&_img]:block [&_.ql-align-left]:text-left [&_.ql-align-center]:text-center [&_.ql-align-right]:text-right [&_.ql-align-justify]:text-justify`}
                     dangerouslySetInnerHTML={{ __html: product.description }}
                   />
+                  {!isDescriptionExpanded && (
+                    <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-card to-transparent pointer-events-none" />
+                  )}
+                </div>
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                  >
+                    {isDescriptionExpanded ? (
+                      <>
+                        Show less <ChevronUp className="h-4 w-4" />
+                      </>
+                    ) : (
+                      <>
+                        Show more <ChevronDown className="h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
 
@@ -944,8 +941,7 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Right column – bidding panel */}
-        {canSeeAfterEnd && (
-          <div className="space-y-4 lg:sticky lg:top-20 lg:h-fit">
+        <div className="space-y-4 lg:sticky lg:top-20 lg:h-fit">
             <Card className="bg-transparent border-none shadow-none">
               <CardHeader>
                 <CardTitle className="text-base font-semibold">
@@ -1048,7 +1044,6 @@ export default function ProductDetailPage() {
               </CardContent>
             </Card>
           </div>
-        )}
       </div>
 
       {/* Confirm bid dialog */}
@@ -1090,7 +1085,16 @@ export default function ProductDetailPage() {
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleConfirmBid}>Confirm</Button>
+            <Button onClick={handleConfirmBid} disabled={confirmLoading}>
+              {confirmLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Confirming...
+                </>
+              ) : (
+                "Confirm"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1119,16 +1123,27 @@ export default function ProductDetailPage() {
                     <TableCell>
                       {format(new Date(bid.createdAt), "dd/MM/yyyy HH:mm")}
                     </TableCell>
-                    <TableCell>{bid.bidder.fullName}</TableCell>
+                    <TableCell>
+                      {isSeller ? (
+                        <Link
+                          to={`/users/${bid.bidder.id}`}
+                          className="hover:underline hover:text-primary font-medium"
+                        >
+                          {bid.bidder.fullName}
+                        </Link>
+                      ) : (
+                        bid.bidder.fullName
+                      )}
+                    </TableCell>
                     <TableCell>
                       {Number(bid.amount).toLocaleString("vi-VN")} VNĐ
                     </TableCell>
                     {isSeller && (
                       <TableCell>
                         {bid.isRejected ? (
-                          <Badge variant="destructive">Rejected</Badge>
+                          <Badge variant="destructive" className="bg-red-500 hover:bg-red-600">Rejected</Badge>
                         ) : (
-                          <Badge variant="default">Active</Badge>
+                          <Badge variant="default" className="bg-emerald-500 hover:bg-emerald-600">Active</Badge>
                         )}
                       </TableCell>
                     )}
@@ -1136,8 +1151,8 @@ export default function ProductDetailPage() {
                       <TableCell>
                         <Button
                           size="sm"
-                          className={bid.isRejected ? "" : "bg-red-600 hover:bg-red-700 text-white"}
-                          variant={bid.isRejected ? "ghost" : "destructive"}
+                          variant="destructive"
+                          className="bg-red-500 hover:bg-red-600"
                           onClick={() => handleOpenRejectDialog(bid.id)}
                           disabled={bid.isRejected}
                         >
@@ -1184,7 +1199,7 @@ export default function ProductDetailPage() {
                   }`}
               >
                 <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-                <p className="text-sm">{rejectResult.message}</p>
+                <p className="text-sm my-0">{rejectResult.message}</p>
               </div>
             </div>
           )}
@@ -1201,12 +1216,15 @@ export default function ProductDetailPage() {
                 >
                   Cancel
                 </Button>
-                <Button
-                  variant="destructive"
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                  onClick={handleRejectBid}
-                >
-                  Reject
+                <Button variant="destructive" onClick={handleRejectBid} className="bg-red-500 hover:bg-red-600" disabled={rejectLoading}>
+                  {rejectLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Rejecting...
+                    </>
+                  ) : (
+                    "Reject"
+                  )}
                 </Button>
               </div>
             ) : (

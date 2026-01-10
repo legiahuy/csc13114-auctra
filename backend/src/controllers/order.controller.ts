@@ -47,30 +47,38 @@ export const processEndedAuctions = async () => {
       });
 
       // Send emails
-      await sendAuctionEndedEmail(
+      sendAuctionEndedEmail(
         product.seller.email,
         product.name,
         product.id,
         false,
-        undefined
-      );
+        "Seller", // userName
+        parseFloat(winningBid.amount.toString()),
+        true, // isSeller
+        order.id
+      ).catch((err: any) => console.error("Error sending auction ended email to seller:", err));
 
-      await sendAuctionEndedEmail(
+      sendAuctionEndedEmail(
         winningBid.bidder.email,
         product.name,
         product.id,
         true,
-        parseFloat(winningBid.amount.toString())
-      );
+        winningBid.bidder.fullName || "Winner", // userName
+        parseFloat(winningBid.amount.toString()),
+        false, // isSeller
+        order.id
+      ).catch((err: any) => console.error("Error sending auction ended email to winner:", err));
     } else {
       // No winner
-      await sendAuctionEndedEmail(
+      sendAuctionEndedEmail(
         product.seller.email,
         product.name,
         product.id,
         false,
-        undefined
-      );
+        "Seller", // userName
+        undefined,
+        true // isSeller
+      ).catch((err: any) => console.error("Error sending auction ended email (no winner):", err));
     }
 
     await product.save();

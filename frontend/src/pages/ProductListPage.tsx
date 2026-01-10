@@ -218,9 +218,7 @@ export default function ProductListPage() {
     });
   };
 
-  if (loading && products.length === 0) {
-    return <Loading />;
-  }
+
 
   return (
     <div className="space-y-6">
@@ -355,7 +353,9 @@ export default function ProductListPage() {
         </div>
       </div>
 
-      {products.length === 0 && !loading ? (
+      {loading ? (
+        <Loading />
+      ) : products.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">No products found.</p>
           {searchParams.get("search") && (

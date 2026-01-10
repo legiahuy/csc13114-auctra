@@ -4,7 +4,7 @@ import {
   getBidHistory,
   rejectBid,
 } from '../controllers/bid.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, optionalAuthenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -37,7 +37,7 @@ const router = Router();
  *               items:
  *                 $ref: '#/components/schemas/Bid'
  */
-router.get('/history/:productId', getBidHistory);
+router.get('/history/:productId', optionalAuthenticate, getBidHistory);
 
 /**
  * @swagger

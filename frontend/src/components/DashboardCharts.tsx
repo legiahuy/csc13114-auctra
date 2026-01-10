@@ -99,10 +99,19 @@ export default function DashboardCharts({ period }: DashboardChartsProps) {
                 tick={{ fontSize: 12 }}
                 tickFormatter={(value) => {
                   const date = new Date(value);
-                  return `${date.getMonth() + 1}/${date.getDate()}`;
+                  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 }}
               />
-              <YAxis tick={{ fontSize: 12 }} />
+              <YAxis 
+                tick={{ fontSize: 12 }} 
+                tickFormatter={(value) => 
+                  new Intl.NumberFormat("vi-VN", { 
+                    style: "currency", 
+                    currency: "VND", 
+                    maximumFractionDigits: 0 
+                  }).format(value)
+                }
+              />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "rgba(0, 0, 0, 0.8)",
@@ -146,7 +155,7 @@ export default function DashboardCharts({ period }: DashboardChartsProps) {
                 tick={{ fontSize: 12 }}
                 tickFormatter={(value) => {
                   const date = new Date(value);
-                  return `${date.getMonth() + 1}/${date.getDate()}`;
+                  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 }}
               />
               <YAxis tick={{ fontSize: 12 }} />

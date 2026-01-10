@@ -374,13 +374,13 @@ export const testEmail = async (req: AuthRequest, res: Response, next: NextFunct
 
     const { sendQuestionNotificationEmail } = require('../utils/email.util');
 
-    await sendQuestionNotificationEmail(
+    sendQuestionNotificationEmail(
       email,
       'Sản phẩm test',
       'Đây là câu hỏi test để kiểm tra hệ thống email',
       1,
-      'Người test'
-    );
+      'Seller'
+    ).catch((err: any) => console.error("Error sending question email:", err));
 
     res.json({
       success: true,

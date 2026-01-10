@@ -15,6 +15,7 @@ import {
   Circle,
   Eye,
   Key,
+  Loader2,
 } from "lucide-react";
 import apiClient from "../api/client";
 import { useAuthStore } from "../store/authStore";
@@ -114,6 +115,7 @@ export default function AdminDashboardPage() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [categoryName, setCategoryName] = useState("");
   const [parentCategoryId, setParentCategoryId] = useState("0");
+  const [actionLoading, setActionLoading] = useState(false);
 
   // Auto-extend settings (admin)
   const [autoExtendSettings, setAutoExtendSettings] = useState({
@@ -184,9 +186,9 @@ export default function AdminDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period]);
 
-  const fetchData = async () => {
+  const fetchData = async (isInitial = true) => {
     try {
-      setLoading(true);
+      if (isInitial) setLoading(true);
 
       const [dashboardRes, categoriesRes, settingsRes] = await Promise.all([
         apiClient.get("/admin/dashboard", { params: { period } }),
@@ -210,7 +212,7 @@ export default function AdminDashboardPage() {
       console.error("Error fetching data:", error);
       toast.error("Unable to load data");
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   };
 
@@ -288,12 +290,15 @@ export default function AdminDashboardPage() {
 
   const handleUpdateAutoExtendSettings = async () => {
     try {
+      setActionLoading(true);
       await apiClient.put("/admin/settings/auto-extend", autoExtendSettings);
       toast.success("Auto-extend settings updated successfully");
       setSettingsDialogOpen(false);
-      fetchData();
+      fetchData(false);
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || "Unable to update settings");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -313,6 +318,7 @@ export default function AdminDashboardPage() {
     }
 
     try {
+      setActionLoading(true);
       await apiClient.post("/categories", {
         name: categoryName,
         parentId:
@@ -325,8 +331,11 @@ export default function AdminDashboardPage() {
       setCategoryName("");
       setParentCategoryId("0");
       refreshCategories();
+      fetchData(false);
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || "Failed to create category");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -337,6 +346,7 @@ export default function AdminDashboardPage() {
     }
 
     try {
+      setActionLoading(true);
       await apiClient.put(`/categories/${selectedCategory.id}`, {
         name: categoryName,
         parentId:
@@ -350,8 +360,11 @@ export default function AdminDashboardPage() {
       setCategoryName("");
       setParentCategoryId("0");
       refreshCategories();
+      fetchData(false);
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || "Failed to update");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -366,6 +379,7 @@ export default function AdminDashboardPage() {
           await apiClient.delete(`/categories/${id}`);
           toast.success("Category deleted successfully");
           refreshCategories();
+          fetchData(false);
         } catch (error: any) {
           toast.error(error.response?.data?.error?.message || "Failed to delete");
         }
@@ -385,6 +399,7 @@ export default function AdminDashboardPage() {
           toast.success("Product deleted successfully");
           fetchProducts(productsPage, productsSearch, productsStatus);
           fetchStats();
+          fetchData(false);
         } catch (error: any) {
           toast.error(error.response?.data?.error?.message || "Failed to delete");
         }
@@ -419,7 +434,7 @@ export default function AdminDashboardPage() {
         try {
           await apiClient.delete(`/admin/users/${id}`);
           toast.success("User deleted successfully");
-          fetchData();
+          fetchData(false);
         } catch (error: any) {
           toast.error(error.response?.data?.error?.message || "Failed to delete");
         }
@@ -681,6 +696,8 @@ export default function AdminDashboardPage() {
                                       fetchUsers(usersPage, usersSearch, usersRole),
                                       fetchStats()
                                     ]);
+                                    // Refresh users list gently
+                                    fetchUsers(usersPage, usersSearch, usersRole);
                                   } catch (error: any) {
                                     toast.error(error.response?.data?.error?.message || "Failed to approve");
                                   }
@@ -690,8 +707,8 @@ export default function AdminDashboardPage() {
                               </Button>
                               <Button
                                 size="sm"
-                                variant="outline"
-                                className="h-7 px-2 text-xs"
+                                variant="default"
+                                className="h-7 px-2 text-xs bg-red-600 hover:bg-red-700"
                                 onClick={() => {
                                   setRejectDialog({ open: true, userId: u.id });
                                   setRejectReason("");
@@ -929,8 +946,10 @@ export default function AdminDashboardPage() {
                                       ? "destructive"
                                       : "secondary"
                               }
-                              className={`text-xs ${status === "approved" ? "bg-green-500 hover:bg-green-600" : ""
-                                }`}
+                              className={`text-xs ${
+                                status === "approved" ? "bg-green-500 hover:bg-green-600" : 
+                                status === "rejected" ? "bg-red-500 hover:bg-red-600" : ""
+                              }`}
                             >
                               {status ? status.charAt(0).toUpperCase() + status.slice(1) : "-"}
                             </Badge>
@@ -1041,11 +1060,21 @@ export default function AdminDashboardPage() {
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setCategoryDialogOpen(false)} disabled={actionLoading}>
               Cancel
             </Button>
-            <Button onClick={selectedCategory ? handleUpdateCategory : handleCreateCategory}>
-              {selectedCategory ? "Update" : "Create"}
+            <Button 
+              onClick={selectedCategory ? handleUpdateCategory : handleCreateCategory}
+              disabled={!categoryName.trim() || actionLoading}
+            >
+              {actionLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4" />
+                  {selectedCategory ? "Updating..." : "Creating..."}
+                </>
+              ) : (
+                selectedCategory ? "Update" : "Create"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1097,10 +1126,17 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSettingsDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setSettingsDialogOpen(false)} disabled={actionLoading}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateAutoExtendSettings}>Save Settings</Button>
+            <Button onClick={handleUpdateAutoExtendSettings} disabled={actionLoading}>
+              {actionLoading ? (
+                 <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                 </>
+              ) : "Save Settings"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1139,14 +1175,18 @@ export default function AdminDashboardPage() {
             <Button
               variant="outline"
               onClick={() => setRejectDialog({ open: false, userId: null })}
+              disabled={actionLoading}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
+              disabled={!rejectReason.trim() || actionLoading}
+              className="bg-red-500 hover:bg-red-600 text-white"
               onClick={async () => {
                 if (!rejectDialog.userId) return;
                 try {
+                  setActionLoading(true);
                   await apiClient.put(`/admin/upgrade-requests/${rejectDialog.userId}/reject`, {
                     reason: rejectReason,
                   });
@@ -1159,10 +1199,19 @@ export default function AdminDashboardPage() {
                   ]);
                 } catch (error: any) {
                   toast.error(error.response?.data?.error?.message || "Failed to reject request");
+                } finally {
+                  setActionLoading(false);
                 }
               }}
             >
-              Reject
+              {actionLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Rejecting...
+                </>
+              ) : (
+                "Reject"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1173,7 +1222,7 @@ export default function AdminDashboardPage() {
         userId={userDetailsModal.userId}
         open={userDetailsModal.open}
         onClose={() => setUserDetailsModal({ open: false, userId: null })}
-        onRoleUpdated={fetchData}
+        onRoleUpdated={() => fetchData(false)}
       />
     </div>
   );
