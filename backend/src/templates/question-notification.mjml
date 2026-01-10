@@ -1,0 +1,101 @@
+<mjml>
+  <mj-head>
+    <mj-title>{{title}} - Auctra</mj-title>
+    <mj-preview>You have received a new question/reply.</mj-preview>
+    <mj-attributes>
+      <mj-all font-family="Inter, Arial, Helvetica, sans-serif" />
+      <mj-text color="#6b7280" font-size="15px" line-height="1.6" />
+    </mj-attributes>
+    <mj-style>
+      .brand-color { background-color: #526ba8 !important; }
+      .box-content {
+        background-color: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        padding: 16px;
+        border-radius: 8px;
+      }
+    </mj-style>
+  </mj-head>
+  <mj-body background-color="#f9fafb">
+    <!-- Header Section -->
+    <mj-section background-color="#526ba8" padding="20px 40px">
+      <mj-column>
+        <mj-image
+          src="https://iili.io/f0V24LJ.png"
+          width="50px"
+          alt="Auctra"
+          padding="0 0px 0 0"
+        />
+        <mj-text
+          font-size="28px"
+          font-weight="700"
+          color="#ffffff"
+          padding="0"
+          align="center"
+        >
+          Auctra
+        </mj-text>
+      </mj-column>
+    </mj-section>
+    
+    <!-- Content Section -->
+    <mj-section background-color="#ffffff" padding="48px 40px">
+      <mj-column>
+        <mj-text
+          font-size="22px"
+          font-weight="700"
+          color="#0f172a"
+          padding="0 0 12px 0"
+        >
+          {{title}}
+        </mj-text>
+
+        <mj-text color="#6b7280" padding="0 0 8px 0">
+          Hello {{userName}},
+        </mj-text>
+        <mj-text color="#6b7280" padding="0 0 24px 0">
+          You have received a new {{notificationType}} regarding the product "<strong>{{productName}}</strong>".
+        </mj-text>
+
+        <mj-text font-size="14px" font-weight="600" color="#0f172a" padding="0 0 6px 0">
+          Details
+        </mj-text>
+        
+        <mj-text padding="0 0 24px 0">
+           <div style="background-color: #f3f4f6; border: 1px solid #e5e7eb; padding: 16px; border-radius: 8px;">
+              <div style="font-size: 13px; color: #6b7280; margin-bottom: 4px;">From {{askerName}}</div>
+              <div style="font-size: 16px; color: #111827; font-style: italic;">"{{question}}"</div>
+           </div>
+        </mj-text>
+
+         <mj-button
+          background-color="#526ba8"
+          color="#ffffff"
+          font-weight="600"
+          border-radius="6px"
+          padding="0"
+          href="{{productUrl}}"
+        >
+          Reply Now
+        </mj-button>
+        
+        <mj-text align="center" font-size="14px" color="#9ca3af" padding-top="20px">
+           <a href="{{productUrl}}" style="color: #526ba8;">View Product</a>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- Footer Section -->
+    <mj-section background-color="#f9fafb" padding="32px 40px">
+      <mj-column>
+        <mj-text font-size="12px" color="#9ca3af" padding="0 0 16px 0">
+          This is an automated message from Auctra. Please do not reply to this email.
+        </mj-text>
+        <mj-divider border-color="#e5e7eb" padding="16px 0" />
+        <mj-text font-size="12px" color="#9ca3af" padding="0">
+          © 2026 Auctra. All rights reserved.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

@@ -81,6 +81,7 @@ interface WatchlistItem {
 interface Bid {
   id: number;
   amount: number;
+  isRejected: boolean; // Add this
   product: {
     id: number;
     name: string;
@@ -739,19 +740,25 @@ export default function ProfilePage() {
                                 </p>
                                 <Badge
                                   variant={
-                                    bid.product.status === "active"
+                                    bid.isRejected 
+                                      ? "destructive"
+                                      : bid.product.status === "active"
                                       ? "default"
                                       : bid.product.status === "cancelled"
                                       ? "destructive"
                                       : "outline"
                                   }
                                   className={
-                                    bid.product.status === "active"
+                                    bid.isRejected
+                                      ? "text-xs bg-red-500 hover:bg-red-600 text-white"
+                                      : bid.product.status === "active"
                                       ? "text-xs bg-emerald-500 hover:bg-emerald-600 text-white"
                                       : "text-xs bg-red-500 hover:bg-red-600 text-white"
                                   }
                                 >
-                                  {bid.product.status === "active"
+                                  {bid.isRejected 
+                                    ? "Rejected"
+                                    : bid.product.status === "active"
                                     ? "Active"
                                     : bid.product.status === "cancelled"
                                     ? "Cancelled"

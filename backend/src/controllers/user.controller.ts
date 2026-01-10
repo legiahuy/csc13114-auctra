@@ -427,9 +427,30 @@ export const askQuestion = async (req: AuthRequest, res: Response, next: NextFun
         }
       });
 
-      // Also add the product seller
+      // Also add the product seller (if not the one replying)
       if ((product as any).seller?.id !== req.user.id) {
         participantUserIds.add((product as any).seller?.id);
+      }
+
+      // If the replier is the SELLER, broadcast to ALL Bidders and ALL Questioners
+      if ((product as any).sellerId && req.user.id === (product as any).sellerId) {
+        // Fetch all unique questioners
+        const allQuestioners = await Question.findAll({
+          where: { productId: productId },
+          attributes: ['userId'],
+        });
+        allQuestioners.forEach(q => {
+          if (q.userId !== req.user!.id) participantUserIds.add(q.userId);
+        });
+
+        // Fetch all unique bidders
+        const allBidders = await Bid.findAll({
+          where: { productId: productId },
+          attributes: ['bidderId'],
+        });
+        allBidders.forEach(b => {
+          if (b.bidderId !== req.user!.id) participantUserIds.add(b.bidderId);
+        });
       }
 
       // Get all participant emails
@@ -447,7 +468,9 @@ export const askQuestion = async (req: AuthRequest, res: Response, next: NextFun
           product.name,
           question,
           productId,
-          asker?.fullName
+          participant.fullName,
+          asker?.fullName,
+          true
         ).catch((error) => {
           console.error('Lỗi khi gửi email thông báo reply:', error);
         });
@@ -461,7 +484,8 @@ export const askQuestion = async (req: AuthRequest, res: Response, next: NextFun
         question,
         parseInt(productId),
         "Seller",
-        req.user.fullName
+        req.user.fullName,
+        false
       ).catch((err: any) => console.error("Error sending question email:", err));
     }
 

@@ -227,27 +227,27 @@ export const sendQuestionNotificationEmail = async (
   question: string,
   productId: number,
   userName: string = "Seller",
-  askerName?: string
+  askerName?: string,
+  isReply: boolean = false
 ): Promise<void> => {
-  const templatePath = path.join(__dirname, "../templates/qa-notification.mjml");
+  const templatePath = path.join(__dirname, "../templates/question-notification.mjml");
   const productUrl = `${process.env.FRONTEND_URL}/products/${productId}`;
 
+  const title = isReply ? "New Reply Received" : "New Question Received";
+  const notificationType = isReply ? "reply" : "question";
+  const subject = isReply ? `New Reply on ${productName}` : `New Question - ${productName}`;
+
   const html = renderMJMLTemplate(templatePath, {
-    notificationType: "📧 New Question About Your Product",
+    title,
+    notificationType,
     userName,
-    message: "You have received a new question about one of your products. Please review and respond to help potential buyers.",
     productName,
-    askerLabel: askerName ? "Asked by" : "",
-    askerName: askerName || "",
-    questionLabel: "Question",
+    askerName: askerName || "A user",
     question,
-    answerLabel: "",
-    answer: "",
-    actionText: "View Product and Answer",
     productUrl,
   });
 
-  await sendEmail(sellerEmail, `New Question About ${productName}`, html);
+  await sendEmail(sellerEmail, subject, html);
 };
 
 
@@ -259,25 +259,18 @@ export const sendAnswerNotificationEmail = async (
   userName: string,
   question?: string
 ): Promise<void> => {
-  const templatePath = path.join(__dirname, "../templates/qa-notification.mjml");
+  const templatePath = path.join(__dirname, "../templates/answer-notification.mjml");
   const productUrl = `${process.env.FRONTEND_URL}/products/${productId}`;
 
   const html = renderMJMLTemplate(templatePath, {
-    notificationType: "Answer Received",
     userName,
-    message: "The seller has answered a question about this product. View the details below.",
     productName,
-    askerLabel: "",
-    askerName: "",
-    questionLabel: question ? "Question" : "",
-    question: question || "",
-    answerLabel: "Answer",
+    question: question || "Question details unavailable",
     answer,
-    actionText: "View Product Details",
     productUrl,
   });
 
-  await sendEmail(email, `Answer About ${productName}`, html);
+  await sendEmail(email, `Answer Posted - ${productName}`, html);
 };
 
 

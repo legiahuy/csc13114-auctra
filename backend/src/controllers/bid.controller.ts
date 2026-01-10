@@ -364,34 +364,78 @@ export const rejectBid = async (req: AuthRequest, res: Response, next: NextFunct
       return next(new AppError('Not authorized', 403));
     }
 
-    bid.isRejected = true;
-    await bid.save();
-
-    // If this was the highest bid, find the next highest
-    // Check if the rejected bid amount matches current price (meaning it was the highest)
-    if (parseFloat(bid.product.currentPrice.toString()) === parseFloat(bid.amount.toString())) {
-      // This was the highest bid, find the next highest non-rejected bid
-      const nextHighestBid = await Bid.findOne({
-        where: {
-          productId: bid.productId,
-          isRejected: false,
-          id: { [Op.ne]: bidId },
-        },
-        order: [['amount', 'DESC'], ['createdAt', 'ASC']],
-      });
-
-      if (nextHighestBid) {
-        // Update to the next highest bid amount
-        bid.product.currentPrice = nextHighestBid.amount;
-        await bid.product.save();
-      } else {
-        // No other bids, reset to starting price
-        bid.product.currentPrice = bid.product.startingPrice;
-        await bid.product.save();
+    // Reject ALL bids from this bidder for this product
+    await Bid.update(
+      { isRejected: true },
+      { 
+        where: { 
+          productId: bid.productId, 
+          bidderId: bid.bidderId 
+        } 
       }
+    );
+
+    // Recalculate Auction State (Winner & Price)
+    // 1. Fetch all valid bids for this product
+    const validBids = await Bid.findAll({
+      where: {
+        productId: bid.productId,
+        isRejected: false,
+      },
+      include: [{ model: User, as: 'bidder' }],
+      order: [['maxAmount', 'DESC'], ['createdAt', 'ASC']], // Determining the real hierarchy
+    });
+
+    const product = await Product.findByPk(bid.productId);
+    if (!product) return next(new AppError('Product not found', 404));
+
+    if (validBids.length === 0) {
+      // No bids left
+      product.currentPrice = product.startingPrice;
+      product.bidCount = 0;
+      await product.save();
+    } else if (validBids.length === 1) {
+      // Only one bidder left -> They win at starting price
+      const winner = validBids[0];
+      // Price resets to starting price (or their bid if lower? No, starting price is min).
+      product.currentPrice = product.startingPrice;
+      // We might want to ensure it's at least their bid amount? 
+      // Actually auto-bid logic says if 1 bidder, price is start price.
+      product.bidCount = 1; 
+      await product.save();
+
+      // OPTIONAL: Update the bid record amount to reflect new price if we want strict consistency
+      // winner.amount = product.startingPrice;
+      // await winner.save();
+    } else {
+      // Multiple bidders left
+      const newWinner = validBids[0];
+      const newRunnerUp = validBids[1];
+      const bidStep = parseFloat(product.bidStep.toString());
+
+      const newWinnerMax = parseFloat(newWinner.maxAmount ? newWinner.maxAmount.toString() : newWinner.amount.toString());
+      const runnerUpMax = parseFloat(newRunnerUp.maxAmount ? newRunnerUp.maxAmount.toString() : newRunnerUp.amount.toString());
+
+      // Calculate new price
+      // Price = min(WinnerMax, RunnerUpMax + Step)
+      let nextPrice = Math.min(newWinnerMax, runnerUpMax + bidStep);
+
+      product.currentPrice = nextPrice;
+      product.bidCount = validBids.length; // Simply count of valid bids (approximate)
+      // Or actually count total valid bids? 
+      // validBids.length is exactly the count of valid active bids.
+      // But `bidCount` usually tracks "number of bids placed". 
+      // If we rejected one, should we decrease count? Yes.
+      await product.save();
+      
+      // Update the winner's current bid amount record?
+      // In our new "Clean History" model, we might not have a record at exactly `nextPrice`.
+      // But `newWinner` creates a record when they bid.
+      // If we don't update records, the history might look weird (Winner has record at 11M, but price is 10.6M).
+      // But typically we don't retroactive edit history.
+      // We just update the Product's current price.
     }
 
-    // Send notification
     // Send notification
     sendBidRejectedEmail(
       bid.bidder.email,
