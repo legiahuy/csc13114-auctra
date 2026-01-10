@@ -453,10 +453,7 @@ export default function ProductDetailPage() {
     product.status === "cancelled" ||
     new Date(product.endDate) <= new Date();
 
-  const canSeeAfterEnd =
-    !isEnded ||
-    isSeller ||
-    (order && (user?.id === order.sellerId || user?.id === order.buyerId));
+
 
   const sellerRating = getRatingPercentage(
     product.seller.rating,
