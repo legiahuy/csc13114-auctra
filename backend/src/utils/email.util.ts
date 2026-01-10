@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import sgMail from "@sendgrid/mail";
 import { logger } from "../config/logger";
 import fs from "fs";
 import path from "path";
@@ -6,37 +6,13 @@ import mjml2html from "mjml";
 
 // Kiểm tra cấu hình email
 const isEmailConfigured = () => {
-  return !!(
-    process.env.EMAIL_HOST &&
-    process.env.EMAIL_USER &&
-    process.env.EMAIL_PASSWORD &&
-    process.env.EMAIL_FROM
-  );
+  return !!(process.env.SENDGRID_API_KEY && process.env.EMAIL_FROM);
 };
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: parseInt(process.env.EMAIL_PORT || "465"), // Default to 465 (SSL) which is more reliable
-  secure: parseInt(process.env.EMAIL_PORT || "465") === 465, // True for 465, false for 587
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
-  },
-  // Thêm options để debug
-  debug: process.env.NODE_ENV === 'development',
-  logger: process.env.NODE_ENV === 'development',
-  // Force IPv4 to avoid Railway IPv6 timeout issues
-  family: 4,
-} as nodemailer.TransportOptions);
-
-// Verify connection configuration
-transporter.verify(function (error, success) {
-  if (error) {
-    logger.error('❌ Email Transporter Connection Error:', error);
-  } else {
-    logger.info('✅ Email Transporter is ready to send messages');
-  }
-});
+// Initialize SendGrid
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
 
 // Helper to render MJML template with variables
 const renderMJMLTemplate = async (
@@ -49,7 +25,10 @@ const renderMJMLTemplate = async (
 
     // Replace variables
     Object.entries(variables).forEach(([key, value]) => {
-      mjmlContent = mjmlContent.replace(new RegExp(`{{\\s*${key}\\s*}}`, "g"), value);
+      mjmlContent = mjmlContent.replace(
+        new RegExp(`{{\\s*${key}\\s*}}`, "g"),
+        value
+      );
     });
 
     // Compile MJML to HTML
@@ -79,44 +58,44 @@ export const sendEmail = async (
 ): Promise<void> => {
   // Kiểm tra cấu hình email
   if (!isEmailConfigured()) {
-    logger.warn('Email không được cấu hình. Vui lòng kiểm tra các biến môi trường EMAIL_*');
+    logger.warn(
+      "Email không được cấu hình. Vui lòng kiểm tra SENDGRID_API_KEY và EMAIL_FROM"
+    );
     logger.warn(`Email sẽ không được gửi đến: ${to}`);
-    logger.warn('Subject:', subject);
+    logger.warn("Subject:", subject);
     return; // Không throw error để không làm crash app
   }
 
   const startTime = Date.now();
   try {
-    logger.info(`🚀 [${startTime}] Đang gửi email đến ${to}...`);
-    // Safe access to secure option
-    const isSecure = (transporter.options as any).secure; // Cast to any to avoid type error
-    logger.info(`📧 Config: HOST=${process.env.EMAIL_HOST}, PORT=${process.env.EMAIL_PORT}, USER=${process.env.EMAIL_USER}, SECURE=${isSecure}`);
+    logger.info(`🚀 [${startTime}] Đang gửi email đến ${to} qua SendGrid...`);
 
-    const result = await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
+    const msg = {
       to,
+      from: process.env.EMAIL_FROM!, // Non-null assertion checked by isEmailConfigured
       subject,
       html,
-    });
+    };
+
+    await sgMail.send(msg);
 
     const duration = Date.now() - startTime;
     logger.info(`✅ [${duration}ms] Email đã được gửi thành công đến ${to}`);
-    logger.info(`🆔 Message ID: ${result.messageId}`);
-    logger.info(`📝 Response: ${result.response}`);
   } catch (error: any) {
     const duration = Date.now() - startTime;
     logger.error(`❌ [${duration}ms] Lỗi khi gửi email đến ${to}:`);
-    logger.error(`❌ Error Name: ${error.name}`);
     logger.error(`❌ Error Message: ${error.message}`);
-    logger.error(`❌ Error Code: ${error.code}`);
-    logger.error(`❌ Error Command: ${error.command}`);
+    
     if (error.response) {
-      logger.error(`❌ SMTP Response: ${error.response}`);
+      logger.error(`❌ SendGrid Response: ${JSON.stringify(error.response.body)}`);
     }
-    logger.error(`❌ Full Error Stack: ${error.stack}`);
-
-    // Log connection details if available
-    if (error.address) logger.error(`❌ Connected to: ${error.address}:${error.port}`);
+    
+    // Log extended SendGrid errors if available
+    if (error.response?.body?.errors) {
+       error.response.body.errors.forEach((e: any) => {
+         logger.error(`❌ SendGrid Error Detail: ${e.message}`);
+       })
+    }
   }
 };
 
@@ -158,9 +137,14 @@ export const sendBidNotificationEmail = async (
   isOutbid: boolean = false,
   productId?: number
 ): Promise<void> => {
-  const templatePath = path.join(__dirname, "../templates/bid-notification.mjml");
+  const templatePath = path.join(
+    __dirname,
+    "../templates/bid-notification.mjml"
+  );
 
-  const notificationType = isOutbid ? "Outbid Alert" : "Bid Placed Successfully";
+  const notificationType = isOutbid
+    ? "Outbid Alert"
+    : "Bid Placed Successfully";
   const message = isOutbid
     ? "Your bid has been outbid. The current price has been updated. Place a new bid to stay in the auction!"
     : "Your bid has been placed successfully. You are currently the highest bidder!";
@@ -180,11 +164,7 @@ export const sendBidNotificationEmail = async (
     productUrl,
   });
 
-  await sendEmail(
-    email,
-    `${notificationType} - ${productName}`,
-    html
-  );
+  await sendEmail(email, `${notificationType} - ${productName}`, html);
 };
 
 export const sendSellerNewBidNotification = async (
@@ -194,10 +174,15 @@ export const sendSellerNewBidNotification = async (
   bidderName: string,
   productId?: number
 ): Promise<void> => {
-  const templatePath = path.join(__dirname, "../templates/bid-notification.mjml");
+  const templatePath = path.join(
+    __dirname,
+    "../templates/bid-notification.mjml"
+  );
 
   const notificationType = "New Bid Received";
-  const message = `A new bid has been placed on your product. Current highest bid is now ${amount.toLocaleString("en-US")} VND by ${bidderName}.`;
+  const message = `A new bid has been placed on your product. Current highest bid is now ${amount.toLocaleString(
+    "en-US"
+  )} VND by ${bidderName}.`;
   const priceLabel = "Current Highest Bid";
 
   const productUrl = productId
@@ -214,13 +199,8 @@ export const sendSellerNewBidNotification = async (
     productUrl,
   });
 
-  await sendEmail(
-    email,
-    `${notificationType} - ${productName}`,
-    html
-  );
+  await sendEmail(email, `${notificationType} - ${productName}`, html);
 };
-
 
 export const sendQuestionNotificationEmail = async (
   sellerEmail: string,
@@ -231,12 +211,17 @@ export const sendQuestionNotificationEmail = async (
   askerName?: string,
   isReply: boolean = false
 ): Promise<void> => {
-  const templatePath = path.join(__dirname, "../templates/question-notification.mjml");
+  const templatePath = path.join(
+    __dirname,
+    "../templates/question-notification.mjml"
+  );
   const productUrl = `${process.env.FRONTEND_URL}/products/${productId}`;
 
   const title = isReply ? "New Reply Received" : "New Question Received";
   const notificationType = isReply ? "reply" : "question";
-  const subject = isReply ? `New Reply on ${productName}` : `New Question - ${productName}`;
+  const subject = isReply
+    ? `New Reply on ${productName}`
+    : `New Question - ${productName}`;
 
   const html = await renderMJMLTemplate(templatePath, {
     title,
@@ -251,7 +236,6 @@ export const sendQuestionNotificationEmail = async (
   await sendEmail(sellerEmail, subject, html);
 };
 
-
 export const sendAnswerNotificationEmail = async (
   email: string,
   productName: string,
@@ -260,7 +244,10 @@ export const sendAnswerNotificationEmail = async (
   userName: string,
   question?: string
 ): Promise<void> => {
-  const templatePath = path.join(__dirname, "../templates/answer-notification.mjml");
+  const templatePath = path.join(
+    __dirname,
+    "../templates/answer-notification.mjml"
+  );
   const productUrl = `${process.env.FRONTEND_URL}/products/${productId}`;
 
   const html = await renderMJMLTemplate(templatePath, {
@@ -273,7 +260,6 @@ export const sendAnswerNotificationEmail = async (
 
   await sendEmail(email, `Answer Posted - ${productName}`, html);
 };
-
 
 export const sendAuctionEndedEmail = async (
   email: string,
@@ -295,26 +281,32 @@ export const sendAuctionEndedEmail = async (
 
   if (isWinner) {
     emailTitle = "🎉 Congratulations! You Won the Auction";
-    message = "Congratulations! You have won the auction. Please complete your order to finalize the purchase.";
+    message =
+      "Congratulations! You have won the auction. Please complete your order to finalize the purchase.";
     actionText = "Complete Your Order";
-    actionUrl = orderId 
-      ? `${process.env.FRONTEND_URL}/orders/${orderId}` 
+    actionUrl = orderId
+      ? `${process.env.FRONTEND_URL}/orders/${orderId}`
       : `${process.env.FRONTEND_URL}/orders`;
-    additionalInfo = "Please proceed with payment and shipping details to complete your purchase.";
+    additionalInfo =
+      "Please proceed with payment and shipping details to complete your purchase.";
   } else if (isSeller) {
     if (finalPrice) {
-       emailTitle = "Auction Ended - Product Sold";
-       message = "Congratulations! Your product has been sold.";
+      emailTitle = "Auction Ended - Product Sold";
+      message = "Congratulations! Your product has been sold.";
     } else {
-       emailTitle = "Auction Ended";
-       message = "The auction for your product has ended with no bids.";
+      emailTitle = "Auction Ended";
+      message = "The auction for your product has ended with no bids.";
     }
 
     actionText = finalPrice ? "View Order Details" : "View Product Details";
-    actionUrl = finalPrice 
-      ? (orderId ? `${process.env.FRONTEND_URL}/orders/${orderId}` : `${process.env.FRONTEND_URL}/orders`)
-      : (productId ? `${process.env.FRONTEND_URL}/products/${productId}` : `${process.env.FRONTEND_URL}/products`);
-    
+    actionUrl = finalPrice
+      ? orderId
+        ? `${process.env.FRONTEND_URL}/orders/${orderId}`
+        : `${process.env.FRONTEND_URL}/orders`
+      : productId
+      ? `${process.env.FRONTEND_URL}/products/${productId}`
+      : `${process.env.FRONTEND_URL}/products`;
+
     additionalInfo = finalPrice
       ? "Please prepare the product for shipping once payment is confirmed."
       : ""; // No additional info for no bids
@@ -348,14 +340,16 @@ export const sendAuctionEndedEmail = async (
   await sendEmail(email, `${emailTitle} - ${productName}`, html);
 };
 
-
 export const sendBidRejectedEmail = async (
   email: string,
   productName: string,
   userName: string,
   productId?: number
 ): Promise<void> => {
-  const templatePath = path.join(__dirname, "../templates/bid-notification.mjml");
+  const templatePath = path.join(
+    __dirname,
+    "../templates/bid-notification.mjml"
+  );
 
   const productUrl = productId
     ? `${process.env.FRONTEND_URL}/products/${productId}`
@@ -364,7 +358,8 @@ export const sendBidRejectedEmail = async (
   const html = await renderMJMLTemplate(templatePath, {
     notificationType: "Bid Rejected",
     userName,
-    message: "The seller has rejected your bid. You are no longer able to bid on this product.",
+    message:
+      "The seller has rejected your bid. You are no longer able to bid on this product.",
     productName,
     priceLabel: "Status",
     currentPrice: "Rejected",
@@ -385,7 +380,8 @@ export const sendAdminPasswordResetEmail = async (
     message: `Your password has been reset by an administrator. Please use the following temporary password to log in. We recommend changing your password immediately after logging in.`,
     codeLabel: "New Password",
     code: newPassword,
-    expiryText: "This password does not expire, but please change it soon for security.",
+    expiryText:
+      "This password does not expire, but please change it soon for security.",
   });
   await sendEmail(email, "Your Password Has Been Reset - Auctra", html);
 };
@@ -396,7 +392,10 @@ export const sendDescriptionUpdateNotificationEmail = async (
   userName: string,
   productId: number
 ): Promise<void> => {
-  const templatePath = path.join(__dirname, "../templates/description-update.mjml");
+  const templatePath = path.join(
+    __dirname,
+    "../templates/description-update.mjml"
+  );
   const productUrl = `${process.env.FRONTEND_URL}/products/${productId}`;
 
   const html = await renderMJMLTemplate(templatePath, {
