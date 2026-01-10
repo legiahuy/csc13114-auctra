@@ -381,7 +381,7 @@ export default function ProductDetailPage() {
     toast.success("Details updated");
 
     // 2. Optimistic Update: Mark locally as rejected immediately
-    const previousBidHistory = [...bidHistory];
+
     setBidHistory((prev) =>
       prev.map((bid) =>
         bid.id === selectedBidId ? { ...bid, isRejected: true } : bid

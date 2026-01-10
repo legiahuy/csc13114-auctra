@@ -769,7 +769,7 @@ export const resetUserPassword = async (req: AuthRequest, res: Response, next: N
 
     // Send email to user (safely require to avoid circular dependency issues if any)
     const { sendAdminPasswordResetEmail } = require('../utils/email.util');
-    await sendAdminPasswordResetEmail(user.email, newPassword);
+    sendAdminPasswordResetEmail(user.email, newPassword);
 
     res.json({
       success: true,

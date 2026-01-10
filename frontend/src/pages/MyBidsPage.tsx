@@ -150,13 +150,7 @@ export default function MyBidsPage() {
                 role="status"
                 aria-label="Loading"
               />
-              {isSearching && (
-                <LoaderIcon
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors animate-spin size-4"
-                  role="status"
-                  aria-label="Loading"
-                />
-              )}
+            )}
               {searchInput && !isSearching && (
                 <button
                   onClick={handleClear}
@@ -221,7 +215,7 @@ export default function MyBidsPage() {
                 key={bid.id}
                 className={`h-full flex flex-col hover:shadow-lg transition-all ${bid.product.status === "active" &&
                   Number(bid.amount) === Number(bid.product.currentPrice)
-                  ? "ring-2 ring-green-500 shadow-md transform scale-[1.02]"
+                  ? "ring-2 ring-primary shadow-md transform scale-[1.02]"
                   : ""
                   }`}
               >
@@ -233,7 +227,7 @@ export default function MyBidsPage() {
                   />
                   {bid.product.status === "active" &&
                     Number(bid.amount) === Number(bid.product.currentPrice) && (
-                      <Badge className="absolute top-2 left-2 bg-green-500 hover:bg-green-600 text-white border-none">
+                      <Badge className="absolute top-2 left-2 bg-primary/100 text-white border-none">
                         Leading Bid
                       </Badge>
                     )}
