@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { Bid, Product, User, Settings } from '../models';
+import { Bid, Product, User, Settings, Order } from '../models';
 import { AppError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { sendBidNotificationEmail, sendBidRejectedEmail, sendSellerNewBidNotification } from '../utils/email.util';
+import { sendBidNotificationEmail, sendBidRejectedEmail, sendSellerNewBidNotification, sendAuctionEndedEmail } from '../utils/email.util';
 import { Op } from 'sequelize';
 import { sequelize } from '../config/database';
 
@@ -112,6 +112,96 @@ export const placeBid = async (req: AuthRequest, res: Response, next: NextFuncti
     if (product.autoExtend && timeUntilEnd <= thresholdMinutes * 60 * 1000) {
       product.endDate = new Date(now.getTime() + extendMinutes * 60 * 1000);
       await product.save();
+    }
+
+
+    // --- CHECK BUY NOW ---
+    if (product.buyNowPrice && incomingBidLimit >= parseFloat(product.buyNowPrice.toString())) {
+       // --- INSTANT WIN LOGIC ---
+       newPrice = parseFloat(product.buyNowPrice.toString());
+       isIncomingWinner = true;
+
+       // 1. Create Winning Bid
+       await Bid.create({
+         productId,
+         bidderId: req.user.id,
+         amount: newPrice,
+         maxAmount: newPrice, // Max is effectively the buy now price
+         isAutoBid: false, // Explicit buy now is usually manual, or treated as such
+       });
+
+       // 2. End Auction
+       product.currentPrice = newPrice;
+       product.bidCount += 1;
+       product.status = 'ended';
+       product.endDate = new Date(); // End immediately
+       await product.save();
+
+       // 3. CREATE ORDER
+       const order = await Order.create({
+         productId: product.id,
+         sellerId: product.sellerId,
+         buyerId: req.user.id,
+         finalPrice: newPrice,
+         status: 'pending_payment',
+       });
+
+       // 4. Notifications
+       
+       // a) Notify Seller (Product Sold)
+       sendAuctionEndedEmail(
+         product.seller.email,
+         product.name,
+         product.id,
+         false, // isWinner
+         "Seller",
+         newPrice,
+         true, // isSeller
+         order.id
+       ).catch(err => console.error("Error sending Buy Now email to seller:", err));
+
+       // b) Notify Buyer (Auction Won)
+       sendAuctionEndedEmail(
+         req.user!.email,
+         product.name,
+         product.id,
+         true, // isWinner
+         req.user!.fullName || "Buyer",
+         newPrice,
+         false, // isSeller
+         order.id
+       ).catch(err => console.error("Error sending Buy Now email to buyer:", err));
+
+       // c) Notify Previous Champion (Outbid)
+       if (activeHighestBid && activeHighestBid.bidderId !== req.user!.id) {
+           const previousBidder = (activeHighestBid as any).bidder;
+           if (previousBidder) {
+                sendBidNotificationEmail(
+                    previousBidder.email,
+                    product.name,
+                    newPrice,
+                    previousBidder.fullName,
+                    true, // isOutbid
+                    productId
+                ).catch(err => console.error("Error sending outbid email:", err));
+           }
+       }
+
+       // 5. Return Success Response
+       res.status(201).json({
+         success: true,
+         data: {
+             bidId: (await Bid.findOne({ order: [['createdAt', 'DESC']] }))?.id, // Get the bid we just created
+             isHighestBidder: true,
+             isWinning: true, // Deprecated but keeping for compatibility
+             currentPrice: newPrice,
+             isEnded: true,
+             orderId: order.id
+         }
+       });
+       return; // STOP execution here
+       
+
     }
 
     // --- LOGIC EXECUTION ---

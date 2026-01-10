@@ -181,6 +181,49 @@ export default function ProductDetailPage() {
     message: string;
   } | null>(null);
 
+  // Buy Now dialog
+  const [buyNowConfirmOpen, setBuyNowConfirmOpen] = useState(false);
+  
+  const handleBuyNow = () => {
+    if (!user) {
+        toast.error("Please log in to buy this product");
+        navigate("/login");
+        return;
+    }
+    setBuyNowConfirmOpen(true);
+  };
+
+  const handleConfirmBuyNow = async () => {
+     if(!product?.buyNowPrice) return;
+     
+     setConfirmLoading(true);
+     try {
+       await apiClient.post("/bids", {
+         productId: id,
+         amount: product.buyNowPrice,
+         maxAmount: product.buyNowPrice,
+         isAutoBid: false, 
+       });
+
+       toast.success("Congratulations! You have purchased the product.");
+       setBuyNowConfirmOpen(false);
+       
+       // Reload logic
+       const [productRes, bidHistoryRes] = await Promise.all([
+          apiClient.get(`/products/${id}`),
+          apiClient.get(`/bids/history/${id}`),
+       ]);
+       setProduct(productRes.data.data.product);
+       setBidHistory(bidHistoryRes.data.data);
+
+     } catch (error: any) {
+        console.error("Error buying product:", error);
+        toast.error(error.response?.data?.error?.message || "Failed to buy product");
+     } finally {
+        setConfirmLoading(false);
+     }
+  };
+
   // Rejected bidder status
   const [isRejectedBidder, setIsRejectedBidder] = useState(false);
 
@@ -1040,7 +1083,19 @@ export default function ProductDetailPage() {
                               >
                                 Place automatic bid
                               </Button>
-                            </div>
+
+
+                            {/* Buy Now Button */}
+                            {product.buyNowPrice && (
+                              <Button 
+                                className="w-full text-white bg-red-500 hover:bg-red-600" 
+                                onClick={handleBuyNow}
+                              >
+                                Buy Now for {Number(product.buyNowPrice).toLocaleString("vi-VN")} VNĐ
+                              </Button>
+                            )}
+
+                          </div>
                           )
                         ) : (
                           <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
@@ -1213,9 +1268,48 @@ export default function ProductDetailPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Buy Now Confirm Dialog */}
+      <Dialog open={buyNowConfirmOpen} onOpenChange={setBuyNowConfirmOpen}>
+        <DialogContent className="max-w-md">
+            <DialogHeader>
+                <DialogTitle>Confirm Purchase</DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-2">
+                <p className="text-sm text-muted-foreground">
+                    Are you sure you want to buy this product immediately?
+                </p>
+                <div className="flex justify-between items-center p-3 bg-muted rounded-md">
+                    <span className="font-medium">Total Amount:</span>
+                    <span className="text-xl font-bold text-brand">
+                        {product && product.buyNowPrice ? Number(product.buyNowPrice).toLocaleString("vi-VN") : "0"} VNĐ
+                    </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                    By confirming, the auction will end immediately and you will be declared the winner.
+                </p>
+            </div>
+            
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setBuyNowConfirmOpen(false)}>Cancel</Button>
+                <Button onClick={handleConfirmBuyNow} disabled={confirmLoading}>
+                    {confirmLoading ? (
+                        <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing...
+                        </>
+                    ) : (
+                        "Confirm Purchase"
+                    )}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Reject Bid Dialog */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <DialogContent className="max-w-md">
+
           <DialogHeader className="text-center">
             <DialogTitle className="text-center">
               {rejectResult ? "Reject Bid Result" : "Reject Bid"}
