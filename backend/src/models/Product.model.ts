@@ -152,7 +152,7 @@ Product.init(
       defaultValue: DataTypes.NOW,
     },
     endDate: {
-      type: DataTypes.DATE,
+      type: "TIMESTAMP", // Forces TIMESTAMP WITHOUT TIME ZONE in Postgres
       allowNull: false,
     },
     status: {

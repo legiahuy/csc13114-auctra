@@ -379,7 +379,7 @@ export default function SellerDashboardPage() {
           formData.append("buyNowPrice", values.buyNowPrice);
         }
         formData.append("categoryId", values.categoryId);
-        formData.append("endDate", new Date(values.endDate).toISOString());
+        formData.append("endDate", values.endDate);
         formData.append("autoExtend", values.autoExtend.toString());
         formData.append("allowUnratedBidders", values.allowUnratedBidders.toString());
         
