@@ -1,7 +1,8 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./store/authStore";
 import Layout from "./components/Layout";
 import { PublicRoute } from "./components/PublicRoute";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import HomePage from "./pages/HomePage";
 import ProductListPage from "./pages/ProductListPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
@@ -73,25 +74,78 @@ function App() {
             </PublicRoute>
           }
         />
-        {user && (
-          <>
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/watchlist" element={<WatchlistPage />} />
-            <Route path="/my-bids" element={<MyBidsPage />} />
-            {user.role === "seller" && (
-              <Route
-                path="/seller/dashboard"
-                element={<SellerDashboardPage />}
-              />
-            )}
-            {user.role === "admin" && (
-              <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-            )}
-            <Route path="/orders/:orderId" element={<OrderPage />} />
-            <Route path="/payment/:orderId" element={<PaymentPage />} />
-            <Route path="/payment-success/:orderId" element={<PaymentSuccessPage />} />
-          </>
-        )}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/watchlist"
+          element={
+            <ProtectedRoute>
+              <WatchlistPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-bids"
+          element={
+            <ProtectedRoute>
+              <MyBidsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/seller/dashboard"
+          element={
+            <ProtectedRoute>
+              {user?.role === "seller" ? (
+                <SellerDashboardPage />
+              ) : (
+                <Navigate to="/" replace />
+              )}
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute>
+              {user?.role === "admin" ? (
+                <AdminDashboardPage />
+              ) : (
+                <Navigate to="/" replace />
+              )}
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orders/:orderId"
+          element={
+            <ProtectedRoute>
+              <OrderPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/payment/:orderId"
+          element={
+            <ProtectedRoute>
+              <PaymentPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/payment-success/:orderId"
+          element={
+            <ProtectedRoute>
+              <PaymentSuccessPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </Layout>
   );
